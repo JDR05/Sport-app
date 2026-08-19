@@ -7,6 +7,24 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-034: Kein Service-Key im Deployment, RLS ist das Sicherheitsmodell
+
+**Entscheidung:** Die App nutzt ausschliesslich den oeffentlichen Publishable Key.
+`SUPABASE_SECRET_KEY` wird weder in Vercel hinterlegt noch im Code gelesen, solange kein
+Vorgang ihn zwingend braucht.
+
+**Begruendung:** Der Secret Key haengt RLS vollstaendig aus. Alle 13 Tabellen haben je vier
+Policies, und jede Operation der App geschieht im Namen eines angemeldeten Nutzers — es gibt
+derzeit keinen Vorgang, der mehr Rechte braucht. Einen Schluessel zu hinterlegen, der saemtliche
+Zugriffsregeln umgeht, ohne dass ihn irgendjemand benutzt, verwandelt einen einzelnen Fehler
+in eine vollstaendige Datenpanne. Der sicherste Schluessel ist der, den es im Deployment nicht
+gibt.
+
+**Wenn er spaeter gebraucht wird** — etwa fuer einen nutzeruebergreifenden Hintergrundjob —
+kommt er bewusst dazu, nur fuer diesen einen Pfad, und mit einem neuen Eintrag hier.
+
+---
+
 ## 2026-08-19 — ADR-033: Personal Rules können wieder schwächer werden
 
 **Entscheidung:** Eine Regel startet mit Konfidenz 0,6, steigt mit bestätigender Evidenz in
