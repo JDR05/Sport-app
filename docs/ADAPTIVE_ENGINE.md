@@ -102,6 +102,46 @@ geschwächt werden — die Person ändert sich, das Modell muss das können.
 | 4 | Erfüllungsquote höher → Regel übernommen, Plan aktualisiert. |
 | 12 | Nicht nur ein Gewicht, sondern ein persönliches Playbook. |
 
+## Die Zahlen
+
+Vor der Implementierung festgelegt (ADR-029) und in `src/lib/adaptive/constants.ts` mit
+Begründung dokumentiert. Sie stehen hier, damit sie nachprüfbar sind und nicht stillschweigend
+verschoben werden.
+
+| Größe | Wert | Wofür |
+| --- | --- | --- |
+| Aufgelöste Instanzen je Gruppe | ≥ 4 | Datenbasis |
+| Tatsächliche Ausfälle | ≥ 2 | Ein Ausfall ist kein Muster |
+| Ausfallquote | ≥ 50 % | Deutlichkeit |
+| Verschiedene Kalenderwochen | ≥ 2 | Wiederholung — der Grund, warum Woche 1 ruhig bleibt |
+| Kontrast zum Rest | ≥ 30 Prozentpunkte | Verhindert „dein Problem ist der Mittwoch" bei jemandem, der alles verpasst (ADR-030) |
+| Lange Einheit | ab 45 Min | Grenze für das Dauer-Muster |
+| Experimentdauer | 14 Tage | Feste Laufzeit |
+| Instanzen für eine Entscheidung | ≥ 3 | Sonst `weiter testen` |
+| Rauschschwelle | 15 Prozentpunkte | Darunter: kein Effekt, kein Erfolg |
+| Startkonfidenz einer Regel | 0,6 | Aus einem bestätigten Experiment |
+| Konfidenz-Obergrenze | 0,9 | Über einen Menschen wird nichts sicher |
+| Schwelle zum Nicht-mehr-Anwenden | 0,3 | Regeln dürfen verblassen (ADR-033) |
+
+Ausgewertet wird auf `done` und `moved` als Umsetzung und `missed` als Ausfall. `unknown`,
+`not_relevant` und `planned` stehen weder im Zähler noch im Nenner — sie können eine Quote
+also weder erzeugen noch verwässern.
+
+## Was aus einer bestätigten Regel im Plan wird
+
+Vier Regeln versteht der Planer. Alle vier können den Plan nur verkleinern oder verschieben,
+nie vergrößern (ADR-032) — deshalb kann keine gelernte Regel eine Sicherheitsgrenze reißen.
+
+| Regel | Wirkung |
+| --- | --- |
+| `avoid_weekday` | Der Tag wird für Einheiten nicht mehr genutzt. Tägliche Routinen bleiben. |
+| `prefer_time_slot` | Aktionen wandern in das bevorzugte Zeitfenster, sofern der Tag eins anbietet. |
+| `shorter_sessions` | Obergrenze für die Einheitendauer, nie unter der Mindestdauer. |
+| `lighter_domain` | Der Bereich läuft in der **Gesundheitsbasis** kleiner weiter. Die Zielspur bleibt unangetastet. |
+
+Eine Regel, die den letzten planbaren Tag entfernen würde, wird übersprungen. Eine Regel, die
+der Planer nicht kennt, wird ignoriert statt abgelehnt.
+
 ## Was die Engine nicht tun darf
 
 - Aus einer einzelnen Abweichung ein Muster machen.

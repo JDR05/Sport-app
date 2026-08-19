@@ -119,7 +119,7 @@ export const habitRoutine: ArchetypeStrategy = {
       track: 'goal' as const,
       title: `${minutes} Min: ${habitLabel}`,
       plannedDurationMin: minutes,
-      timeSlot: anchor.kind === 'wake' ? 'early' : slotOf(input, day),
+      timeSlot: anchor.kind === 'wake' ? 'early' : slotOf(input, day, ctx.rules.preferredSlot),
       rationale: {
         text: `${anchor.text.charAt(0).toUpperCase()}${anchor.text.slice(1)} — jeden Tag zur gleichen Zeit.`,
         basedOn: [anchor.basedOn, 'profile.mind.focusStruggle'],
@@ -161,7 +161,7 @@ export const habitRoutine: ArchetypeStrategy = {
         anchor: anchor.kind,
         cadence,
         dayPattern: days.join('-'),
-        timeSlot: anchor.kind === 'wake' ? 'early' : (slotOf(input, days[0]) ?? 'none'),
+        timeSlot: anchor.kind === 'wake' ? 'early' : (slotOf(input, days[0], ctx.rules.preferredSlot) ?? 'none'),
         wakeBucket: wakeBucket(ctx),
         screenBucket: screens,
         observation: screenTime !== null && screenTime >= 4 ? 'screen_time' : 'none',

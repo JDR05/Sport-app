@@ -32,7 +32,24 @@ nicht tun und deshalb nach Stufe 2 verschoben wurden.
 | Datei | Prüft |
 | --- | --- |
 | `fixtures/profiles.ts` | Zehn Profile, darunter die drei Playbook-Personas, plus ein abgebrochenes Onboarding |
+| `fixtures/observations.ts` | Geplante Aktionen und ihr tatsächlicher Ausgang, wochenweise gebaut |
 | `engine.energy.test.ts` | Mifflin-St Jeor gegen von Hand gerechnete Werte, Deckel und Untergrenze |
-| `engine.safety.test.ts` | `clampGoal` verschiebt das Datum statt die Rate und formuliert als Zusage; Invarianten greifen bei manipulierten Plänen |
 | `engine.invariants.test.ts` | Alle Sicherheitsgrenzen für **jedes** Profil, nicht nur für die, gegen die entwickelt wurde |
+| `engine.goalOrientation.test.ts` | Dasselbe Profil mit verschiedenen Zielen bekommt verschiedene Pläne |
+| `engine.classify.test.ts` | Der deterministische Klassifikator, inklusive deutscher Komposita |
 | `engine.assumptions.test.ts` | Onboarding-Abbruch ergibt trotzdem einen gültigen Plan mit dokumentierten Annahmen; Determinismus |
+| `ai.validation.test.ts` | Schema- und Plausibilitätsprüfung der Modellantworten |
+| `ai.fallback.test.ts` | Ohne Key, bei ungültigem JSON und bei Timeout bleibt das Produkt benutzbar |
+
+## Die Adaptive Engine
+
+Die Mehrzahl dieser Tests prüft, dass **nichts** passiert. Eine Erkennung, die zu früh
+zuschlägt, macht das Produkt nicht etwas schlechter — sie macht es zu einem System, das
+Menschen selbstbewusst Unwahres über sich erzählt.
+
+| Datei | Prüft |
+| --- | --- |
+| `adaptive.detect.test.ts` | Eine einzelne Abweichung ist kein Muster; eine schlechte Woche ist kein Muster; `unknown` erzeugt und verwässert keine Quote; `not_relevant` ist ein Planungsfehler; wer alles verpasst, bekommt keinen Wochentag zugewiesen |
+| `adaptive.experiment.test.ts` | Genau eine Variable, feste Laufzeit, Baseline vorher, Verhaltensmetrik; keine Hypothese über den Menschen; über alle 70 Kombinationen kein Vorschlag, der eine Invariante reißt |
+| `adaptive.evaluate.test.ts` | Zielmetriken kommen nicht durch; eine kleine Verbesserung heißt „kein Effekt"; nur ein bestätigtes, gelaufenes Experiment erzeugt eine Regel; Regeln verblassen wieder |
+| `adaptive.loop.test.ts` | Der geschlossene Kreis: aus wiederholten Ausfällen wird ein Plan, der den Tag nicht mehr nutzt — und jede der vier Regeln verändert nachweislich einen echten Plan |

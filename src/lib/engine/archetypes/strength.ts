@@ -101,14 +101,14 @@ export const strength: ArchetypeStrategy = {
 
     const items: PlannedItem[] = weekdays.map((day, index) => {
       const focus = useSplit ? SPLIT[index % SPLIT.length] : 'Ganzkörper'
-      const slot = bestSlotOn(input, day)
+      const slot = bestSlotOn(input, day, ctx.rules.preferredSlot)
       return {
         scheduledOn: dateOf(ctx, day),
         domain: 'training' as const,
         track: 'goal' as const,
         title: modality === 'gym' ? `Krafttraining · ${focus}` : `Krafttraining ohne Geräte · ${focus}`,
         plannedDurationMin: sessionMinutes,
-        timeSlot: slotOf(input, day),
+        timeSlot: slotOf(input, day, ctx.rules.preferredSlot),
         rationale: {
           text:
             `${WEEKDAY_LABEL[day]}${slot ? ` ${slot.start}` : ''}, ${sessionMinutes} Min. ` +

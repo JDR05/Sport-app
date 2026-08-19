@@ -9,7 +9,9 @@ import { MAX_ITEMS_PER_DAY } from './constants'
 import { buildContext, type PlanContext } from './context'
 import { planBaseline } from './baseline'
 import { strategyFor } from './archetypes'
-import type { Assumption, PlanInput, PlannedItem, Rationale, WeekStrategy } from '@/lib/domain/types'
+import type {
+  Assumption, BaselineTrack, PlanDomain, PlanInput, PlannedItem, Rationale, WeekStrategy,
+} from '@/lib/domain/types'
 
 export type StrategyResult = {
   strategy: WeekStrategy
@@ -24,7 +26,7 @@ export function buildStrategy(input: PlanInput): StrategyResult {
 
   const goalTrack = archetype.planGoalTrack(ctx)
   const clamped = archetype.clampGoal(ctx)
-  const baseline = planBaseline(ctx, goalTrack)
+  const baseline = thinLightDomains(ctx, planBaseline(ctx, goalTrack))
 
   const items = capPerDay([...goalTrack.items, ...baseline.items])
 
@@ -38,6 +40,55 @@ export function buildStrategy(input: PlanInput): StrategyResult {
   }
 
   return { strategy, items, assumptions: ctx.assumptions, rationale: ctx.rationale }
+}
+
+/**
+ * A `lighter_domain` rule says a whole area was consistently too much as
+ * planned. It thins the **baseline** only, down to one action a week: the goal
+ * track is what the person came for, and a learned rule must not quietly erode
+ * it. Reducing is also the only safe direction — fewer actions can never push
+ * a plan through a safety limit.
+ */
+function thinLightDomains(ctx: PlanContext, baseline: BaselineTrack): BaselineTrack {
+  const light = ctx.rules.lightDomains
+  if (light.length === 0) return baseline
+
+  const kept: PlannedItem[] = []
+  const seen = new Set<PlanDomain>()
+  const thinned = new Set<PlanDomain>()
+
+  for (const item of baseline.items) {
+    if (!light.includes(item.domain)) {
+      kept.push(item)
+      continue
+    }
+    if (seen.has(item.domain)) {
+      thinned.add(item.domain)
+      continue
+    }
+    seen.add(item.domain)
+    kept.push(item)
+  }
+
+  for (const domain of thinned) {
+    ctx.rationale.push({
+      text:
+        `Der Bereich ${DOMAIN_LABEL[domain]} war dir in dieser Menge zu viel — das hat ein ` +
+        `abgeschlossenes Experiment gezeigt. Er läuft weiter, aber deutlich kleiner.`,
+      basedOn: ['personalRules.lighter_domain'],
+    })
+  }
+
+  return { ...baseline, items: kept }
+}
+
+const DOMAIN_LABEL: Record<PlanDomain, string> = {
+  training: 'Training',
+  nutrition: 'Ernährung',
+  movement: 'Bewegung',
+  sleep: 'Schlaf',
+  self_improvement: 'Persönliche Entwicklung',
+  priority: 'Priorität',
 }
 
 /**

@@ -7,6 +7,90 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-033: Personal Rules können wieder schwächer werden
+
+**Entscheidung:** Eine Regel startet mit Konfidenz 0,6, steigt mit bestätigender Evidenz in
+Schritten von 0,15 auf höchstens 0,9 und sinkt bei gegenteiliger Evidenz genauso. Unter 0,3
+wendet der Planer sie nicht mehr an; gelöscht wird sie nicht.
+
+**Begründung:** Die Deckelung unter 1,0 ist Absicht — keine Menge an Wiederholung macht eine
+Aussage über einen Menschen sicher. Wichtiger ist die Gegenrichtung: ein Modell, das nur
+Gewissheit ansammeln kann, beschreibt nach einigen Monaten zuverlässig den Menschen, der
+jemand einmal war. Wer im November keine Zeit am Mittwoch hatte, hat sie im März vielleicht.
+Regeln bleiben gespeichert, damit ein späteres Wiederaufleben als Bestätigung erkennbar ist
+und nicht als neue Entdeckung.
+
+---
+
+## 2026-08-19 — ADR-032: Eine gelernte Regel darf den Plan nur verkleinern oder verschieben
+
+**Entscheidung:** Personal Rules können Tage entfernen, Einheiten kürzen, Aktionen auf eine
+andere Tageszeit legen und einen Bereich ausdünnen. Sie können nichts vergrößern, verlängern
+oder häufiger machen. `lighter_domain` fasst ausschließlich die Gesundheitsbasis an, nie die
+Zielspur. `avoid_weekday` steuert, wo Einheiten **platziert** werden, und greift nicht in
+tägliche Routinen ein. Eine Regel, die den letzten planbaren Tag entfernen würde, wird
+übersprungen.
+
+**Begründung:** Damit kann keine gelernte Regel den Plan durch eine Sicherheitsgrenze
+schieben — die Richtung „weniger" ist immer sicher. Ohne diese Beschränkung müsste jede
+Invariante zusätzlich gegen jede denkbare Regelkombination geprüft werden. Die Beschränkung
+auf die Basis bei `lighter_domain` schützt das, wofür der Nutzer gekommen ist: die Zielspur
+darf nicht durch Lernen erodieren.
+
+**Nachweis:** Ein Test wendet jede Regel und alle Regeln gemeinsam auf alle 70 Kombinationen
+aus Profil und Ziel an; `generatePlan` wirft in keinem Fall.
+
+---
+
+## 2026-08-19 — ADR-031: Die Sicherheit eines Experiments wird am echten Plan geprüft
+
+**Entscheidung:** Bevor ein Experiment vorgeschlagen wird, baut die Engine den Plan, den die
+vorgeschlagene Regel tatsächlich erzeugen würde, und lässt die echten Invarianten darüber
+urteilen. Ein `PlanInvariantError` verwirft den Vorschlag stillschweigend — der Nutzer erfährt
+nie, dass es ihn gab.
+
+**Begründung:** Die Alternative wäre eine zweite Liste von Regeln, die beschreibt, welche
+Vorschläge sicher sind. Zwei Listen driften auseinander, und die zweite wird beim Hinzufügen
+eines Archetyps vergessen. Den echten Plan zu bauen ist etwas teurer und dafür nicht
+umgehbar: Es gibt keinen Weg, auf dem das Annehmen eines Vorschlags zu einem unsicheren Plan
+führt.
+
+---
+
+## 2026-08-19 — ADR-030: Ein Muster braucht Kontrast, nicht nur eine hohe Ausfallquote
+
+**Entscheidung:** Eine Abweichung gilt nur dann als Muster, wenn die betroffene Gruppe um
+mindestens 30 Prozentpunkte schlechter ist als der Rest derselben Achse. Gibt es nur eine
+Gruppe, entsteht nie ein Muster.
+
+**Begründung:** Ohne diese Regel bekommt jemand, der alles verpasst, die Auskunft, sein
+Problem sei der Mittwoch. Die ehrliche Lesart ist dort „der Plan ist zu groß", und die
+gehört in die Planpflege, nicht in ein Experiment. Eine Diagnose, die aus zu wenig Struktur
+zu viel Bedeutung zieht, ist genau die Art von selbstbewusstem Unsinn, gegen die dieses
+Produkt gebaut ist.
+
+---
+
+## 2026-08-19 — ADR-029: Die Erkennungsschwellen stehen vor der Implementierung fest
+
+**Entscheidung:** Vor der ersten Zeile Erkennungscode festgelegt und in
+`src/lib/adaptive/constants.ts` mit Begründung dokumentiert: mindestens 4 aufgelöste
+Instanzen je Gruppe, mindestens 2 tatsächliche Ausfälle, Ausfallquote mindestens 50 %,
+Ausfälle verteilt über mindestens 2 verschiedene Kalenderwochen. Experimente laufen 14 Tage
+und brauchen mindestens 3 aufgelöste Instanzen; eine Verbesserung unter 15 Prozentpunkten
+gilt als „kein Effekt", nicht als Erfolg.
+
+**Begründung:** Dieselbe Disziplin wie ADR-014. Eine Schwelle, die nach dem Blick auf die
+Daten gewählt wird, ist keine Schwelle, sondern eine Rechtfertigung. Die
+Zwei-Wochen-Bedingung ist die wichtigste Einzelzahl: Sie ist der Grund, warum in Woche 1
+garantiert keine Intervention stattfindet, und sie verhindert, dass eine einzelne
+anstrengende Woche zu einer dauerhaften Aussage über einen Menschen wird.
+
+**Änderungen an diesen Zahlen** sind erlaubt, aber nur bewusst und mit neuem Eintrag hier —
+nie stillschweigend, damit ein Lauf besser aussieht.
+
+---
+
 ## 2026-08-19 — ADR-028: Modellwahl ist Konfiguration, Voreinstellung `claude-opus-5`
 
 **Entscheidung:** Zieleinordnung und Vorschläge nutzen getrennt konfigurierbare Modelle

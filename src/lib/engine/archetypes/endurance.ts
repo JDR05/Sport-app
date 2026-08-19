@@ -121,7 +121,7 @@ export const endurance: ArchetypeStrategy = {
     const items: PlannedItem[] = weekdays.map((day, index) => {
       const isLong = index === longIndex
       const km = isLong ? longKm : easyKm
-      const slot = bestSlotOn(input, day)
+      const slot = bestSlotOn(input, day, ctx.rules.preferredSlot)
       return {
         scheduledOn: dateOf(ctx, day),
         domain: 'training' as const,
@@ -133,7 +133,7 @@ export const endurance: ArchetypeStrategy = {
           Math.max(MIN_VIABLE_SESSION_MINUTES, Math.round(km * 6)),
           Math.max(MIN_VIABLE_SESSION_MINUTES, longestSlotOn(input, day)),
         ),
-        timeSlot: slotOf(input, day),
+        timeSlot: slotOf(input, day, ctx.rules.preferredSlot),
         rationale: {
           text: isLong
             ? `${WEEKDAY_LABEL[day]}${slot ? ` ${slot.start}` : ''} — die längste Einheit der Woche, ` +

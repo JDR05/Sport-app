@@ -268,7 +268,7 @@ export function pickSessionMinutes(ctx: PlanContext, weekdays: Weekday[]): numbe
   let minutes =
     input.profile.sport.preferredSessionMinutes ?? DEFAULT_SESSION_MINUTES[experience]
 
-  if (ctx.hardSessionMinutesCap !== null) minutes = Math.min(minutes, ctx.hardSessionMinutesCap)
+  if (ctx.sessionMinutesCap !== null) minutes = Math.min(minutes, ctx.sessionMinutesCap)
 
   const shortest = weekdays.reduce(
     (min, day) => Math.min(min, longestSlotOn(input, day)),
@@ -297,7 +297,7 @@ export function trainingItems(
       : modality === 'mixed' ? (index % 2 === 0 ? 'gym' : (sport ?? 'gym'))
       : 'bodyweight'
 
-    const slot = bestSlotOn(input, day)
+    const slot = bestSlotOn(input, day, ctx.rules.preferredSlot)
     const parts = [slot ? `${WEEKDAY_LABEL[day]} ${slot.start}` : WEEKDAY_LABEL[day], `${sessionMinutes} Min`]
     const reasons = [`schedule.freeSlots.${day}`, 'profile.sport.equipment']
 
@@ -321,7 +321,7 @@ export function trainingItems(
       track: 'goal' as const,
       title: ACTIVITY_LABEL[activity],
       plannedDurationMin: sessionMinutes,
-      timeSlot: slotOf(input, day),
+      timeSlot: slotOf(input, day, ctx.rules.preferredSlot),
       rationale: { text: parts.join(', '), basedOn: reasons },
       details: { modality, activity, focus: SESSION_FOCUS[ctx.experience], availableMinutes: longestSlotOn(input, day) },
     }

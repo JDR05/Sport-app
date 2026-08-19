@@ -10,6 +10,7 @@ import {
   MIN_VIABLE_SESSION_MINUTES,
 } from './constants'
 import { addDays, startOfWeek, timeSlotOf } from './dates'
+import { applyDayRules, readRules, type ActiveRules } from './rules'
 import {
   WEEKDAYS,
   type Assumption,
@@ -28,7 +29,18 @@ export type PlanContext = {
   experience: Experience
   /** Days with a usable free slot, already minus any hard exclusion. */
   availableDays: Weekday[]
+  /**
+   * Hard constraints only. The invariant checks read the constraints
+   * themselves, so this stays exactly what the user declared.
+   */
   hardSessionMinutesCap: number | null
+  /**
+   * What a session may actually be: the hard cap, tightened by any learned
+   * rule. Strategies plan against this one.
+   */
+  sessionMinutesCap: number | null
+  /** The learned model, already narrowed and confidence-filtered. */
+  rules: ActiveRules
   assumptions: Assumption[]
   rationale: Rationale[]
 }
@@ -47,9 +59,31 @@ export function buildContext(input: PlanInput): PlanContext {
   }
 
   const excluded = hardExcludedWeekdays(input)
-  const availableDays = WEEKDAYS.filter(
+  const openDays = WEEKDAYS.filter(
     (day) => !excluded.includes(day) && longestSlotOn(input, day) >= MIN_VIABLE_SESSION_MINUTES,
   )
+
+  // The personal model is applied here, once, so every archetype inherits it
+  // without having to remember to ask.
+  const rules = readRules(input.personalRules)
+  const { days: availableDays, rationale } = applyDayRules(openDays, rules)
+
+  const hardCap = hardSessionMinutesCap(input)
+  const sessionMinutesCap =
+    hardCap === null
+      ? rules.maxSessionMinutes
+      : rules.maxSessionMinutes === null
+        ? hardCap
+        : Math.min(hardCap, rules.maxSessionMinutes)
+
+  if (rules.maxSessionMinutes !== null && rules.maxSessionMinutes !== hardCap) {
+    rationale.push({
+      text:
+        `Kürzere Einheiten von höchstens ${rules.maxSessionMinutes} Minuten haben bei dir ` +
+        `messbar besser funktioniert als lange. Der Plan bleibt darunter.`,
+      basedOn: ['personalRules.shorter_sessions'],
+    })
+  }
 
   return {
     input,
@@ -57,9 +91,11 @@ export function buildContext(input: PlanInput): PlanContext {
     weekStart: startOfWeek(input.today),
     experience,
     availableDays,
-    hardSessionMinutesCap: hardSessionMinutesCap(input),
+    hardSessionMinutesCap: hardCap,
+    sessionMinutesCap,
+    rules,
     assumptions,
-    rationale: [],
+    rationale,
   }
 }
 
@@ -87,15 +123,37 @@ export function longestSlotOn(input: PlanInput, day: Weekday): number {
     .reduce((max, s) => Math.max(max, s.minutes), 0)
 }
 
-export function bestSlotOn(input: PlanInput, day: Weekday): FreeSlot | null {
+/**
+ * The slot to use on a given day: normally the longest one, but a learned
+ * time-of-day preference wins over length as long as the shorter slot is still
+ * usable. Someone who reliably trains in the morning and reliably skips the
+ * evening is better served by a short morning slot than a long evening one.
+ */
+export function bestSlotOn(
+  input: PlanInput,
+  day: Weekday,
+  preferred: TimeSlot | null = null,
+): FreeSlot | null {
   const slots = input.schedule.freeSlots
     .filter((s) => s.weekday === day)
     .sort((a, b) => b.minutes - a.minutes)
+
+  if (preferred !== null) {
+    const match = slots.find(
+      (s) => timeSlotOf(s.start) === preferred && s.minutes >= MIN_VIABLE_SESSION_MINUTES,
+    )
+    if (match) return match
+  }
+
   return slots[0] ?? null
 }
 
-export function slotOf(input: PlanInput, day: Weekday): TimeSlot | null {
-  const slot = bestSlotOn(input, day)
+export function slotOf(
+  input: PlanInput,
+  day: Weekday,
+  preferred: TimeSlot | null = null,
+): TimeSlot | null {
+  const slot = bestSlotOn(input, day, preferred)
   return slot ? timeSlotOf(slot.start) : null
 }
 

@@ -23,15 +23,24 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Playbook, Profile | **erledigt** |
 | 4b | **Onboarding neu**: freies Ziel zuerst, danach vollständige Erhebung in einem Durchlauf | **erledigt** |
 | 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | offen |
-| 6 | Adaptive Engine: Planpflege, Erkennung, Hypothesen, Experimente, Personal Rules | offen |
+| 6 | Adaptive Engine: Planpflege, Erkennung, Hypothesen, Experimente, Personal Rules — **vorgezogen**, siehe unten | **erledigt** |
 | 7 | AI-Layer: Adapter, Schemas, Validierung, Fallback, versionierte Prompts — **vorgezogen**, weil ein freies Ziel ohne KI nicht sinnvoll interpretierbar ist | **erledigt** |
 | 8 | End-to-End-QA: drei Personas, Edge Cases, Regressionslauf | offen |
 
 ## Reihenfolgelogik
 
-Die Adaptive Engine (Schritt 6) braucht Verhaltensdaten, die erst ab Schritt 5 entstehen.
 Schritt 5 braucht Pläne aus Schritt 3 und Screens aus Schritt 4. Schritt 3 braucht das
 Datenmodell aus Schritt 2.
+
+**Die Adaptive Engine ist vor Schritt 5 gebaut worden.** Der Grund ist praktisch: die
+Umgebung, in der entwickelt wird, kommt über ihren Proxy nicht an Supabase heran. Schritt 5
+ließe sich dort schreiben, aber nicht ausführen — und ungetestete Auth auszuliefern ist
+schlechter, als die Reihenfolge zu tauschen. Die Adaptive Engine ist dagegen reiner
+TypeScript-Code ohne Netzwerk und vollständig lokal prüfbar, sie ist der eigentliche USP, und
+sie legt fest, welche Verhaltensdaten Schritt 5 überhaupt erheben muss. Sie arbeitet auf
+`Observation[]` — einer Liste aus geplanter Aktion und tatsächlichem Ausgang — die Schritt 5
+dann aus `plan_items` und Check-ins füllt. Die Schnittstelle steht damit fest, bevor die
+Persistenz entsteht, statt umgekehrt.
 
 **Der AI-Layer ist durch die Kurskorrektur vorgerückt.** Ursprünglich stand er bewusst hinter
 dem funktionierenden Kern, damit kein AI-Wrapper entsteht. Ein frei formuliertes Ziel lässt
