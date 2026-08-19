@@ -7,8 +7,9 @@ entsteht. Grundlage sind zwei Dokumente des Product Owners: der **Produktplan** 
 Produkt ist) und das **Playbook** (wie entwickelt wird). Beide sind in `docs/` in
 Anforderungen übersetzt.
 
-**Bei Widersprüchen zwischen Dokumenten gilt `docs/FINAL_ARCHITECTURE.md`.** Es ist das
-Ergebnis der Kritikphase und überschreibt frühere Planung bewusst.
+**Bei Widersprüchen zwischen Dokumenten gilt `docs/FINAL_ARCHITECTURE.md`**, und für alles,
+was Ziele betrifft, `docs/GOAL_ARCHETYPES.md`. Beide überschreiben frühere Planung bewusst —
+auch die Quelldokumente, wo der Product Owner das entschieden hat.
 
 ## Produktvision
 
@@ -26,14 +27,21 @@ persönliche Verhaltensmodell.
 
 ## MVP-Grenzen
 
-Der MVP validiert **einen** Use Case: „5 kg abnehmen" in einem realistischen Zeitraum.
+Der Nutzer gibt **ein frei formuliertes Ziel** ein — aus jedem Bereich von Gesundheit und
+persönlicher Entwicklung, nicht nur Gewicht. Der MVP validiert **ein aktives Ziel zur Zeit**,
+nicht eine einzige Zielart. Siehe `docs/GOAL_ARCHETYPES.md`.
 
-Enthalten: Account, gestaffeltes Onboarding, ein Hauptziel mit Zeitraum, persönlicher
+Jeder Plan hat zwei Spuren: eine **Gesundheitsbasis**, die bei jedem Ziel mitläuft, und eine
+**Zielspur**, die sich nach dem erkannten Archetyp richtet. Allgemein gesünder werden und das
+eine Ziel erreichen sind kein Entweder-oder.
+
+Enthalten: Account, vollständiges Onboarding, ein Hauptziel mit Zeitraum, persönlicher
 Startplan mit sichtbarer Begründung, Today, Wochenplan, Progress, Insights, Playbook,
-einfaches Tracking, Gewicht/Zielmetrik, Check-ins, Wochenanalyse, Planpflege, Experimente
-und Plananpassungen.
+einfaches Tracking, Zielmetrik, Check-ins, Wochenanalyse, Planpflege, Experimente und
+Plananpassungen.
 
-Today umfasst im MVP genau drei Domains: **Ernährung, Training, Bewegung**.
+Today zeigt weiterhin **3–5 Aktionen**. Welche Domains vorkommen, entscheidet der Archetyp —
+die Basis darf die Zielspur nie überlagern.
 
 Nicht enthalten — und auch nicht „schnell nebenbei": Wearables und Health-APIs,
 Social/Community, Marketplace, komplexe Gamification, vollständige Lebensmitteldatenbank,
@@ -57,8 +65,14 @@ beliebig viele parallele Ziele, native Apps, medizinische Diagnosefunktionen.
 
 ## AI-Regeln
 
-AI darf: Pläne formulieren, priorisieren, Muster interpretieren, Hypothesen und Experimente
-vorschlagen, erklären und Anpassungen vorschlagen.
+AI gehört zum Kern des Produkts, nicht an den Rand. Sie ordnet das frei formulierte Ziel
+einem Archetyp zu, liefert zielspezifische Vorschläge und Anregungen über das deterministisch
+Abgedeckte hinaus, formuliert Pläne, priorisiert, interpretiert Muster, schlägt Hypothesen und
+Experimente vor und erklärt Anpassungen.
+
+Ohne API-Key oder bei ungültiger Antwort übernimmt ein deterministischer Klassifikator. Das
+Produkt bleibt vollständig benutzbar — das ist die Bedingung dafür, dass es kein AI-Wrapper
+ist.
 
 AI darf nicht: kritische Werte berechnen, Diagnosen stellen, Auth- oder
 Berechtigungsentscheidungen treffen, Datenbankintegrität verantworten, oder Ergebnisse als
@@ -73,8 +87,12 @@ Zustände erzeugen. Prompts liegen versioniert in `prompts/`.
 Diese Regeln sind deterministischer Code, keine Prompt-Anweisungen:
 
 - Keine medizinischen Diagnosen und keine Heilversprechen.
-- Kalorien-Untergrenzen werden hart erzwungen; keine Crash-Diäten.
-- Die Abnehmrate ist gedeckelt und konservativ.
+- **Sicherheitsgrenzen gelten je Zielart**, nicht pauschal — die vollständige Liste steht in
+  `docs/GOAL_ARCHETYPES.md`. Eine Grenze, die für alles gilt, gilt für nichts.
+- Kalorien-Untergrenzen und gedeckelte Raten bei Körperzielen; keine Crash-Diäten.
+- Höchstens 10 % Umfangssteigerung pro Woche bei Ausdauerzielen.
+- Bei Schlafzielen darf die App **niemals** weniger Schlaf empfehlen.
+- Bei Gewohnheitszielen höchstens **eine** neue Gewohnheit gleichzeitig, keine Streak-Mechanik.
 - Keine kompensatorische Logik („heute mehr gegessen → morgen weniger").
 - Keine Förderung von Essstörungen, Schlafmangel oder Übertraining; Ruhetage sind Pflicht.
 - Bei Unsicherheit reagiert die App sicher, statt eine riskante Empfehlung zu erfinden.
@@ -108,6 +126,7 @@ und Review durch den Product Owner. Nicht die komplette App auf einmal bauen.
 
 ## Die wichtigste Qualitätsprüfung
 
-Echte Personalisierung. Wenn zehn deutlich unterschiedliche Profile ungefähr denselben Plan
-erhalten, ist die Personalisierung nicht ausreichend. Das ist ab Schritt 3 ein
-automatisierter Test und kein Vorsatz.
+Echte Personalisierung, in **zwei** Dimensionen. Wenn zehn deutlich unterschiedliche Profile
+ungefähr denselben Plan erhalten, ist die Personalisierung nicht ausreichend. Wenn dasselbe
+Profil mit den Zielen „abnehmen" und „besser schlafen" ähnliche Pläne bekommt, ist die
+Zielorientierung nur behauptet. Beides ist ein automatisierter Test und kein Vorsatz.

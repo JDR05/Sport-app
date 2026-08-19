@@ -5,9 +5,19 @@
 Grundsatz: nur die Fragen sofort stellen, ohne die kein sinnvoller Plan entsteht. Alles
 Weitere wird später erfragt, wenn es gebraucht wird.
 
-Welche Felder in Stufe 1 gehören, ist **nicht Geschmackssache, sondern gemessen**:
-`tests/engine.fields.test.ts` variiert jedes Feld einzeln und prüft, ob sich der Plan
-tatsächlich ändert. Was nichts verändert, wird nicht gefragt.
+**Das Ziel kommt zuerst, frei formuliert.** Der Nutzer schreibt in eigenen Worten, was er
+erreichen will; die KI ordnet das einem Archetyp zu und schlägt Zielmetrik und Zeitraum vor,
+die der Nutzer bestätigt oder korrigiert. Ohne API-Key übernimmt ein deterministischer
+Klassifikator.
+
+Danach folgt ein **vollständiges Onboarding in einem Durchlauf** über alle Lebensbereiche —
+Entscheidung des Product Owners, siehe ADR-024. Der Kontext dient beiden Spuren: der
+Gesundheitsbasis und der Zielspur.
+
+Welche Felder überhaupt gefragt werden, bleibt gemessen: `tests/engine.fields.test.ts` variiert
+jedes Feld einzeln. Ein Feld gilt als nötig, wenn es für **mindestens einen** Archetyp den Plan
+verändert. Aufsteh- und Schlafzeit sind für ein Abnehmziel wirkungslos — für ein Schlafziel
+sind sie das Zentrale.
 
 **Stufe 1 — notwendig für den ersten Plan** (alle 20 nachweislich planwirksam)
 - Ziel: Titel und Zieldatum

@@ -50,28 +50,38 @@ Vision / langfristiges Ziel
                     └── Tagesaktionen
 ```
 
+Das Ziel wird **frei formuliert** eingegeben und einem von sechs Archetypen zugeordnet —
+Körper, Kraft, Ausdauer, Schlaf, Ernährungsqualität, Gewohnheit. Was in keinen passt, bekommt
+die Gesundheitsbasis plus KI-Vorschläge statt einer Absage. Vollständig in
+`GOAL_ARCHETYPES.md`.
+
 Beispiel: „In 12 Wochen 5 kg abnehmen" → Wochenstrategie → die konkreten Aktionen von heute.
+Genauso: „besser schlafen", „10 km am Stück laufen", „weniger am Handy".
+
 Mehrere parallele Ziele sind langfristig vorgesehen; dann muss das System Prioritäten und
-Zielkonflikte erkennen. Im MVP ist genau ein aktives Hauptziel erlaubt.
+Zielkonflikte erkennen. Im MVP ist genau ein aktives Hauptziel erlaubt — **eine Zahl, keine
+Zielart**.
 
 ## Der initiale Plan
 
 Der erste Plan ist eine **Start-Hypothese**, kein perfekter Plan — und wird dem Nutzer auch
-so präsentiert. Im MVP enthält er Ernährung, Training und Bewegung; Schlaf/Recovery,
-Self-Improvement-Aktionen und Tagesprioritäten kommen ab V2 dazu. Jedes Element trägt eine
+so präsentiert. Er besteht immer aus zwei Spuren: einer **Gesundheitsbasis**, die bei jedem
+Ziel mitläuft, und einer **Zielspur**, die sich nach dem Archetyp richtet. Welche Domains
+vorkommen, entscheidet damit das Ziel — nicht eine feste Liste. Jedes Element trägt eine
 Begründung, die auf die Angaben des Nutzers verweist — Personalisierung, die man nicht sieht,
 existiert für den Nutzer nicht. Entscheidend ist, dass der Nutzer
 auf einen Blick sieht, *was er heute tun muss* — nicht eine Liste möglicher Optimierungen.
 
 ## Screens
 
-**Today** — Top-Ziel des Tages und 3–5 konkrete Aktionen aus den drei MVP-Domains
-**Ernährung, Training, Bewegung**. Jede Aufgabe trägt einen Status: geplant, erledigt,
-verschoben, nicht geschafft, nicht relevant, oder — ohne Eingabe — unbekannt.
+**Today** — Top-Ziel des Tages und 3–5 konkrete Aktionen, gemischt aus Gesundheitsbasis und
+Zielspur. Jede Aufgabe trägt einen Status: geplant, erledigt, verschoben, nicht geschafft,
+nicht relevant, oder — ohne Eingabe — unbekannt.
 
-Schlaf/Recovery wird als Kontext erfasst, aber nicht als geplante Aktion. Eine
-Entwicklungsaktion sowie Termine und Zeitfenster sind laut `FINAL_ARCHITECTURE.md` aus dem
-MVP entfernt: sieben Blöcke widersprechen dem eigenen Prinzip „3–5 wichtigste Aktionen".
+Die Obergrenze von fünf Aktionen ist hart. Die Basis darf die Zielspur nie überlagern:
+Wer an einem Schlafziel arbeitet, sieht Schlafaktionen zuerst und Bewegung in kleiner Dosis,
+nicht umgekehrt. Termine und Zeitfenster bleiben aus dem MVP entfernt — sie setzen eine
+Kalenderintegration voraus.
 
 **Plan** — Tages- und Wochenplan.
 

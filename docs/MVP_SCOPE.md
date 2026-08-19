@@ -5,14 +5,19 @@
 Beweisen, dass Nutzer einen persönlichen Plan **annehmen**, **zurückkommen** und adaptive
 Empfehlungen als **tatsächlich hilfreich** erleben. Nicht mehr.
 
-Ein einziger Use Case: „5 kg abnehmen" in einem realistischen Zeitraum.
+**Ein aktives Ziel zur Zeit — aber jede Zielart.** Das Ziel wird frei formuliert und einem von
+sechs Archetypen zugeordnet; was in keinen passt, bekommt Gesundheitsbasis plus KI-Vorschläge.
+Siehe `GOAL_ARCHETYPES.md`. „5 kg abnehmen" ist einer der Testfälle, nicht die Form des
+Produkts.
 
 ## Enthalten
 
 - Account und Authentifizierung
-- Gestaffeltes Onboarding
-- Ein Hauptziel mit Zeitraum und Zielmetrik
-- Persönlicher Startplan mit sichtbarer Begründung je Element
+- **Vollständiges Onboarding** über alle Lebensbereiche in einem Durchlauf
+- **Frei formuliertes Hauptziel**, per KI einem Archetyp zugeordnet, mit deterministischem
+  Fallback
+- Persönlicher Startplan mit sichtbarer Begründung, **zweispurig**: Gesundheitsbasis plus
+  Zielspur je Element
 - Today (drei Domains: Ernährung, Training, Bewegung), Wochenplan, Progress, Insights,
   **Playbook**, Profile
 - Einfaches Tracking: Aufgabenstatus, Gewicht/Zielmetrik, kurze Check-ins — Tagesabschluss
@@ -43,7 +48,11 @@ Der MVP gilt als fertig, wenn:
 1. Ein neuer Nutzer vom Start bis zum angenommenen Plan durchkommt, ohne zu hängen.
 2. Zehn deutlich unterschiedliche Profile **strukturell** unterschiedliche Pläne erhalten
    (automatisierter Test, Schwelle vorab fixiert).
-3. Jedes Onboarding-Feld aus Stufe 1 nachweislich den Plan verändert (Feldwirksamkeitstest).
+2b. **Dasselbe Profil mit verschiedenen Zielarten** ebenfalls strukturell unterschiedliche
+   Pläne erhält — sonst ist die Zielorientierung nur behauptet.
+2c. Jeder der sechs Archetypen seine eigenen Sicherheitsgrenzen einhält.
+3. Jedes Onboarding-Feld für **mindestens einen** Archetyp den Plan verändert
+   (Feldwirksamkeitstest, jetzt pro Zielart geführt).
 4. Die Sicherheitsinvarianten für alle Testprofile gelten (automatisierter Test).
 5. Der tägliche Loop funktioniert: Today → Status setzen → Wochenanalyse → Insight.
 6. Mindestens ein vollständiger Experimentzyklus durchlaufbar ist: Erkennung → Hypothese →

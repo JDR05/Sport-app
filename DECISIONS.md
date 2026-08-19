@@ -7,6 +7,90 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-025: Sicherheitsgrenzen gelten je Zielart
+
+**Entscheidung:** Jeder Archetyp bringt eigene Invarianten mit. Kalorien-Untergrenzen und
+Ratendeckel bei Körperzielen; höchstens 10 % Umfangssteigerung pro Woche bei Ausdauer; bei
+Schlafzielen darf nie weniger Schlaf empfohlen werden; bei Ernährungsqualität keine
+Eliminationsdiäten und keine Kalorienziele; bei Gewohnheiten höchstens eine neue gleichzeitig
+und keine Streak-Mechanik. Vollständig in `docs/GOAL_ARCHETYPES.md`.
+
+**Begründung:** Ersetzt die pauschale Fassung aus ADR-017, die stillschweigend annahm, jedes
+Ziel sei ein Abnehmziel. Ein Kaloriendefizit ist bei einem Schlafziel unsinnig, eine
+Steigerungsregel bei einer Gewohnheit bedeutungslos. Eine Sicherheitsgrenze, die für alles
+gilt, gilt für nichts. Die Werte aus ADR-017 bleiben gültig — aber nur für
+`body_composition`.
+
+---
+
+## 2026-08-19 — ADR-024: Vollständiges Onboarding in einem Durchlauf
+
+**Entscheidung:** Nach dem frei formulierten Ziel folgt eine vollständige Erhebung über alle
+Lebensbereiche in einem Durchlauf, statt des gestaffelten Onboardings aus ADR-018.
+
+**Begründung:** Entscheidung des Product Owners. Die KI soll von Anfang an den ganzen Menschen
+kennen, nicht nur den Ausschnitt, den das aktuelle Ziel betrifft — sonst kann sie weder
+allgemeine Gesundheitsverbesserungen vorschlagen noch später ein zweites Ziel sinnvoll
+einordnen.
+
+**Bekannter Preis, bewusst akzeptiert:** Onboarding Completion ist laut den eigenen KPIs eine
+Kernmetrik, und jede zusätzliche Frage kostet dort. Der Feldwirksamkeitstest aus ADR-014
+bleibt deshalb bestehen und wird jetzt **pro Archetyp** geführt: ein Feld gilt als
+gerechtfertigt, wenn es für mindestens eine Zielart den Plan verändert. Felder, die für
+*keinen* Archetyp etwas bewirken, fliegen weiterhin raus.
+
+---
+
+## 2026-08-19 — ADR-023: Die KI rückt in den Produktkern
+
+**Entscheidung:** Der AI-Layer wird vorgezogen und ist im MVP zuständig für Zieleinordnung,
+zielspezifische Vorschläge und Formulierung. Modell: `claude-opus-5`. Ohne API-Key oder bei
+ungültiger Antwort übernimmt ein deterministischer Klassifikator.
+
+**Begründung:** Ein frei formuliertes Ziel lässt sich ohne Modell nicht sinnvoll einordnen,
+und der beschriebene Produktnutzen — Vorschläge, Anregungen, Verbesserungen — entsteht genau
+dort. Damit ändert sich die Reihenfolge aus ADR-006, nicht das Prinzip: Archetypen, Planlogik
+und Sicherheitsgrenzen bleiben deterministisch und laufen ohne Modell vollständig durch. Die
+KI macht sie besser, nicht erst möglich. Ein KI-Vorschlag, der eine Invariante verletzt, wird
+verworfen statt korrigiert.
+
+---
+
+## 2026-08-19 — ADR-022: Zweispuriger Plan — Gesundheitsbasis plus Zielspur
+
+**Entscheidung:** Jeder Plan besteht aus einer Gesundheitsbasis, die bei jedem Ziel mitläuft,
+und einer Zielspur, die sich nach dem Archetyp richtet. Die Obergrenze von 3–5 Aktionen auf
+Today bleibt hart; die Basis darf die Zielspur nie überlagern.
+
+**Begründung:** Der Product Owner beschreibt beides als eine Sache: allgemein gesünder werden
+*und* das eine Ziel erreichen. Getrennt gedacht würde daraus entweder eine generische
+Gesundheits-App oder ein enger Zieltracker. Zusammen ergibt es das Produkt.
+
+---
+
+## 2026-08-19 — ADR-021: Das Ziel ist offen — ersetzt „5 kg abnehmen" als Produktform
+
+**Entscheidung:** Der Nutzer gibt ein frei formuliertes Ziel aus jedem Bereich von Gesundheit
+und persönlicher Entwicklung ein. Sechs deterministisch geplante Archetypen decken die
+häufigen Fälle ab; alles andere bekommt Gesundheitsbasis plus KI-Vorschläge — nie eine
+Absage. Ein aktives Ziel zur Zeit bleibt bestehen (ADR-004).
+
+**Begründung:** Klarstellung des Product Owners. Beide Quelldokumente nennen „5 kg abnehmen"
+als ersten Use Case (Produktplan §16 und §30, Playbook §17); das war als **Testfall** gemeint,
+nicht als Form des Produkts. In Schritt 3 und 4 wurde es fälschlich als Form umgesetzt —
+Gewicht ist in die Engine-Typen, in `clampGoal` und in den ersten Onboarding-Schritt
+eingewachsen.
+
+**Was das kostet:** Umbau von Engine und Onboarding. Das Datenfundament aus Schritt 2 ist
+nicht betroffen — `goal_metrics.metric_key` und `goals.goal_type` sind bereits generisch, und
+`plan_domain` enthält `sleep`, `self_improvement` und `priority` schon.
+
+**Was bestehen bleibt:** Die MVP-Disziplin aus dem Playbook. Sechs Archetypen sind eine
+begrenzte, erweiterbare Menge — keine Super-App. Was nicht hineinpasst, fällt auf die
+Gesundheitsbasis zurück, statt einen siebten Planer zu erzwingen.
+
+---
+
 ## 2026-08-19 — ADR-020: Fünf Tabs, Playbook als eigene Route
 
 **Entscheidung:** Die Bottom-Navigation hat fünf Ziele — Heute, Plan, Fortschritt, Insights,

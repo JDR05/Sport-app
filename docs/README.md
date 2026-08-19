@@ -15,6 +15,7 @@ Produkt- und Architekturentscheidungen. Die dauerhaften Projektregeln stehen in
 | `ROADMAP.md` | Entwicklungsstufen V0–V3 und die Schrittfolge der Umsetzung |
 | `PRODUCT_CRITIQUE.md` | Angriff auf die eigene Planung — Schwächen und Gegenvorschläge |
 | `FINAL_ARCHITECTURE.md` | **Vorrang bei Widersprüchen.** Überarbeitete Planung nach der Kritik |
+| `GOAL_ARCHETYPES.md` | **Vorrang bei allem, was Ziele betrifft.** Offene Zielform, sechs Archetypen, Sicherheitsgrenzen je Zielart |
 
 Diese Dokumente sind aus zwei Quelldokumenten des Product Owners abgeleitet: dem Produktplan
 (Vision und Anforderungen) und dem Playbook (Entwicklungsprozess).
