@@ -1,71 +1,71 @@
-// Field efficacy.
+// Field efficacy, now measured per archetype.
 //
-// The uncomfortable counterpart to the personalisation gate: every field the
-// onboarding asks for in stage one has to demonstrably change the plan. A
-// question whose answer changes nothing is a question that should not be asked,
-// and "minimum input, maximum intelligence" is otherwise just a slogan.
-//
-// Fields that fail this test do not get an exemption. They either start being
-// used by the engine or they move to stage two. See ADR-014.
+// Before the course correction a field had to change the plan for the one goal
+// type that existed. That was too narrow: wake time is worthless for a weight
+// goal and central to a sleep goal. A field is justified when it changes the
+// plan for AT LEAST ONE archetype — and a field that changes nothing anywhere
+// still has no business in the onboarding. See ADR-024.
 
 import { describe, expect, it } from 'vitest'
 import { generatePlan } from '@/lib/engine'
-import { lenaStudent } from './fixtures/profiles'
+import { GOALS, PROFILES, makeInput } from './fixtures/profiles'
 import type { PlanInput } from '@/lib/domain/types'
+
+const base = PROFILES[0]
 
 /**
  * The whole plan, not just its signature: a field that only changes the wording
  * of an action is still doing real work, because the user reads that wording.
- * See critique K1.
  */
-function planFingerprint(input: PlanInput): string {
+function fingerprint(input: PlanInput): string {
   const plan = generatePlan(input)
   return JSON.stringify({
     strategy: plan.strategy,
     items: plan.items.map((i) => ({
-      on: i.scheduledOn,
-      domain: i.domain,
-      title: i.title,
-      duration: i.plannedDurationMin,
-      rationale: i.rationale.text,
-      details: i.details,
+      on: i.scheduledOn, domain: i.domain, track: i.track, title: i.title,
+      duration: i.plannedDurationMin, rationale: i.rationale.text, details: i.details,
     })),
   })
 }
 
-const base = lenaStudent
-const baseline = planFingerprint(base)
+type FieldCase = { field: string; vary: (i: PlanInput) => PlanInput }
 
-/** Every stage-one onboarding field, with a plausible alternative answer. */
-const STAGE_1_FIELDS: Array<{ field: string; vary: (i: PlanInput) => PlanInput }> = [
-  {
-    field: 'metrics.weight_kg.startValue',
-    vary: (i) => ({ ...i, metrics: [{ ...i.metrics[0], startValue: 95 }] }),
-  },
-  {
-    field: 'metrics.weight_kg.targetValue',
-    vary: (i) => ({ ...i, metrics: [{ ...i.metrics[0], targetValue: 62 }] }),
-  },
-  {
-    field: 'goal.targetDate',
-    vary: (i) => ({ ...i, goal: { ...i.goal, targetDate: '2026-10-05' } }),
-  },
-  {
-    field: 'profile.birthYear',
-    vary: (i) => ({ ...i, profile: { ...i.profile, birthYear: 1970 } }),
-  },
-  {
-    field: 'profile.heightCm',
-    vary: (i) => ({ ...i, profile: { ...i.profile, heightCm: 185 } }),
-  },
-  {
-    field: 'profile.sexAtBirth',
-    vary: (i) => ({ ...i, profile: { ...i.profile, sexAtBirth: 'male' } }),
-  },
-  {
-    field: 'schedule.workPattern',
-    vary: (i) => ({ ...i, schedule: { ...i.schedule, workPattern: 'office' } }),
-  },
+const p = (i: PlanInput, over: Partial<PlanInput['profile']>): PlanInput => ({
+  ...i, profile: { ...i.profile, ...over },
+})
+
+const FIELDS: FieldCase[] = [
+  { field: 'profile.birthYear', vary: (i) => p(i, { birthYear: 1965 }) },
+  { field: 'profile.heightCm', vary: (i) => p(i, { heightCm: 190 }) },
+  { field: 'profile.weightKg', vary: (i) => p(i, { weightKg: 110 }) },
+  { field: 'profile.sexAtBirth', vary: (i) => p(i, { sexAtBirth: 'male' }) },
+
+  { field: 'profile.sport.preferredActivities', vary: (i) => p(i, { sport: { ...i.profile.sport, preferredActivities: ['swimming'] } }) },
+  { field: 'profile.sport.dislikedActivities', vary: (i) => p(i, { sport: { ...i.profile.sport, dislikedActivities: ['gym'] } }) },
+  { field: 'profile.sport.sessionsPerWeekTarget', vary: (i) => p(i, { sport: { ...i.profile.sport, sessionsPerWeekTarget: 1 } }) },
+  { field: 'profile.sport.preferredSessionMinutes', vary: (i) => p(i, { sport: { ...i.profile.sport, preferredSessionMinutes: 25 } }) },
+  { field: 'profile.sport.equipment', vary: (i) => p(i, { sport: { ...i.profile.sport, equipment: ['none'] } }) },
+  { field: 'profile.sport.experience', vary: (i) => p(i, { sport: { ...i.profile.sport, experience: 'advanced' } }) },
+
+  { field: 'profile.nutrition.cooksAtHome', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, cooksAtHome: 'often' } }) },
+  { field: 'profile.nutrition.timeForCookingMin', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, timeForCookingMin: 60 } }) },
+  { field: 'profile.nutrition.eatsOutPerWeek', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, eatsOutPerWeek: 6 } }) },
+  { field: 'profile.nutrition.dietaryPattern', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, dietaryPattern: 'vegan' } }) },
+  { field: 'profile.nutrition.mealsPerDay', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, mealsPerDay: 5 } }) },
+  { field: 'profile.nutrition.vegetablePortionsPerDay', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, vegetablePortionsPerDay: 0 } }) },
+  { field: 'profile.nutrition.sugaryDrinksPerDay', vary: (i) => p(i, { nutrition: { ...i.profile.nutrition, sugaryDrinksPerDay: 5 } }) },
+
+  { field: 'profile.sleep.usualBedtime', vary: (i) => p(i, { sleep: { ...i.profile.sleep, usualBedtime: '21:30' } }) },
+  { field: 'profile.sleep.usualWakeTime', vary: (i) => p(i, { sleep: { ...i.profile.sleep, usualWakeTime: '05:30' } }) },
+  { field: 'profile.sleep.quality', vary: (i) => p(i, { sleep: { ...i.profile.sleep, quality: 'poor' } }) },
+  { field: 'profile.sleep.wakesAtNight', vary: (i) => p(i, { sleep: { ...i.profile.sleep, wakesAtNight: true } }) },
+  { field: 'profile.sleep.screenBeforeBed', vary: (i) => p(i, { sleep: { ...i.profile.sleep, screenBeforeBed: false } }) },
+
+  { field: 'profile.mind.screenTimeHoursPerDay', vary: (i) => p(i, { mind: { ...i.profile.mind, screenTimeHoursPerDay: 9 } }) },
+  { field: 'profile.mind.focusStruggle', vary: (i) => p(i, { mind: { ...i.profile.mind, focusStruggle: 'high' } }) },
+  { field: 'profile.mind.existingRoutines', vary: (i) => p(i, { mind: { ...i.profile.mind, existingRoutines: ['Kaffee um 7'] } }) },
+
+  { field: 'schedule.workPattern', vary: (i) => ({ ...i, schedule: { ...i.schedule, workPattern: 'shift' } }) },
   {
     field: 'schedule.freeSlots',
     vary: (i) => ({
@@ -75,131 +75,47 @@ const STAGE_1_FIELDS: Array<{ field: string; vary: (i: PlanInput) => PlanInput }
         freeSlots: [
           { weekday: 'mon', start: '06:00', minutes: 60 },
           { weekday: 'wed', start: '06:00', minutes: 60 },
-          { weekday: 'fri', start: '06:00', minutes: 60 },
         ],
       },
     }),
   },
-  {
-    field: 'profile.sport.sessionsPerWeekTarget',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, sport: { ...i.profile.sport, sessionsPerWeekTarget: 1 } },
-    }),
-  },
-  {
-    field: 'profile.sport.preferredSessionMinutes',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, sport: { ...i.profile.sport, preferredSessionMinutes: 25 } },
-    }),
-  },
-  {
-    field: 'profile.sport.equipment',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, sport: { ...i.profile.sport, equipment: ['none'] } },
-    }),
-  },
-  {
-    field: 'profile.sport.experience',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, sport: { ...i.profile.sport, experience: 'advanced' } },
-    }),
-  },
-  {
-    field: 'profile.sport.preferredActivities',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, sport: { ...i.profile.sport, preferredActivities: ['swimming'] } },
-    }),
-  },
-  {
-    field: 'profile.sport.dislikedActivities',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, sport: { ...i.profile.sport, dislikedActivities: ['gym'] } },
-    }),
-  },
-  {
-    field: 'profile.nutrition.cooksAtHome',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, nutrition: { ...i.profile.nutrition, cooksAtHome: 'often' } },
-    }),
-  },
-  {
-    field: 'profile.nutrition.timeForCookingMin',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, nutrition: { ...i.profile.nutrition, timeForCookingMin: 60 } },
-    }),
-  },
-  {
-    field: 'profile.nutrition.eatsOutPerWeek',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, nutrition: { ...i.profile.nutrition, eatsOutPerWeek: 6 } },
-    }),
-  },
-  {
-    field: 'profile.nutrition.dietaryPattern',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, nutrition: { ...i.profile.nutrition, dietaryPattern: 'vegan' } },
-    }),
-  },
-  {
-    field: 'profile.nutrition.mealsPerDay',
-    vary: (i) => ({
-      ...i,
-      profile: { ...i.profile, nutrition: { ...i.profile.nutrition, mealsPerDay: 5 } },
-    }),
-  },
+  { field: 'goal.targetDate', vary: (i) => ({ ...i, goal: { ...i.goal, targetDate: '2026-09-30' } }) },
+  { field: 'goal.rawText', vary: (i) => ({ ...i, goal: { ...i.goal, rawText: 'Etwas völlig anderes formuliert' } }) },
   {
     field: 'constraints.no_training_on',
     vary: (i) => ({
       ...i,
-      constraints: [
-        { kind: 'time', hard: true, value: { type: 'no_training_on', weekdays: ['tue', 'thu'] } },
-      ],
+      constraints: [{ kind: 'time', hard: true, value: { type: 'no_training_on', weekdays: ['tue', 'thu'] } }],
     }),
   },
 ]
 
-describe('stage one onboarding fields', () => {
-  it.each(STAGE_1_FIELDS)('$field changes the plan', ({ vary }) => {
-    expect(planFingerprint(vary(base))).not.toBe(baseline)
+describe('onboarding fields', () => {
+  it.each(FIELDS)('$field changes the plan for at least one archetype', ({ vary }) => {
+    const affected = GOALS.filter((goal) => {
+      const input = makeInput(base, goal)
+      return fingerprint(vary(input)) !== fingerprint(input)
+    }).map((g) => g.archetype)
+
+    expect(affected.length, `affects: ${affected.join(', ') || 'nothing'}`).toBeGreaterThan(0)
   })
 })
 
-/**
- * Deliberately NOT stage one. Each was checked against the same test and found
- * to leave the first plan untouched, so asking for it up front would cost the
- * user a question and buy nothing. They are still collected later, where they
- * do matter — sleep times for recovery tracking, life situation for context.
- */
-const STAGE_2_FIELDS = [
-  'schedule.wakeTime',
-  'schedule.sleepTime',
-  'schedule.weekendDiffers',
-  'profile.lifeSituation',
-] as const
-
-describe('fields deferred to stage two', () => {
-  it.each(STAGE_2_FIELDS)('%s does not affect the first plan', (field) => {
-    const varied: PlanInput =
-      field === 'profile.lifeSituation'
-        ? { ...base, profile: { ...base.profile, lifeSituation: 'employed' } }
-        : field === 'schedule.weekendDiffers'
-          ? { ...base, schedule: { ...base.schedule, weekendDiffers: true } }
-          : field === 'schedule.wakeTime'
-            ? { ...base, schedule: { ...base.schedule, wakeTime: '05:00' } }
-            : { ...base, schedule: { ...base.schedule, sleepTime: '01:00' } }
-
-    // Documents the current state honestly. If a later step starts using one of
-    // these, this test fails and the field moves back into stage one.
-    expect(planFingerprint(varied)).toBe(baseline)
+describe('coverage', () => {
+  it('every archetype is affected by at least three different fields', () => {
+    // A goal type that almost nothing influences would be a goal type that only
+    // pretends to be personalised.
+    const counts = new Map(GOALS.map((g) => [g.archetype, 0]))
+    for (const { vary } of FIELDS) {
+      for (const goal of GOALS) {
+        const input = makeInput(base, goal)
+        if (fingerprint(vary(input)) !== fingerprint(input)) {
+          counts.set(goal.archetype, (counts.get(goal.archetype) ?? 0) + 1)
+        }
+      }
+    }
+    for (const [archetype, count] of counts) {
+      expect(count, `${archetype} is influenced by only ${count} field(s)`).toBeGreaterThanOrEqual(3)
+    }
   })
 })

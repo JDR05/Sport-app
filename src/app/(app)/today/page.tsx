@@ -18,7 +18,7 @@ export default function TodayPage() {
     <RequirePlan>
       {(plan) => {
         const items = plan.items.filter((i) => i.scheduledOn === today)
-        const restToday = plan.strategy.restWeekdays.includes(weekdayOf(today))
+        const restToday = !items.some((i) => i.domain === 'training')
 
         return (
           <Screen>
@@ -30,14 +30,15 @@ export default function TodayPage() {
             {/* What matters today, and why — the one thing every screen must answer. */}
             <Card tone="accent">
               <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                Dein Ziel
+                {plan.strategy.goalTrack.archetype === 'general_health'
+                  ? 'Deine Basis'
+                  : 'Dein Ziel'}
               </p>
               <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
-                {plan.strategy.targetIntakeKcal} kcal · {plan.strategy.trainingSessions}× Training
-                diese Woche
+                {plan.strategy.goalTrack.headline}
               </p>
               <p className="mt-1 text-sm leading-relaxed text-muted">
-                {plan.rationale[plan.rationale.length - 1]?.text}
+                {plan.rationale[0]?.text}
               </p>
             </Card>
 
@@ -68,9 +69,10 @@ export default function TodayPage() {
               </div>
             )}
 
-            {restToday && items.some((i) => i.domain !== 'training') && (
+            {restToday && items.length > 0 && (
               <Note>
-                Heute ist ein Ruhetag vom Training. Bewegung und Ernährung laufen weiter.
+                Heute steht kein Training an. Die Gesundheitsbasis läuft weiter — sie gehört zum
+                Plan, nicht daneben.
               </Note>
             )}
 

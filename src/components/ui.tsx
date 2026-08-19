@@ -4,18 +4,24 @@
 // component set stays narrow enough that every screen looks like the same app.
 
 import type { ReactNode } from 'react'
-import type { MvpDomain } from '@/lib/domain/types'
+import type { PlanDomain } from '@/lib/domain/types'
 
-export const DOMAIN_LABEL: Record<MvpDomain, string> = {
+export const DOMAIN_LABEL: Record<PlanDomain, string> = {
   training: 'Training',
   nutrition: 'Ernährung',
   movement: 'Bewegung',
+  sleep: 'Schlaf',
+  self_improvement: 'Routine',
+  priority: 'Fokus',
 }
 
-const DOMAIN_CLASS: Record<MvpDomain, string> = {
+const DOMAIN_CLASS: Record<PlanDomain, string> = {
   training: 'bg-training-soft text-training',
   nutrition: 'bg-nutrition-soft text-nutrition',
   movement: 'bg-movement-soft text-movement',
+  sleep: 'bg-movement-soft text-movement',
+  self_improvement: 'bg-accent-soft text-accent',
+  priority: 'bg-accent-soft text-accent',
 }
 
 export function Screen({ children }: { children: ReactNode }) {
@@ -49,10 +55,17 @@ export function Card({ children, tone = 'default' }: { children: ReactNode; tone
   return <div className={`rounded-2xl border ${toneClass} p-4`}>{children}</div>
 }
 
-export function DomainBadge({ domain }: { domain: MvpDomain }) {
+export function DomainBadge({ domain, track }: { domain: PlanDomain; track?: 'goal' | 'baseline' }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${DOMAIN_CLASS[domain]}`}>
-      {DOMAIN_LABEL[domain]}
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {track === 'baseline' && (
+        // The baseline runs under every goal. Marking it keeps the distinction
+        // visible without giving it a second colour system.
+        <span className="text-[10px] font-medium uppercase tracking-wide text-faint">Basis</span>
+      )}
+      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${DOMAIN_CLASS[domain]}`}>
+        {DOMAIN_LABEL[domain]}
+      </span>
     </span>
   )
 }

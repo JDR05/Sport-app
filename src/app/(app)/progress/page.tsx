@@ -13,11 +13,29 @@ export default function ProgressPage() {
           <Screen>
             <ScreenTitle title="Fortschritt" subtitle="Wo stehst du, und was hält dich zurück?" />
 
-            <div className="grid grid-cols-2 gap-3">
-              <StatTile label="Zieldatum" value={formatGermanDate(s.targetDate).replace(/ \d{4}$/, '')} hint={s.targetDateAdjusted ? 'angepasst' : 'wie gewünscht'} />
-              <StatTile label="Tempo" value={`${s.ratePerWeekKg} kg`} hint="pro Woche" />
-              <StatTile label="Tagesziel" value={`${s.targetIntakeKcal}`} hint="kcal" />
-              <StatTile label="Defizit" value={`−${s.deficitKcal}`} hint={s.deficitTier === 'mild' ? 'mild' : 'moderat'} />
+            <Card tone="accent">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                Deine Zielspur
+              </p>
+              <p className="mt-1 text-[15px] font-semibold text-ink">{s.goalTrack.headline}</p>
+              <ul className="mt-2 space-y-1 text-sm text-muted">
+                {s.goalTrack.summary.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </Card>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <StatTile
+                label="Zieldatum"
+                value={s.targetDate ? formatGermanDate(s.targetDate).replace(/ \d{4}$/, '') : 'offen'}
+                hint={s.targetDateAdjusted ? 'angepasst' : 'wie gewünscht'}
+              />
+              <StatTile
+                label="Aktionen"
+                value={`${plan.items.filter((i) => i.track === 'goal').length}`}
+                hint="fürs Ziel diese Woche"
+              />
             </div>
 
             <SectionHeading>Gewichtsverlauf</SectionHeading>

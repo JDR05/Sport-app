@@ -11,9 +11,6 @@ export type PlanItemStatus = Enums<'plan_item_status'>
 export type MetricClass = Enums<'metric_class'>
 export type ConstraintKind = Enums<'constraint_kind'>
 
-/** The MVP plans exactly these three domains. See ADR-010. */
-export type MvpDomain = Extract<PlanDomain, 'training' | 'nutrition' | 'movement'>
-
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 
 export const WEEKDAYS: readonly Weekday[] = [
@@ -23,8 +20,6 @@ export const WEEKDAYS: readonly Weekday[] = [
 export type TimeSlot = 'early' | 'midday' | 'evening'
 
 export type SexAtBirth = 'female' | 'male' | 'unspecified'
-
-export type LifeSituation = 'student' | 'employed' | 'shift_work' | 'self_employed' | 'unemployed'
 
 export type WorkPattern = 'student' | 'office' | 'remote' | 'shift' | 'irregular'
 
@@ -40,7 +35,53 @@ export type CookingFrequency = 'never' | 'sometimes' | 'often'
 
 export type DietaryPattern = 'omnivore' | 'vegetarian' | 'vegan'
 
-// ---------------------------------------------------------------- input ---
+export type SleepQuality = 'poor' | 'ok' | 'good'
+
+export type FocusStruggle = 'low' | 'medium' | 'high'
+
+// ------------------------------------------------------------ the goal ----
+
+/**
+ * The user writes their goal in their own words; it is then classified into one
+ * of these. `general_health` is the fallback — an unrecognised goal gets the
+ * health baseline plus AI suggestions, never a refusal. See
+ * docs/GOAL_ARCHETYPES.md.
+ */
+export type GoalArchetype =
+  | 'body_composition'
+  | 'strength'
+  | 'endurance'
+  | 'sleep_recovery'
+  | 'nutrition_quality'
+  | 'habit_routine'
+  | 'general_health'
+
+export const GOAL_ARCHETYPES: readonly GoalArchetype[] = [
+  'body_composition', 'strength', 'endurance',
+  'sleep_recovery', 'nutrition_quality', 'habit_routine', 'general_health',
+] as const
+
+export type Goal = {
+  /** Exactly what the user typed. Never overwritten — it is shown back to them. */
+  rawText: string
+  archetype: GoalArchetype
+  targetDate: string | null
+  /** Where the classification came from, so the UI can be honest about it. */
+  classifiedBy: 'ai' | 'keywords' | 'user'
+}
+
+/**
+ * Deliberately not tied to weight. `metricKey` is free text; some goals — most
+ * habit goals — have no numeric target at all and carry an empty metric list.
+ */
+export type GoalMetric = {
+  metricKey: string
+  startValue: number | null
+  targetValue: number | null
+  unit: string
+}
+
+// --------------------------------------------------------- the person ----
 
 export type SportProfile = {
   preferredActivities: Activity[]
@@ -57,28 +98,35 @@ export type NutritionProfile = {
   eatsOutPerWeek: number | null
   dietaryPattern: DietaryPattern | null
   mealsPerDay: number | null
+  vegetablePortionsPerDay: number | null
+  sugaryDrinksPerDay: number | null
+}
+
+/** Matters for sleep goals the way calories matter for body goals. */
+export type SleepProfile = {
+  usualBedtime: string | null
+  usualWakeTime: string | null
+  quality: SleepQuality | null
+  wakesAtNight: boolean | null
+  screenBeforeBed: boolean | null
+}
+
+/** Matters for habit and focus goals. */
+export type MindProfile = {
+  screenTimeHoursPerDay: number | null
+  focusStruggle: FocusStruggle | null
+  existingRoutines: string[]
 }
 
 export type Profile = {
   birthYear: number | null
   heightCm: number | null
+  weightKg: number | null
   sexAtBirth: SexAtBirth | null
-  lifeSituation: LifeSituation | null
   sport: SportProfile
   nutrition: NutritionProfile
-}
-
-export type Goal = {
-  title: string
-  /** ISO date. Null means "no date given" and is treated as an open horizon. */
-  targetDate: string | null
-}
-
-export type GoalMetric = {
-  metricKey: 'weight_kg'
-  startValue: number
-  targetValue: number
-  unit: string
+  sleep: SleepProfile
+  mind: MindProfile
 }
 
 export type ConstraintValue =
@@ -102,11 +150,8 @@ export type FreeSlot = {
 }
 
 export type Schedule = {
-  wakeTime: string | null
-  sleepTime: string | null
   workPattern: WorkPattern | null
   freeSlots: FreeSlot[]
-  weekendDiffers: boolean
 }
 
 export type PersonalRule = {
@@ -117,9 +162,8 @@ export type PersonalRule = {
 
 export type PlanInput = {
   /**
-   * ISO date. Passed in rather than read from the clock: the engine must be
-   * a pure function of its input so the same fixture always yields the same
-   * plan.
+   * ISO date. Passed in rather than read from the clock: the engine must be a
+   * pure function of its input so the same fixture always yields the same plan.
    */
   today: string
   profile: Profile
@@ -130,16 +174,7 @@ export type PlanInput = {
   personalRules: PersonalRule[]
 }
 
-// --------------------------------------------------------------- output ---
-
-export type TrainingModality = 'gym' | 'bodyweight' | 'sport' | 'mixed'
-
-export type NutritionApproach =
-  | 'meal_prep' | 'structured' | 'simple_swaps' | 'eating_out_aware'
-
-export type MovementApproach = 'step_target' | 'walk_blocks' | 'commute'
-
-export type DeficitTier = 'mild' | 'moderate'
+// --------------------------------------------------------- the output ----
 
 /** Why something is in the plan, and which user input drove it. */
 export type Rationale = {
@@ -154,33 +189,46 @@ export type Assumption = {
   reason: string
 }
 
-export type WeekStrategy = {
-  weekStart: string
-  targetDate: string
-  targetDateAdjusted: boolean
-  ratePerWeekKg: number
-  dailyNeedKcal: number
-  targetIntakeKcal: number
-  deficitKcal: number
-  deficitTier: DeficitTier
-  trainingSessions: number
-  trainingWeekdays: Weekday[]
-  restWeekdays: Weekday[]
-  trainingModality: TrainingModality
-  sessionMinutes: number
-  nutritionApproach: NutritionApproach
-  movementApproach: MovementApproach
-  dailyStepTarget: number | null
-}
-
 export type PlannedItem = {
   scheduledOn: string
-  domain: MvpDomain
+  domain: PlanDomain
+  /** Which of the two tracks this action belongs to. */
+  track: 'goal' | 'baseline'
   title: string
   plannedDurationMin: number | null
   timeSlot: TimeSlot | null
   rationale: Rationale
   details: Record<string, unknown>
+}
+
+/**
+ * The archetype-specific half of the plan. Each strategy fills this in its own
+ * terms — calories for body composition, weekly volume for endurance, a single
+ * habit for habit goals.
+ */
+export type GoalTrack = {
+  archetype: GoalArchetype
+  headline: string
+  summary: string[]
+  items: PlannedItem[]
+  /** Structural features for the personalisation and goal-orientation gates. */
+  signature: Record<string, string>
+}
+
+/** The health baseline that runs under every goal, whatever it is. */
+export type BaselineTrack = {
+  items: PlannedItem[]
+  /** Domains the goal track already covers, so the baseline stays out of them. */
+  suppressedDomains: PlanDomain[]
+}
+
+export type WeekStrategy = {
+  weekStart: string
+  archetype: GoalArchetype
+  targetDate: string | null
+  targetDateAdjusted: boolean
+  goalTrack: GoalTrack
+  baseline: BaselineTrack
 }
 
 export type PlanResult = {

@@ -25,10 +25,11 @@ const CHIP_BASE =
 
 // Written out rather than interpolated: Tailwind scans the source for literal
 // class names, so `grid-cols-${n}` would silently produce no styles at all.
-const COLUMNS: Record<2 | 3 | 4, string> = {
+const COLUMNS: Record<2 | 3 | 4 | 5, string> = {
   2: 'grid-cols-2',
   3: 'grid-cols-3',
   4: 'grid-cols-4',
+  5: 'grid-cols-5',
 }
 const CHIP_ON = 'border-accent bg-accent text-accent-ink'
 const CHIP_OFF = 'border-line bg-surface text-ink active:bg-sunken'
@@ -42,7 +43,7 @@ export function ChoiceGroup<T extends string | number>({
   options: ReadonlyArray<{ value: T; label: string }>
   value: T | null
   onChange: (value: T) => void
-  columns?: 2 | 3 | 4
+  columns?: 2 | 3 | 4 | 5
 }) {
   return (
     <div className={`grid gap-2 ${COLUMNS[columns]}`} role="group">
@@ -70,7 +71,7 @@ export function MultiChoice<T extends string>({
   options: ReadonlyArray<{ value: T; label: string }>
   values: T[]
   onChange: (values: T[]) => void
-  columns?: 2 | 3 | 4
+  columns?: 2 | 3 | 4 | 5
 }) {
   const toggle = (value: T) =>
     onChange(values.includes(value) ? values.filter((v) => v !== value) : [...values, value])
@@ -137,6 +138,45 @@ export function DateInput({
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
       className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none"
+    />
+  )
+}
+
+export function TextArea({
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  rows?: number
+}) {
+  return (
+    <textarea
+      value={value}
+      rows={rows}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
+    />
+  )
+}
+
+export function TimeInput({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (value: string | null) => void
+}) {
+  return (
+    <input
+      type="time"
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+      className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base tabular-nums text-ink outline-none"
     />
   )
 }

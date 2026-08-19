@@ -13,7 +13,6 @@ import type { Assumption, Profile, Schedule, SexAtBirth } from '@/lib/domain/typ
 export type EnergyInput = {
   profile: Profile
   schedule: Schedule
-  weightKg: number
   today: string
   sessionsPerWeek: number
 }
@@ -62,7 +61,20 @@ export function activityFactor(schedule: Schedule, sessionsPerWeek: number): num
 
 export function computeEnergy(input: EnergyInput): EnergyResult {
   const assumptions: Assumption[] = []
-  const { profile, schedule, weightKg, today, sessionsPerWeek } = input
+  const { profile, schedule, today, sessionsPerWeek } = input
+
+  let weightKg: number
+  if (profile.weightKg === null) {
+    weightKg = FALLBACK.weightKg
+    assumptions.push({
+      field: 'profile.weightKg',
+      assumed: `${FALLBACK.weightKg} kg`,
+      reason:
+        'Kein Gewicht angegeben. Ohne Gewicht ist der Energiebedarf nur grob schätzbar — trag es nach, dann wird der Plan genauer.',
+    })
+  } else {
+    weightKg = profile.weightKg
+  }
 
   let ageYears: number
   if (profile.birthYear === null) {

@@ -19,9 +19,9 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | 1 | Product Critic: `PRODUCT_CRITIQUE.md`, daraus `FINAL_ARCHITECTURE.md` | **erledigt** |
 | 2 | Datenfundament: Supabase-Projekt, Migrations, RLS, generierte Typen, Tests | **erledigt** |
 | 3 | Goal & Plan Engine, Sicherheitsinvarianten, Struktur- und Feldwirksamkeitstest | **erledigt** |
-| 3b | **Umbau auf Zielarchetypen**: offene Zielform, sechs Archetypen, Sicherheitsgrenzen je Zielart, Zielorientierungstest | offen |
+| 3b | **Umbau auf Zielarchetypen**: offene Zielform, sechs Archetypen, Sicherheitsgrenzen je Zielart, Zielorientierungstest | **erledigt** |
 | 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Playbook, Profile | **erledigt** |
-| 4b | **Onboarding neu**: freies Ziel zuerst, danach vollständige Erhebung in einem Durchlauf | offen |
+| 4b | **Onboarding neu**: freies Ziel zuerst, danach vollständige Erhebung in einem Durchlauf | **erledigt** |
 | 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | offen |
 | 6 | Adaptive Engine: Planpflege, Erkennung, Hypothesen, Experimente, Personal Rules | offen |
 | 7 | AI-Layer: Adapter, Schemas, Validierung, Fallback, versionierte Prompts — **vorgezogen**, weil ein freies Ziel ohne KI nicht sinnvoll interpretierbar ist | **als Nächstes** |

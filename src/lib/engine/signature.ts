@@ -1,76 +1,69 @@
 // Structural fingerprint of a plan.
 //
-// Used by the personalisation gate, and later by the adaptive engine to compare
-// a plan before and after an experiment. Deliberately structural: times of day
-// and free text are excluded, because a test that compared those would pass even
-// when ten profiles get essentially the same plan. See critique K7 and ADR-014.
+// Feeds two gates: the personalisation gate (different people, different plans)
+// and the goal-orientation gate (same person, different goals, different plans).
+// Deliberately structural — times of day and free text are excluded, because a
+// test that compared those would pass even when every plan is essentially the
+// same. See critique K7 and ADR-014.
 
-import type { PlanResult, PlannedItem, TimeSlot, WeekStrategy } from '@/lib/domain/types'
+import type { PlanResult, PlannedItem, TimeSlot } from '@/lib/domain/types'
 
-export type PlanSignature = {
-  sessionsBucket: string
-  trainingDayPattern: string
-  modality: string
-  sessionLengthBucket: string
-  nutritionApproach: string
-  nutritionActionCount: string
-  movementApproach: string
-  intakeBucket: string
-  deficitTier: string
-  timeOfDayPattern: string
-}
+/**
+ * The shared features every plan has, plus the archetype's own. Archetype
+ * features are namespaced so two goal types never collide on a key.
+ */
+export type PlanSignature = Record<string, string>
 
-/** The ten features, in a fixed order. */
-export const SIGNATURE_FEATURES: readonly (keyof PlanSignature)[] = [
-  'sessionsBucket',
-  'trainingDayPattern',
-  'modality',
-  'sessionLengthBucket',
-  'nutritionApproach',
-  'nutritionActionCount',
-  'movementApproach',
-  'intakeBucket',
-  'deficitTier',
+export const SHARED_FEATURES = [
+  'archetype',
+  'goalItemCount',
+  'baselineItemCount',
+  'domains',
+  'activeDays',
   'timeOfDayPattern',
 ] as const
 
 export function planSignature(plan: PlanResult): PlanSignature {
-  const s = plan.strategy
-  return {
-    sessionsBucket: sessionsBucket(s.trainingSessions),
-    trainingDayPattern: s.trainingWeekdays.join('-') || 'none',
-    modality: s.trainingModality,
-    sessionLengthBucket: sessionLengthBucket(s.sessionMinutes),
-    nutritionApproach: s.nutritionApproach,
-    nutritionActionCount: String(plan.items.filter((i) => i.domain === 'nutrition').length),
-    movementApproach: s.movementApproach,
-    intakeBucket: intakeBucket(s.targetIntakeKcal),
-    deficitTier: s.deficitTier,
+  const goalItems = plan.items.filter((i) => i.track === 'goal')
+  const baselineItems = plan.items.filter((i) => i.track === 'baseline')
+
+  const shared: PlanSignature = {
+    archetype: plan.strategy.archetype,
+    goalItemCount: bucketCount(goalItems.length),
+    baselineItemCount: bucketCount(baselineItems.length),
+    domains: [...new Set(plan.items.map((i) => i.domain))].sort().join('+'),
+    activeDays: String(new Set(plan.items.map((i) => i.scheduledOn)).size),
     timeOfDayPattern: timeOfDayPattern(plan.items),
   }
+
+  for (const [key, value] of Object.entries(plan.strategy.goalTrack.signature)) {
+    shared[`goal.${key}`] = value
+  }
+
+  return shared
 }
 
-/** Share of the ten features that differ. 0 = identical, 1 = nothing in common. */
+/**
+ * Share of features that differ, over the union of both signatures' keys.
+ * Two plans from different archetypes have disjoint goal features, which
+ * correctly reads as a large distance — they really are different plans.
+ */
 export function signatureDistance(a: PlanSignature, b: PlanSignature): number {
-  const differing = SIGNATURE_FEATURES.filter((f) => a[f] !== b[f]).length
-  return differing / SIGNATURE_FEATURES.length
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  if (keys.size === 0) return 0
+  let differing = 0
+  for (const key of keys) {
+    if (a[key] !== b[key]) differing++
+  }
+  return differing / keys.size
 }
 
-function sessionsBucket(sessions: number): string {
-  if (sessions === 0) return '0'
-  if (sessions <= 2) return '1-2'
-  if (sessions <= 4) return '3-4'
-  return '5+'
-}
-
-function sessionLengthBucket(minutes: number): string {
-  if (minutes <= 30) return '<=30'
-  if (minutes <= 50) return '31-50'
-  return '>50'
-}
-
-function intakeBucket(kcal: number): string {
-  return String(Math.floor(kcal / 250) * 250)
+function bucketCount(n: number): string {
+  if (n === 0) return '0'
+  if (n <= 3) return '1-3'
+  if (n <= 7) return '4-7'
+  if (n <= 12) return '8-12'
+  return '13+'
 }
 
 function timeOfDayPattern(items: PlannedItem[]): string {
@@ -83,11 +76,11 @@ function timeOfDayPattern(items: PlannedItem[]): string {
   return [...slots][0]
 }
 
-export function describeStrategy(s: WeekStrategy): string {
+export function describePlan(plan: PlanResult): string {
+  const s = plan.strategy
   return [
-    `${s.trainingSessions}× ${s.trainingModality} à ${s.sessionMinutes} min`,
-    `(${s.trainingWeekdays.join(', ') || 'kein Training'})`,
-    `· ${s.targetIntakeKcal} kcal, −${s.deficitKcal} (${s.deficitTier})`,
-    `· ${s.nutritionApproach} · ${s.movementApproach}`,
+    `[${s.archetype}] ${s.goalTrack.headline}`,
+    `· ${plan.items.filter((i) => i.track === 'goal').length} Ziel-Aktionen`,
+    `+ ${plan.items.filter((i) => i.track === 'baseline').length} Basis`,
   ].join(' ')
 }

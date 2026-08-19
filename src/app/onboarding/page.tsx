@@ -1,85 +1,127 @@
 'use client'
 
-// Staged onboarding.
+// Onboarding.
 //
-// It asks for exactly the twenty fields that tests/engine.fields.test.ts proves
-// change the plan — no more. Wake time, sleep time, weekend structure and life
-// situation were dropped after the same test showed they change nothing yet
-// (ADR-018). Every question here has to earn its place.
+// The goal comes first, in the user's own words, and everything after it is a
+// complete intake across all areas of life — decision of the product owner, see
+// ADR-024. The breadth is what lets the app work on general health and on the
+// one specific goal at the same time, and it is what the AI layer needs in order
+// to say anything specific at all.
+//
+// Classification runs deterministically here. When an API key is configured the
+// AI layer classifies instead and this stays as the fallback.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePlan, type Answers } from '@/components/PlanProvider'
-import { Button, Screen, ScreenTitle, Note } from '@/components/ui'
-import { ChoiceGroup, DateInput, Field, MultiChoice, NumberInput, StepProgress } from '@/components/form'
-import { WEEKDAYS } from '@/lib/domain/types'
+import { Button, Card, Note, Screen, ScreenTitle } from '@/components/ui'
+import {
+  ChoiceGroup, DateInput, Field, MultiChoice, NumberInput, StepProgress, TextArea, TimeInput,
+} from '@/components/form'
+import { classifyGoalText } from '@/lib/engine'
+import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
 import type {
-  Activity,
-  CookingFrequency,
-  DietaryPattern,
-  Equipment,
-  Experience,
-  SexAtBirth,
-  Weekday,
-  WorkPattern,
+  Activity, CookingFrequency, DietaryPattern, Equipment, Experience, FocusStruggle,
+  GoalMetric, SexAtBirth, SleepQuality, Weekday, WorkPattern,
 } from '@/lib/domain/types'
 
 const WEEKDAY_SHORT: Record<Weekday, string> = {
   mon: 'Mo', tue: 'Di', wed: 'Mi', thu: 'Do', fri: 'Fr', sat: 'Sa', sun: 'So',
 }
 
+const ARCHETYPE_LABEL: Record<GoalArchetype, string> = {
+  body_composition: 'Körper & Gewicht',
+  strength: 'Kraft',
+  endurance: 'Ausdauer',
+  sleep_recovery: 'Schlaf',
+  nutrition_quality: 'Ernährung',
+  habit_routine: 'Gewohnheit',
+  general_health: 'Allgemein',
+}
+
 const SLOT_START = { early: '07:00', midday: '12:00', evening: '18:30' } as const
 type SlotTime = keyof typeof SLOT_START
 
 type Draft = {
-  startWeight: number | null
-  targetWeight: number | null
+  goalText: string
+  archetype: GoalArchetype | null
   targetDate: string | null
+  metricStart: number | null
+  metricTarget: number | null
+
   birthYear: number | null
   heightCm: number | null
+  weightKg: number | null
   sexAtBirth: SexAtBirth | null
+
   workPattern: WorkPattern | null
   freeDays: Weekday[]
   slotTime: SlotTime | null
   slotMinutes: number | null
+
   preferredActivities: Activity[]
   equipment: Equipment[]
   experience: Experience | null
   sessionsPerWeekTarget: number | null
   preferredSessionMinutes: number | null
-  dislikedActivities: Activity[]
-  blockedDays: Weekday[]
+
   cooksAtHome: CookingFrequency | null
   timeForCookingMin: number | null
   eatsOutPerWeek: number | null
   dietaryPattern: DietaryPattern | null
   mealsPerDay: number | null
+  vegetablePortionsPerDay: number | null
+  sugaryDrinksPerDay: number | null
+
+  usualBedtime: string | null
+  usualWakeTime: string | null
+  sleepQuality: SleepQuality | null
+  wakesAtNight: boolean | null
+  screenBeforeBed: boolean | null
+
+  screenTimeHoursPerDay: number | null
+  focusStruggle: FocusStruggle | null
+  existingRoutines: string
+
+  dislikedActivities: Activity[]
+  blockedDays: Weekday[]
 }
 
 const EMPTY: Draft = {
-  startWeight: null, targetWeight: null, targetDate: null,
-  birthYear: null, heightCm: null, sexAtBirth: null,
+  goalText: '', archetype: null, targetDate: null, metricStart: null, metricTarget: null,
+  birthYear: null, heightCm: null, weightKg: null, sexAtBirth: null,
   workPattern: null, freeDays: [], slotTime: null, slotMinutes: null,
   preferredActivities: [], equipment: [], experience: null,
   sessionsPerWeekTarget: null, preferredSessionMinutes: null,
-  dislikedActivities: [], blockedDays: [],
   cooksAtHome: null, timeForCookingMin: null, eatsOutPerWeek: null,
-  dietaryPattern: null, mealsPerDay: null,
+  dietaryPattern: null, mealsPerDay: null, vegetablePortionsPerDay: null, sugaryDrinksPerDay: null,
+  usualBedtime: null, usualWakeTime: null, sleepQuality: null, wakesAtNight: null, screenBeforeBed: null,
+  screenTimeHoursPerDay: null, focusStruggle: null, existingRoutines: '',
+  dislikedActivities: [], blockedDays: [],
 }
 
-const STEPS = ['Ziel', 'Über dich', 'Alltag', 'Sport', 'Grenzen', 'Ernährung'] as const
+const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
 
-function toAnswers(d: Draft): Answers {
-  const start = d.startWeight ?? 0
-  const target = d.targetWeight ?? 0
-  const start20 = SLOT_START[d.slotTime ?? 'evening']
+/** Which archetypes carry a numeric target the user can state up front. */
+const METRIC_FOR: Partial<Record<GoalArchetype, { key: string; unit: string; label: string; startLabel: string; targetLabel: string }>> = {
+  body_composition: { key: 'weight_kg', unit: 'kg', label: 'Gewicht', startLabel: 'Was wiegst du aktuell?', targetLabel: 'Was möchtest du wiegen?' },
+  endurance: { key: 'distance_km', unit: 'km', label: 'Umfang', startLabel: 'Wie viele km schaffst du aktuell pro Woche?', targetLabel: 'Wie viele km sollen es werden?' },
+  strength: { key: 'load_kg', unit: 'kg', label: 'Last', startLabel: 'Womit trainierst du aktuell?', targetLabel: 'Was ist dein Ziel?' },
+}
+
+function buildAnswers(d: Draft, archetype: GoalArchetype): Answers {
+  const metricSpec = METRIC_FOR[archetype]
+  const metrics: GoalMetric[] =
+    metricSpec && (d.metricStart !== null || d.metricTarget !== null)
+      ? [{ metricKey: metricSpec.key, startValue: d.metricStart, targetValue: d.metricTarget, unit: metricSpec.unit }]
+      : []
 
   return {
     profile: {
       birthYear: d.birthYear,
       heightCm: d.heightCm,
+      weightKg: d.weightKg ?? (archetype === 'body_composition' ? d.metricStart : null),
       sexAtBirth: d.sexAtBirth,
-      lifeSituation: null,
       sport: {
         preferredActivities: d.preferredActivities,
         dislikedActivities: d.dislikedActivities,
@@ -94,27 +136,40 @@ function toAnswers(d: Draft): Answers {
         eatsOutPerWeek: d.eatsOutPerWeek,
         dietaryPattern: d.dietaryPattern,
         mealsPerDay: d.mealsPerDay,
+        vegetablePortionsPerDay: d.vegetablePortionsPerDay,
+        sugaryDrinksPerDay: d.sugaryDrinksPerDay,
+      },
+      sleep: {
+        usualBedtime: d.usualBedtime,
+        usualWakeTime: d.usualWakeTime,
+        quality: d.sleepQuality,
+        wakesAtNight: d.wakesAtNight,
+        screenBeforeBed: d.screenBeforeBed,
+      },
+      mind: {
+        screenTimeHoursPerDay: d.screenTimeHoursPerDay,
+        focusStruggle: d.focusStruggle,
+        existingRoutines: d.existingRoutines.split(',').map((r) => r.trim()).filter(Boolean),
       },
     },
     goal: {
-      title: `${Math.max(0, Math.round((start - target) * 10) / 10)} kg abnehmen`,
+      rawText: d.goalText.trim(),
+      archetype,
       targetDate: d.targetDate,
+      classifiedBy: d.archetype === null ? 'keywords' : 'user',
     },
-    metrics: [{ metricKey: 'weight_kg', startValue: start, targetValue: target, unit: 'kg' }],
+    metrics,
     constraints:
       d.blockedDays.length > 0
         ? [{ kind: 'time', hard: true, value: { type: 'no_training_on', weekdays: d.blockedDays } }]
         : [],
     schedule: {
-      wakeTime: null,
-      sleepTime: null,
       workPattern: d.workPattern,
       freeSlots: d.freeDays.map((weekday) => ({
         weekday,
-        start: start20,
+        start: SLOT_START[d.slotTime ?? 'evening'],
         minutes: d.slotMinutes ?? 45,
       })),
-      weekendDiffers: false,
     },
   }
 }
@@ -128,266 +183,227 @@ export default function OnboardingPage() {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setD((prev) => ({ ...prev, [key]: value }))
 
-  const goalReady =
-    d.startWeight !== null && d.targetWeight !== null && d.startWeight > d.targetWeight
-  const canContinue = step === 0 ? goalReady : true
-  const isLast = step === STEPS.length - 1
+  const detected = useMemo(() => classifyGoalText(d.goalText), [d.goalText])
+  const archetype = d.archetype ?? detected.archetype
+  const metricSpec = METRIC_FOR[archetype]
+
+  // The metric step is skipped for goals that have no number to state.
+  const visibleSteps = STEPS.filter((_, i) => i !== 1 || metricSpec !== undefined)
+  const stepName = visibleSteps[step]
+  const isLast = step === visibleSteps.length - 1
+  const canContinue = stepName !== 'Ziel' || d.goalText.trim().length >= 3
 
   const finish = () => {
-    saveAnswers(toAnswers(d))
+    saveAnswers(buildAnswers(d, archetype))
     router.push('/today')
   }
 
   return (
     <Screen>
-      <StepProgress step={step} total={STEPS.length} />
+      <StepProgress step={step} total={visibleSteps.length} />
       <ScreenTitle
-        title={STEPS[step]}
+        title={stepName}
         subtitle={
-          step === 0
-            ? 'Nur das Nötigste. Alles Weitere fragt die App später, wenn es zählt.'
+          stepName === 'Ziel'
+            ? 'Schreib in eigenen Worten, was du erreichen willst. Alles Weitere richtet sich danach.'
             : undefined
         }
       />
 
-      {step === 0 && (
+      {stepName === 'Ziel' && (
         <>
-          <Field label="Was wiegst du aktuell?">
-            <NumberInput value={d.startWeight} onChange={(v) => set('startWeight', v)} suffix="kg" placeholder="z. B. 80" />
+          <Field label="Was möchtest du erreichen?" hint="Zum Beispiel: besser schlafen, 10 km laufen, 5 kg abnehmen, weniger am Handy.">
+            <TextArea
+              value={d.goalText}
+              onChange={(v) => set('goalText', v)}
+              placeholder="Ich möchte …"
+            />
           </Field>
-          <Field label="Was möchtest du wiegen?">
-            <NumberInput value={d.targetWeight} onChange={(v) => set('targetWeight', v)} suffix="kg" placeholder="z. B. 75" />
-          </Field>
-          <Field label="Bis wann?" hint="Optional. Ist der Wunsch zu schnell, verschiebt die App das Datum – nicht das Tempo.">
-            <DateInput value={d.targetDate} onChange={(v) => set('targetDate', v)} />
-          </Field>
-          {d.startWeight !== null && d.targetWeight !== null && !goalReady && (
-            <Note>Das Zielgewicht muss unter deinem aktuellen Gewicht liegen.</Note>
+
+          {d.goalText.trim().length >= 3 && (
+            <Card tone="accent">
+              <p className="text-sm font-semibold text-ink">
+                Erkannt als: {ARCHETYPE_LABEL[archetype]}
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                Danach richtet sich, was geplant wird — und welche Sicherheitsgrenzen gelten.
+                Passt das nicht, korrigier es hier.
+              </p>
+              <div className="mt-3">
+                <ChoiceGroup
+                  options={(Object.keys(ARCHETYPE_LABEL) as GoalArchetype[]).map((a) => ({
+                    value: a,
+                    label: ARCHETYPE_LABEL[a],
+                  }))}
+                  value={archetype}
+                  onChange={(v) => set('archetype', v)}
+                  columns={2}
+                />
+              </div>
+            </Card>
           )}
+
+          <div className="mt-6">
+            <Field label="Bis wann?" hint="Optional. Ist der Wunsch zu schnell, verschiebt die App das Datum – nicht das Tempo.">
+              <DateInput value={d.targetDate} onChange={(v) => set('targetDate', v)} />
+            </Field>
+          </div>
         </>
       )}
 
-      {step === 1 && (
+      {stepName === 'Messbar' && metricSpec && (
         <>
-          <Field label="Geburtsjahr" hint="Fließt in die Bedarfsberechnung ein.">
-            <NumberInput value={d.birthYear} onChange={(v) => set('birthYear', v)} min={1900} max={2020} placeholder="z. B. 1995" />
+          <Field label={metricSpec.startLabel}>
+            <NumberInput value={d.metricStart} onChange={(v) => set('metricStart', v)} suffix={metricSpec.unit} />
           </Field>
-          <Field label="Größe">
-            <NumberInput value={d.heightCm} onChange={(v) => set('heightCm', v)} suffix="cm" placeholder="z. B. 178" />
+          <Field label={metricSpec.targetLabel}>
+            <NumberInput value={d.metricTarget} onChange={(v) => set('metricTarget', v)} suffix={metricSpec.unit} />
           </Field>
-          <Field label="Geschlecht bei Geburt" hint="Nur für die Grundumsatzformel. Ohne Angabe rechnet die App vorsichtiger.">
+          <Note>Ohne Zahlen geht es auch — dann plant die App vorsichtiger.</Note>
+        </>
+      )}
+
+      {stepName === 'Über dich' && (
+        <>
+          <Field label="Geburtsjahr"><NumberInput value={d.birthYear} onChange={(v) => set('birthYear', v)} placeholder="z. B. 1995" /></Field>
+          <Field label="Größe"><NumberInput value={d.heightCm} onChange={(v) => set('heightCm', v)} suffix="cm" /></Field>
+          <Field label="Gewicht"><NumberInput value={d.weightKg} onChange={(v) => set('weightKg', v)} suffix="kg" /></Field>
+          <Field label="Geschlecht bei Geburt" hint="Nur für die Bedarfsberechnung. Ohne Angabe rechnet die App vorsichtiger.">
             <ChoiceGroup
-              options={[
-                { value: 'female', label: 'Weiblich' },
-                { value: 'male', label: 'Männlich' },
-                { value: 'unspecified', label: 'Keine Angabe' },
-              ]}
-              value={d.sexAtBirth}
-              onChange={(v) => set('sexAtBirth', v)}
-              columns={3}
+              options={[{ value: 'female', label: 'Weiblich' }, { value: 'male', label: 'Männlich' }, { value: 'unspecified', label: 'Keine Angabe' }]}
+              value={d.sexAtBirth} onChange={(v) => set('sexAtBirth', v)} columns={3}
             />
           </Field>
         </>
       )}
 
-      {step === 2 && (
+      {stepName === 'Alltag' && (
         <>
           <Field label="Wie sieht dein Alltag aus?">
             <ChoiceGroup
               options={[
-                { value: 'student', label: 'Studium' },
-                { value: 'office', label: 'Büro' },
-                { value: 'remote', label: 'Homeoffice' },
-                { value: 'shift', label: 'Schicht' },
+                { value: 'student', label: 'Studium' }, { value: 'office', label: 'Büro' },
+                { value: 'remote', label: 'Homeoffice' }, { value: 'shift', label: 'Schicht' },
                 { value: 'irregular', label: 'Unregelmäßig' },
               ]}
-              value={d.workPattern}
-              onChange={(v) => set('workPattern', v)}
+              value={d.workPattern} onChange={(v) => set('workPattern', v)}
             />
           </Field>
           <Field label="An welchen Tagen hast du Zeit?" hint="Realistisch, nicht optimistisch.">
-            <MultiChoice
-              options={WEEKDAYS.map((w) => ({ value: w, label: WEEKDAY_SHORT[w] }))}
-              values={d.freeDays}
-              onChange={(v) => set('freeDays', v)}
-              columns={4}
-            />
+            <MultiChoice options={WEEKDAYS.map((w) => ({ value: w, label: WEEKDAY_SHORT[w] }))} values={d.freeDays} onChange={(v) => set('freeDays', v)} columns={4} />
           </Field>
           <Field label="Wann meistens?">
-            <ChoiceGroup
-              options={[
-                { value: 'early', label: 'Morgens' },
-                { value: 'midday', label: 'Mittags' },
-                { value: 'evening', label: 'Abends' },
-              ]}
-              value={d.slotTime}
-              onChange={(v) => set('slotTime', v)}
-              columns={3}
-            />
+            <ChoiceGroup options={[{ value: 'early', label: 'Morgens' }, { value: 'midday', label: 'Mittags' }, { value: 'evening', label: 'Abends' }]} value={d.slotTime} onChange={(v) => set('slotTime', v)} columns={3} />
           </Field>
           <Field label="Wie viel Zeit am Stück?">
-            <ChoiceGroup
-              options={[
-                { value: 30, label: '30 Min' },
-                { value: 45, label: '45 Min' },
-                { value: 60, label: '60 Min' },
-                { value: 90, label: '90 Min' },
-              ]}
-              value={d.slotMinutes}
-              onChange={(v) => set('slotMinutes', v)}
-              columns={4}
-            />
+            <ChoiceGroup options={[30, 45, 60, 90].map((n) => ({ value: n, label: `${n} Min` }))} value={d.slotMinutes} onChange={(v) => set('slotMinutes', v)} columns={4} />
           </Field>
         </>
       )}
 
-      {step === 3 && (
+      {stepName === 'Sport' && (
         <>
           <Field label="Was machst du gerne?" hint="Mehrfachauswahl.">
             <MultiChoice
               options={[
-                { value: 'gym', label: 'Gym' },
-                { value: 'bodyweight', label: 'Körpergewicht' },
-                { value: 'running', label: 'Laufen' },
-                { value: 'cycling', label: 'Radfahren' },
-                { value: 'swimming', label: 'Schwimmen' },
-                { value: 'football', label: 'Fußball' },
-                { value: 'climbing', label: 'Klettern' },
-                { value: 'yoga', label: 'Yoga' },
+                { value: 'gym', label: 'Gym' }, { value: 'bodyweight', label: 'Körpergewicht' },
+                { value: 'running', label: 'Laufen' }, { value: 'cycling', label: 'Radfahren' },
+                { value: 'swimming', label: 'Schwimmen' }, { value: 'football', label: 'Fußball' },
+                { value: 'climbing', label: 'Klettern' }, { value: 'yoga', label: 'Yoga' },
               ]}
-              values={d.preferredActivities}
-              onChange={(v) => set('preferredActivities', v)}
+              values={d.preferredActivities} onChange={(v) => set('preferredActivities', v)}
             />
           </Field>
           <Field label="Was steht dir zur Verfügung?">
             <MultiChoice
               options={[
-                { value: 'none', label: 'Nichts' },
-                { value: 'home_basics', label: 'Kleingeräte' },
-                { value: 'home_gym', label: 'Heimstudio' },
-                { value: 'gym_membership', label: 'Gym-Abo' },
+                { value: 'none', label: 'Nichts' }, { value: 'home_basics', label: 'Kleingeräte' },
+                { value: 'home_gym', label: 'Heimstudio' }, { value: 'gym_membership', label: 'Gym-Abo' },
               ]}
-              values={d.equipment}
-              onChange={(v) => set('equipment', v)}
+              values={d.equipment} onChange={(v) => set('equipment', v)}
             />
           </Field>
           <Field label="Wie erfahren bist du?">
-            <ChoiceGroup
-              options={[
-                { value: 'beginner', label: 'Einsteiger' },
-                { value: 'intermediate', label: 'Geübt' },
-                { value: 'advanced', label: 'Erfahren' },
-              ]}
-              value={d.experience}
-              onChange={(v) => set('experience', v)}
-              columns={3}
-            />
+            <ChoiceGroup options={[{ value: 'beginner', label: 'Einsteiger' }, { value: 'intermediate', label: 'Geübt' }, { value: 'advanced', label: 'Erfahren' }]} value={d.experience} onChange={(v) => set('experience', v)} columns={3} />
           </Field>
           <Field label="Wie oft pro Woche?">
-            <ChoiceGroup
-              options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}×` }))}
-              value={d.sessionsPerWeekTarget}
-              onChange={(v) => set('sessionsPerWeekTarget', v)}
-              columns={4}
-            />
+            <ChoiceGroup options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}×` }))} value={d.sessionsPerWeekTarget} onChange={(v) => set('sessionsPerWeekTarget', v)} columns={4} />
           </Field>
           <Field label="Wie lange pro Einheit?">
-            <ChoiceGroup
-              options={[
-                { value: 25, label: '25 Min' },
-                { value: 45, label: '45 Min' },
-                { value: 60, label: '60 Min' },
-                { value: 75, label: '75 Min' },
-              ]}
-              value={d.preferredSessionMinutes}
-              onChange={(v) => set('preferredSessionMinutes', v)}
-              columns={4}
-            />
+            <ChoiceGroup options={[25, 45, 60, 75].map((n) => ({ value: n, label: `${n} Min` }))} value={d.preferredSessionMinutes} onChange={(v) => set('preferredSessionMinutes', v)} columns={4} />
           </Field>
         </>
       )}
 
-      {step === 4 && (
-        <>
-          <Field label="Was möchtest du auf keinen Fall?" hint="Diese Aktivitäten schlägt die App dir nie vor.">
-            <MultiChoice
-              options={[
-                { value: 'gym', label: 'Gym' },
-                { value: 'running', label: 'Laufen' },
-                { value: 'swimming', label: 'Schwimmen' },
-                { value: 'yoga', label: 'Yoga' },
-              ]}
-              values={d.dislikedActivities}
-              onChange={(v) => set('dislikedActivities', v)}
-            />
-          </Field>
-          <Field label="Gibt es Tage, an denen Training nie geht?" hint="Etwa wegen Vereinstraining oder fester Termine.">
-            <MultiChoice
-              options={WEEKDAYS.map((w) => ({ value: w, label: WEEKDAY_SHORT[w] }))}
-              values={d.blockedDays}
-              onChange={(v) => set('blockedDays', v)}
-              columns={4}
-            />
-          </Field>
-          <Note>Beides ist eine harte Grenze: Die App plant dort nichts hinein, auch nicht ausnahmsweise.</Note>
-        </>
-      )}
-
-      {step === 5 && (
+      {stepName === 'Ernährung' && (
         <>
           <Field label="Wie oft kochst du?">
-            <ChoiceGroup
-              options={[
-                { value: 'never', label: 'Nie' },
-                { value: 'sometimes', label: 'Manchmal' },
-                { value: 'often', label: 'Oft' },
-              ]}
-              value={d.cooksAtHome}
-              onChange={(v) => set('cooksAtHome', v)}
-              columns={3}
-            />
+            <ChoiceGroup options={[{ value: 'never', label: 'Nie' }, { value: 'sometimes', label: 'Manchmal' }, { value: 'often', label: 'Oft' }]} value={d.cooksAtHome} onChange={(v) => set('cooksAtHome', v)} columns={3} />
           </Field>
           <Field label="Wie viel Zeit hast du dafür?">
-            <ChoiceGroup
-              options={[
-                { value: 15, label: '15 Min' },
-                { value: 30, label: '30 Min' },
-                { value: 45, label: '45 Min' },
-                { value: 60, label: '60+ Min' },
-              ]}
-              value={d.timeForCookingMin}
-              onChange={(v) => set('timeForCookingMin', v)}
-              columns={4}
-            />
+            <ChoiceGroup options={[15, 30, 45, 60].map((n) => ({ value: n, label: `${n} Min` }))} value={d.timeForCookingMin} onChange={(v) => set('timeForCookingMin', v)} columns={4} />
           </Field>
           <Field label="Wie oft isst du auswärts?" hint="Pro Woche. Die App verbietet es nicht – sie plant damit.">
-            <ChoiceGroup
-              options={[0, 1, 2, 4, 6].map((n) => ({ value: n, label: `${n}×` }))}
-              value={d.eatsOutPerWeek}
-              onChange={(v) => set('eatsOutPerWeek', v)}
-              columns={4}
-            />
+            <ChoiceGroup options={[0, 1, 2, 4, 6].map((n) => ({ value: n, label: `${n}×` }))} value={d.eatsOutPerWeek} onChange={(v) => set('eatsOutPerWeek', v)} columns={4} />
           </Field>
           <Field label="Ernährungsform">
-            <ChoiceGroup
-              options={[
-                { value: 'omnivore', label: 'Alles' },
-                { value: 'vegetarian', label: 'Vegetarisch' },
-                { value: 'vegan', label: 'Vegan' },
-              ]}
-              value={d.dietaryPattern}
-              onChange={(v) => set('dietaryPattern', v)}
-              columns={3}
-            />
+            <ChoiceGroup options={[{ value: 'omnivore', label: 'Alles' }, { value: 'vegetarian', label: 'Vegetarisch' }, { value: 'vegan', label: 'Vegan' }]} value={d.dietaryPattern} onChange={(v) => set('dietaryPattern', v)} columns={3} />
           </Field>
           <Field label="Mahlzeiten pro Tag">
-            <ChoiceGroup
-              options={[2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))}
-              value={d.mealsPerDay}
-              onChange={(v) => set('mealsPerDay', v)}
-              columns={4}
+            <ChoiceGroup options={[2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} value={d.mealsPerDay} onChange={(v) => set('mealsPerDay', v)} columns={4} />
+          </Field>
+          <Field label="Portionen Gemüse oder Obst am Tag">
+            <ChoiceGroup options={[0, 1, 2, 3, 5].map((n) => ({ value: n, label: String(n) }))} value={d.vegetablePortionsPerDay} onChange={(v) => set('vegetablePortionsPerDay', v)} columns={5} />
+          </Field>
+          <Field label="Gesüßte Getränke am Tag">
+            <ChoiceGroup options={[0, 1, 2, 3, 5].map((n) => ({ value: n, label: String(n) }))} value={d.sugaryDrinksPerDay} onChange={(v) => set('sugaryDrinksPerDay', v)} columns={5} />
+          </Field>
+        </>
+      )}
+
+      {stepName === 'Schlaf' && (
+        <>
+          <Field label="Wann gehst du normalerweise schlafen?"><TimeInput value={d.usualBedtime} onChange={(v) => set('usualBedtime', v)} /></Field>
+          <Field label="Wann stehst du auf?"><TimeInput value={d.usualWakeTime} onChange={(v) => set('usualWakeTime', v)} /></Field>
+          <Field label="Wie gut schläfst du?">
+            <ChoiceGroup options={[{ value: 'poor', label: 'Schlecht' }, { value: 'ok', label: 'Geht so' }, { value: 'good', label: 'Gut' }]} value={d.sleepQuality} onChange={(v) => set('sleepQuality', v)} columns={3} />
+          </Field>
+          <Field label="Wachst du nachts auf?">
+            <ChoiceGroup options={[{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }]} value={d.wakesAtNight === null ? null : d.wakesAtNight ? 'yes' : 'no'} onChange={(v) => set('wakesAtNight', v === 'yes')} columns={2} />
+          </Field>
+          <Field label="Bildschirm kurz vor dem Schlafen?">
+            <ChoiceGroup options={[{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }]} value={d.screenBeforeBed === null ? null : d.screenBeforeBed ? 'yes' : 'no'} onChange={(v) => set('screenBeforeBed', v === 'yes')} columns={2} />
+          </Field>
+          <Note>Die App empfiehlt dir nie weniger Schlaf — bei keinem Ziel.</Note>
+        </>
+      )}
+
+      {stepName === 'Kopf' && (
+        <>
+          <Field label="Bildschirmzeit am Tag">
+            <ChoiceGroup options={[1, 2, 4, 6, 9].map((n) => ({ value: n, label: `${n} h` }))} value={d.screenTimeHoursPerDay} onChange={(v) => set('screenTimeHoursPerDay', v)} columns={5} />
+          </Field>
+          <Field label="Wie leicht fällt dir Fokus?">
+            <ChoiceGroup options={[{ value: 'low', label: 'Leicht' }, { value: 'medium', label: 'Mittel' }, { value: 'high', label: 'Schwer' }]} value={d.focusStruggle} onChange={(v) => set('focusStruggle', v)} columns={3} />
+          </Field>
+          <Field label="Was machst du schon jeden Tag?" hint="Mit Komma trennen. Neue Gewohnheiten hängt die App daran auf.">
+            <TextArea value={d.existingRoutines} onChange={(v) => set('existingRoutines', v)} placeholder="Kaffee um 7, Hund um 18 Uhr" rows={2} />
+          </Field>
+        </>
+      )}
+
+      {stepName === 'Grenzen' && (
+        <>
+          <Field label="Was möchtest du auf keinen Fall?">
+            <MultiChoice
+              options={[{ value: 'gym', label: 'Gym' }, { value: 'running', label: 'Laufen' }, { value: 'swimming', label: 'Schwimmen' }, { value: 'yoga', label: 'Yoga' }]}
+              values={d.dislikedActivities} onChange={(v) => set('dislikedActivities', v)}
             />
           </Field>
+          <Field label="Gibt es Tage, an denen Training nie geht?">
+            <MultiChoice options={WEEKDAYS.map((w) => ({ value: w, label: WEEKDAY_SHORT[w] }))} values={d.blockedDays} onChange={(v) => set('blockedDays', v)} columns={4} />
+          </Field>
+          <Note>Beides ist eine harte Grenze: Die App plant dort nichts hinein, auch nicht ausnahmsweise.</Note>
         </>
       )}
 
@@ -395,15 +411,11 @@ export default function OnboardingPage() {
         <Button onClick={isLast ? finish : () => setStep(step + 1)} disabled={!canContinue}>
           {isLast ? 'Plan erstellen' : 'Weiter'}
         </Button>
-        {step > 0 && (
-          <Button variant="quiet" onClick={() => setStep(step - 1)}>
-            Zurück
-          </Button>
-        )}
+        {step > 0 && <Button variant="quiet" onClick={() => setStep(step - 1)}>Zurück</Button>}
         {step > 0 && !isLast && (
           <button
             type="button"
-            onClick={() => setStep(STEPS.length - 1)}
+            onClick={() => setStep(visibleSteps.length - 1)}
             className="mt-1 text-center text-xs font-medium text-faint underline underline-offset-4"
           >
             Rest überspringen – die App nimmt vorsichtige Annahmen

@@ -32,64 +32,69 @@ async function main() {
   }
 
   // --------------------------------------------------------- onboarding ---
+  // A sleep goal on purpose: before the course correction the app could only
+  // plan weight loss, so this is the flow that proves the goal is open.
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
   await page.waitForURL('**/onboarding')
-  await shot('01-onboarding-goal')
-
-  await page.getByPlaceholder('z. B. 80').fill('82')
-  await page.getByPlaceholder('z. B. 75').fill('77')
+  await page.getByPlaceholder('Ich möchte …').fill('Ich will endlich besser schlafen')
+  await shot('01-goal-freetext')
   await page.getByRole('button', { name: 'Weiter' }).click()
 
   await page.getByPlaceholder('z. B. 1995').fill('1995')
-  await page.getByPlaceholder('z. B. 178').fill('178')
   await page.getByRole('button', { name: 'Männlich' }).click()
-  await shot('02-onboarding-about')
+  await shot('02-about')
   await page.getByRole('button', { name: 'Weiter' }).click()
 
   await page.getByRole('button', { name: 'Büro' }).click()
   for (const day of ['Di', 'Do', 'Sa']) await page.getByRole('button', { name: day, exact: true }).click()
   await page.getByRole('button', { name: 'Abends' }).click()
   await page.getByRole('button', { name: '60 Min' }).click()
-  await shot('03-onboarding-routine')
+  await shot('03-routine')
   await page.getByRole('button', { name: 'Weiter' }).click()
 
   await page.getByRole('button', { name: 'Gym', exact: true }).click()
   await page.getByRole('button', { name: 'Gym-Abo' }).click()
   await page.getByRole('button', { name: 'Geübt' }).click()
   await page.getByRole('button', { name: '3×' }).click()
-  await page.getByRole('button', { name: '45 Min' }).click()
-  await shot('04-onboarding-sport')
-  await page.getByRole('button', { name: 'Weiter' }).click()
-
-  await page.getByRole('button', { name: 'Laufen', exact: true }).click()
-  await shot('05-onboarding-limits')
+  await shot('04-sport')
   await page.getByRole('button', { name: 'Weiter' }).click()
 
   await page.getByRole('button', { name: 'Manchmal' }).click()
-  await page.getByRole('button', { name: '30 Min' }).click()
-  await page.getByRole('button', { name: '2×' }).click()
   await page.getByRole('button', { name: 'Alles' }).click()
-  await page.getByRole('button', { name: '3', exact: true }).click()
-  await shot('06-onboarding-nutrition')
+  await shot('05-nutrition')
+  await page.getByRole('button', { name: 'Weiter' }).click()
+
+  await page.locator('input[type="time"]').first().fill('00:45')
+  await page.locator('input[type="time"]').last().fill('06:30')
+  await page.getByRole('button', { name: 'Schlecht' }).click()
+  await shot('06-sleep')
+  await page.getByRole('button', { name: 'Weiter' }).click()
+
+  await page.getByRole('button', { name: '6 h' }).click()
+  await page.getByRole('button', { name: 'Schwer' }).click()
+  await shot('07-mind')
+  await page.getByRole('button', { name: 'Weiter' }).click()
+
+  await shot('08-limits')
   await page.getByRole('button', { name: 'Plan erstellen' }).click()
 
   // --------------------------------------------------------- the screens ---
   await page.waitForURL('**/today')
-  await shot('07-today')
+  await shot('09-today')
 
   // Exercise the status control so the interaction is verified, not just rendered.
   const firstDone = page.getByRole('button', { name: 'Erledigt' }).first()
   if (await firstDone.count()) {
     await firstDone.click()
-    await shot('08-today-checked')
+    await shot('10-today-checked')
   }
 
   for (const [name, path] of [
-    ['09-plan', '/plan'],
-    ['10-progress', '/progress'],
-    ['11-insights', '/insights'],
-    ['12-playbook', '/playbook'],
-    ['13-profile', '/profile'],
+    ['11-plan', '/plan'],
+    ['12-progress', '/progress'],
+    ['13-insights', '/insights'],
+    ['14-playbook', '/playbook'],
+    ['15-profile', '/profile'],
   ] as const) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' })
     await shot(name)

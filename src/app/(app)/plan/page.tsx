@@ -24,13 +24,11 @@ export default function PlanPage() {
           />
 
           <Card tone="accent">
-            <p className="text-sm font-semibold text-ink">Die Strategie dahinter</p>
+            <p className="text-sm font-semibold text-ink">{plan.strategy.goalTrack.headline}</p>
             <ul className="mt-2 space-y-1 text-sm text-muted">
-              <li>
-                {plan.strategy.trainingSessions}× Training à {plan.strategy.sessionMinutes} Min
-              </li>
-              <li>{plan.strategy.targetIntakeKcal} kcal pro Tag</li>
-              <li>{plan.strategy.restWeekdays.length} Ruhetage</li>
+              {plan.strategy.goalTrack.summary.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
             </ul>
           </Card>
 
@@ -59,7 +57,7 @@ export default function PlanPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <p className="text-sm font-medium text-ink">{item.title}</p>
-                          <DomainBadge domain={item.domain} />
+                          <DomainBadge domain={item.domain} track={item.track} />
                         </div>
                         <Reasoning>{item.rationale.text}</Reasoning>
                       </div>

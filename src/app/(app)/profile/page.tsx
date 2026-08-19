@@ -5,6 +5,18 @@ import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 
+import type { GoalArchetype } from '@/lib/domain/types'
+
+const ARCHETYPE_LABEL: Record<GoalArchetype, string> = {
+  body_composition: 'Körper und Gewicht',
+  strength: 'Kraft und Muskelaufbau',
+  endurance: 'Ausdauer',
+  sleep_recovery: 'Schlaf und Erholung',
+  nutrition_quality: 'Ernährungsqualität',
+  habit_routine: 'Gewohnheit und Routine',
+  general_health: 'Allgemeine Gesundheit',
+}
+
 const WORK_PATTERN: Record<string, string> = {
   student: 'Studium', office: 'Büro', remote: 'Homeoffice',
   shift: 'Schicht', irregular: 'Unregelmäßig',
@@ -26,17 +38,26 @@ export default function ProfilePage() {
 
             <SectionHeading>Ziel</SectionHeading>
             <Card>
-              <dl className="space-y-2 text-sm">
-                <Row label="Aktuell" value={`${weight.startValue} kg`} />
-                <Row label="Ziel" value={`${weight.targetValue} kg`} />
-                <Row label="Tempo" value={`${plan.strategy.ratePerWeekKg} kg pro Woche`} />
+              <p className="text-sm font-semibold text-ink">&bdquo;{answers!.goal.rawText}&ldquo;</p>
+              <p className="mt-1 text-sm text-muted">
+                Eingeordnet als {ARCHETYPE_LABEL[plan.strategy.archetype]}
+                {answers!.goal.classifiedBy === 'keywords' && ' (ohne KI erkannt)'}
+              </p>
+              <dl className="mt-3 space-y-2 text-sm">
+                {weight && (
+                  <>
+                    <Row label="Aktuell" value={`${weight.startValue} ${weight.unit}`} />
+                    <Row label="Ziel" value={`${weight.targetValue} ${weight.unit}`} />
+                  </>
+                )}
+                <Row label="Zielspur" value={plan.strategy.goalTrack.headline} />
               </dl>
             </Card>
 
             <SectionHeading>Alltag und Sport</SectionHeading>
             <Card>
               <dl className="space-y-2 text-sm">
-                <Row label="Rhythmus" value={p.lifeSituation ?? WORK_PATTERN[answers!.schedule.workPattern ?? ''] ?? 'Keine Angabe'} />
+                <Row label="Rhythmus" value={WORK_PATTERN[answers!.schedule.workPattern ?? ''] ?? 'Keine Angabe'} />
                 <Row label="Freie Tage" value={`${answers!.schedule.freeSlots.length} pro Woche`} />
                 <Row label="Leistungsstand" value={p.sport.experience ?? 'Keine Angabe'} />
                 <Row

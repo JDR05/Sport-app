@@ -7,6 +7,35 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-027: Bei benachbarten freien Tagen wird der Körper aufgeteilt
+
+**Entscheidung:** Liegen die einzigen freien Trainingstage direkt nebeneinander, plant der
+Kraft-Archetyp einen Split nach Muskelgruppen statt zweimal Ganzkörper — auch für Einsteiger,
+für die sonst Ganzkörper vorgesehen wäre.
+
+**Begründung:** Die Erholungsregel verbietet zwei schwere Einheiten für dieselbe Muskelgruppe
+innerhalb von zwei Tagen. Bei jemandem, der nur Samstag und Sonntag frei hat, kollidiert das
+mit dem Wunsch, zweimal zu trainieren. Die Einheit zu streichen wäre die bequeme Antwort; den
+Körper aufzuteilen ist die richtige. Aufgefallen, als der Feldwirksamkeitstest einen
+Trainingsausschluss auf Dienstag und Donnerstag setzte.
+
+---
+
+## 2026-08-19 — ADR-026: Schlaf-Invariante prüft die Richtung, nicht die Ankunft
+
+**Entscheidung:** Die Sicherheitsprüfung für Schlafziele verlangt drei Dinge: der Plan darf
+den Schlaf nie verkürzen, er muss ihn bewegen, wenn er unter sieben Stunden liegt, und die
+Verschiebung darf 30 Minuten pro Woche nicht überschreiten. Sie verlangt **nicht**, dass der
+Plan die sieben Stunden sofort erreicht.
+
+**Begründung:** Die erste Fassung tat genau das und lehnte damit jeden Plan für Menschen ab,
+die fünf Stunden schlafen — obwohl die 30-Minuten-Regel es unmöglich macht, dort in einer
+Woche hinzukommen. Zwei Regeln, die sich gegenseitig ausschließen. Eine zweite Fassung warf
+zusätzlich bei Menschen, die zehn Stunden schlafen: der Plan hatte das gar nicht empfohlen,
+die Person schläft schlicht so. Eine Invariante darf nur beanstanden, was die App selbst tut.
+
+---
+
 ## 2026-08-19 — ADR-025: Sicherheitsgrenzen gelten je Zielart
 
 **Entscheidung:** Jeder Archetyp bringt eigene Invarianten mit. Kalorien-Untergrenzen und
