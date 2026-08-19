@@ -11,6 +11,17 @@ Goal → Plan → Action → Result → Analysis → Hypothesis
         Adaptation ← Learning ← Result ← Experiment
 ```
 
+Der Zyklus läuft **zweistufig**. Ohne diese Trennung passiert in Woche 1 sichtbar nichts,
+weil die statistische Schwelle noch nicht erreicht ist:
+
+- **Planpflege** — ab Tag 2, deterministisch, kleine Verschiebungen, ehrlich als vorläufig
+  gekennzeichnet. Erzeugt **keine** Personal Rule.
+- **Experiment** — ab der statistischen Schwelle, eine Variable, feste Laufzeit, Baseline.
+  Erzeugt bei Erfolg eine Personal Rule.
+
+Nur bestätigte Experimente schreiben ins Personal Model. Damit bleibt das Playbook
+glaubwürdig, und der Nutzer sieht trotzdem früh Bewegung.
+
 ## Schritt 1 — Detection
 
 Eingang: geplantes Verhalten, tatsächliches Verhalten, Zeitpunkt, Kontext, Zielmetrik.
@@ -20,7 +31,10 @@ entsteht, müssen erfüllt sein:
 
 - die Abweichung wiederholt sich (mehrfach, nicht einmalig),
 - es liegt eine ausreichende Datenbasis vor (Mindestanzahl geplanter Instanzen),
-- die betroffenen Items sind als `missed` markiert, nicht als `not_relevant`.
+- die betroffenen Items sind als `missed` markiert, nicht als `not_relevant`,
+- und **nicht als `unknown`**: ein Tag ohne Eingabe ist fehlende Information, kein Versagen.
+  Ohne diese Regel erzeugt Trackingmüdigkeit falsche Muster und das System redet dem Nutzer
+  ein Problem ein, das er nicht hat.
 
 Wird die Schwelle nicht erreicht, passiert **nichts**. Kein Vorschlag, kein Hinweis, keine
 Nachfrage. Verfrühte Interventionen sind der schnellste Weg, Vertrauen zu verlieren.
@@ -59,6 +73,12 @@ Ergebnis gegen Baseline, nicht gegen das Gefühl. Die Auswertung ist determinist
 berücksichtigt, dass kurze Zeiträume rauschen: eine Verbesserung unterhalb der
 Rauschschwelle gilt als „kein Effekt", nicht als Erfolg.
 
+**Ausgewertet wird ausschließlich an Verhaltensmetriken** (Erfüllungsquote, Trainingsanzahl,
+Snackhäufigkeit) — niemals am Gewicht. Bei 5 kg über 12 Wochen liegt das wöchentliche Signal
+bei rund 0,4 kg und damit unter der Tagesschwankung; ein 7-Tage-Experiment wäre am Gewicht
+reines Rauschen. Falsche Regeln aus solchen Auswertungen würden das Personal Model dauerhaft
+vergiften.
+
 ## Schritt 6 — Decision
 
 Drei mögliche Ausgänge: **behalten**, **verwerfen**, **weiter testen** (wenn die Datenbasis
@@ -87,6 +107,8 @@ geschwächt werden — die Person ändert sich, das Modell muss das können.
 - Aus einer einzelnen Abweichung ein Muster machen.
 - Mehrere Variablen gleichzeitig verändern.
 - Ein Experiment vorschlagen, das eine Sicherheitsgrenze verletzt.
-- `not_relevant` als Verhaltensversagen werten.
+- `not_relevant` oder `unknown` als Verhaltensversagen werten.
+- Ein Experiment an einer Zielmetrik statt an einer Verhaltensmetrik auswerten.
+- Aus Planpflege eine Personal Rule ableiten.
 - Rückschläge moralisch bewerten.
 - Einen Vorschlag machen, ohne die zugrunde liegenden Daten zeigen zu können.

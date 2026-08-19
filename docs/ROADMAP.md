@@ -16,12 +16,12 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | Schritt | Inhalt | Status |
 | --- | --- | --- |
 | 0 | Fundament: Projektstruktur, `CLAUDE.md`, `DECISIONS.md`, Phase-0-Dokumente | **erledigt** |
-| 1 | Product Critic: `PRODUCT_CRITIQUE.md`, daraus `FINAL_ARCHITECTURE.md` | offen |
+| 1 | Product Critic: `PRODUCT_CRITIQUE.md`, daraus `FINAL_ARCHITECTURE.md` | **erledigt** |
 | 2 | Datenfundament: Supabase-Projekt, Migrations, RLS, generierte Typen, Tests | offen |
-| 3 | Goal & Plan Engine, Sicherheitsinvarianten, Personalisierungstest | offen |
-| 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Profile | offen |
+| 3 | Goal & Plan Engine, Sicherheitsinvarianten, Struktur- und Feldwirksamkeitstest | offen |
+| 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Playbook, Profile | offen |
 | 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | offen |
-| 6 | Adaptive Engine: Erkennung, Hypothesen, Experimente, Personal Rules | offen |
+| 6 | Adaptive Engine: Planpflege, Erkennung, Hypothesen, Experimente, Personal Rules | offen |
 | 7 | AI-Layer: Adapter, Schemas, Validierung, Fallback, versionierte Prompts | offen |
 | 8 | End-to-End-QA: drei Personas, Edge Cases, Regressionslauf | offen |
 

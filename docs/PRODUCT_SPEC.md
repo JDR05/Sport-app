@@ -57,15 +57,21 @@ Zielkonflikte erkennen. Im MVP ist genau ein aktives Hauptziel erlaubt.
 ## Der initiale Plan
 
 Der erste Plan ist eine **Start-Hypothese**, kein perfekter Plan — und wird dem Nutzer auch
-so präsentiert. Er kann Ernährung, Training, Bewegung, Schlaf/Recovery, kleine
-Self-Improvement-Aktionen und Tagesprioritäten enthalten. Entscheidend ist, dass der Nutzer
+so präsentiert. Im MVP enthält er Ernährung, Training und Bewegung; Schlaf/Recovery,
+Self-Improvement-Aktionen und Tagesprioritäten kommen ab V2 dazu. Jedes Element trägt eine
+Begründung, die auf die Angaben des Nutzers verweist — Personalisierung, die man nicht sieht,
+existiert für den Nutzer nicht. Entscheidend ist, dass der Nutzer
 auf einen Blick sieht, *was er heute tun muss* — nicht eine Liste möglicher Optimierungen.
 
 ## Screens
 
-**Today** — Top-Ziel des Tages, 3–5 wichtigste Aktionen, Training, Ernährung, Bewegung,
-Schlaf/Recovery, eine kleine Entwicklungsaktion, Termine und Zeitfenster. Jede Aufgabe trägt
-einen Status: geplant, erledigt, verschoben, nicht geschafft, nicht relevant.
+**Today** — Top-Ziel des Tages und 3–5 konkrete Aktionen aus den drei MVP-Domains
+**Ernährung, Training, Bewegung**. Jede Aufgabe trägt einen Status: geplant, erledigt,
+verschoben, nicht geschafft, nicht relevant, oder — ohne Eingabe — unbekannt.
+
+Schlaf/Recovery wird als Kontext erfasst, aber nicht als geplante Aktion. Eine
+Entwicklungsaktion sowie Termine und Zeitfenster sind laut `FINAL_ARCHITECTURE.md` aus dem
+MVP entfernt: sieben Blöcke widersprechen dem eigenen Prinzip „3–5 wichtigste Aktionen".
 
 **Plan** — Tages- und Wochenplan.
 
@@ -75,13 +81,17 @@ Was läuft gut? Was hält mich zurück? Was ist jetzt wichtig?
 
 **Insights** — Erkenntnisse und laufende Experimente.
 
+**Playbook** — die wachsende Liste bestätigter persönlicher Regeln, jede mit Beleg. Ab Tag 1
+sichtbar, anfangs leer und mit Fortschrittsanzeige bis zur ersten Regel. Das ist das
+Artefakt, das ein Chat prinzipiell nicht haben kann.
+
 **Profile** — Lebenssituation, Präferenzen, Ziele, Einstellungen.
 
 ## Motivation
 
 Kontextbezogen, nicht als Dauerbeschallung. Kurze konkrete Hinweise, sichtbarer Fortschritt,
 Rückschläge normalisieren, nächste Aktion hervorheben. Keine Schuldmechanik. Optional
-verschiedene Motivationsstile (direkt, ruhig, spielerisch) — im MVP nachrangig.
+verschiedene Motivationsstile (direkt, ruhig, spielerisch) — auf V2 verschoben.
 
 ## Monetarisierung (Hypothese)
 

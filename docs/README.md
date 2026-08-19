@@ -13,6 +13,8 @@ Produkt- und Architekturentscheidungen. Die dauerhaften Projektregeln stehen in
 | `ADAPTIVE_ENGINE.md` | Die Lernschleife im Detail: Erkennung, Hypothese, Experiment, Regel |
 | `MVP_SCOPE.md` | Was im MVP enthalten ist, was nicht, und wann er als fertig gilt |
 | `ROADMAP.md` | Entwicklungsstufen V0–V3 und die Schrittfolge der Umsetzung |
+| `PRODUCT_CRITIQUE.md` | Angriff auf die eigene Planung — Schwächen und Gegenvorschläge |
+| `FINAL_ARCHITECTURE.md` | **Vorrang bei Widersprüchen.** Überarbeitete Planung nach der Kritik |
 
 Diese Dokumente sind aus zwei Quelldokumenten des Product Owners abgeleitet: dem Produktplan
 (Vision und Anforderungen) und dem Playbook (Entwicklungsprozess).

@@ -7,6 +7,104 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-015: Preisabfrage frühestens ab Monat 3
+
+**Entscheidung:** In Validierungsphase 5 wird keine Zahlungsbereitschaft abgefragt, sondern
+nur Absichtsbekundung und Abwanderungswiderstand. Preisfragen frühestens nach drei Monaten
+Nutzung.
+
+**Begründung:** Zahlungsbereitschaft entsteht aus dem, was man beim Wechsel verliert —
+Historie und Playbook. Nach vier Wochen existiert beides praktisch nicht. Eine Preisantwort
+zu diesem Zeitpunkt misst Höflichkeit, nicht Bereitschaft. Ersetzt die ursprüngliche
+Phase-5-Definition. Siehe `PRODUCT_CRITIQUE.md` K8.
+
+---
+
+## 2026-08-19 — ADR-014: Der Personalisierungstest misst strukturelle Distanz
+
+**Entscheidung:** Der Test aus ADR-007 vergleicht Struktur (welche Domains vorkommen, welche
+Strategie gewählt wurde, Anzahl und Verteilung der Aktionen, Art der Ernährungsumsetzung),
+nicht Feldwerte. Die Schwelle wird vor der Implementierung festgelegt. Ergänzt um einen
+Feldwirksamkeitstest: jedes Onboarding-Feld aus Stufe 1 muss den Plan nachweislich
+verändern.
+
+**Begründung:** Innerhalb eines einzigen Use Case ist der Variationsraum klein. Ein Test, der
+nur Uhrzeiten vergleicht, besteht auch dann, wenn keine echte Personalisierung existiert —
+und erzeugt falsche Sicherheit genau in der Frage, die das Playbook als wichtigste
+bezeichnet. Der Feldwirksamkeitstest macht zusätzlich den Zielkonflikt „kurzes Onboarding vs.
+Personalisierung" messbar. Siehe `PRODUCT_CRITIQUE.md` K7.
+
+---
+
+## 2026-08-19 — ADR-013: Zweistufige Adaptation — Planpflege und Experiment
+
+**Entscheidung:** Anpassungen laufen in zwei getrennten Stufen. **Planpflege** greift ab
+Tag 2, ist deterministisch und klein, wird als vorläufig gekennzeichnet und erzeugt keine
+Personal Rule. **Experimente** bleiben an die statistische Schwelle gebunden und sind die
+einzige Quelle für Personal Rules.
+
+**Begründung:** Die Adaptive Engine braucht Wochen, bis sie ein Muster belegen kann — die
+Retention-Entscheidung fällt aber in Tag 1 bis 7. Ohne die erste Stufe passiert in genau dem
+Fenster, in dem der Nutzer bleibt oder geht, sichtbar nichts. Ohne die Trennung würden
+vorläufige Anpassungen ins Personal Model schreiben und das Playbook entwerten. Siehe
+`PRODUCT_CRITIQUE.md` K1.
+
+---
+
+## 2026-08-19 — ADR-012: Verhaltens- und Zielmetriken sind getrennte Klassen
+
+**Entscheidung:** `measurements` trägt ein `metric_class` (`behavior` | `outcome`).
+Experimente werden ausschließlich an Verhaltensmetriken ausgewertet; Zielmetriken wie
+Gewicht dienen nur Progress und Zielprognose über lange Fenster. Die Engine erzwingt das
+über Typen.
+
+**Begründung:** Bei 5 kg über 12 Wochen liegt das wöchentliche Gewichtssignal bei rund
+0,4 kg und damit unter der normalen Tagesschwankung. Ein 7-Tage-Experiment am Gewicht
+auszuwerten produziert Zufallsentscheidungen — die dann als „gelernte persönliche Regel"
+gespeichert würden und das Personal Model dauerhaft vergiften. Siehe `PRODUCT_CRITIQUE.md`
+K4.
+
+---
+
+## 2026-08-19 — ADR-011: Statuswert `unknown` für fehlende Eingaben
+
+**Entscheidung:** `plan_items` erhält den Status `unknown` für Aufgaben ohne Nutzereingabe.
+Er geht nie in die Mustererkennung ein.
+
+**Begründung:** Der MVP hat bewusst keine Wearables und hängt damit vollständig an manuellem
+Tracking. Ohne diesen Status würde jede Trackinglücke als `missed` gewertet, aus
+Trackingmüdigkeit ein Verhaltensmuster erzeugt und dem Nutzer ein Problem eingeredet, das er
+nicht hat. Siehe `PRODUCT_CRITIQUE.md` K2.
+
+---
+
+## 2026-08-19 — ADR-010: Today umfasst im MVP drei Domains
+
+**Entscheidung:** Today zeigt Ernährung, Training und Bewegung. Schlaf wird als Kontext
+erfasst, aber nicht geplant. Self-Improvement-Aktionen und Termine/Zeitfenster entfallen im
+MVP.
+
+**Begründung:** Die ursprüngliche Screen-Definition listet sieben Blöcke bei gleichzeitigem
+Prinzip „3–5 wichtigste Aktionen" und „keine Datenüberflutung" — ein Widerspruch im selben
+Dokument. Termine setzen zudem eine Kalenderintegration voraus, die im MVP ausgeschlossen
+ist. Siehe `PRODUCT_CRITIQUE.md` K5.
+
+---
+
+## 2026-08-19 — ADR-009: Das Playbook wird ein eigener Screen im MVP
+
+**Entscheidung:** Die Liste bestätigter persönlicher Regeln bekommt einen eigenen Screen, ab
+Tag 1 sichtbar, anfangs leer und mit Fortschrittsanzeige bis zur ersten Regel. Jede Regel
+trägt ihren Beleg.
+
+**Begründung:** Der Unterschied zu einem Chatverlauf entsteht durch Persistenz plus
+Rückkopplung — das ist aber unsichtbar, und was der Nutzer nicht sehen kann, glaubt er nicht.
+Ein sichtbar wachsendes Artefakt, das ein Chat prinzipiell nicht haben kann, ist der
+Retention-Anker. Dies ist die einzige Scope-*Erweiterung* aus der Kritikphase; netto wird der
+MVP trotzdem kleiner. Siehe `PRODUCT_CRITIQUE.md` K3 und K9.
+
+---
+
 ## 2026-08-19 — ADR-008: Sicherheitsgrenzen sind Code, nicht Prompt
 
 **Entscheidung:** Kalorien-Untergrenzen, maximale Abnehmrate, Pflicht-Ruhetage und das

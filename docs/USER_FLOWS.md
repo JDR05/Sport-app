@@ -38,9 +38,19 @@ Today öffnen → Top-Ziel und 3–5 Aktionen sehen → ausführen
    → optional kurzer Check-in (Energie, Notiz)
 ```
 
-Der Statuswert „nicht relevant" ist wichtig: er unterscheidet „ich wollte nicht" von „das
-passte objektiv nicht in meinen Tag" und verhindert, dass die Adaptive Engine aus einem
-Planungsfehler ein Verhaltensmuster ableitet.
+Die Aktionen kommen aus drei Domains: Ernährung, Training, Bewegung.
+
+**Der Tagesabschluss muss in unter 15 Sekunden möglich sein** — ein Sammel-Prompt mit
+vorausgefüllten Werten, direkt auf Today, ohne Navigation. Das ist keine UX-Feinheit: der
+MVP hat keine Wearables, also hängt die gesamte Adaptive Engine an diesen Eingaben.
+
+Drei Statuswerte dürfen nicht zusammenfallen:
+
+- **nicht geschafft** (`missed`) — Verhaltenssignal, geht in die Mustererkennung ein.
+- **nicht relevant** (`not_relevant`) — Planungsfehler. Unterscheidet „ich wollte nicht" von
+  „das passte objektiv nicht in meinen Tag".
+- **unbekannt** (`unknown`) — der Nutzer hat nichts eingetragen. Fehlende Information, kein
+  Versagen, und **niemals** Grundlage einer Hypothese.
 
 ## 4. Messung
 
@@ -86,8 +96,9 @@ Kontext in die Analyse ein, lösen aber allein keine Hypothese aus.
 | --- | --- |
 | Onboarding-Abbruch | Plan mit konservativen Annahmen, Annahmen sichtbar |
 | Fehlende Messdaten | Progress zeigt „noch keine Daten", keine erfundenen Trends |
+| Mehrere Tage ohne Eingabe | Status `unknown`, keine Hypothese, kein Mahnen |
 | Widersprüchliche Angaben | Konflikt wird benannt, konservative Auflösung |
 | Sehr viele ausgelassene Tage | Kein Schuldnarrativ; Plan verkleinern statt wiederholen |
 | Zielkonflikt | Im MVP verhindert (nur ein aktives Ziel) |
-| Unrealistisches Ziel | Zeitraum wird auf sichere Rate gedeckelt, mit Erklärung |
+| Unrealistisches Ziel | Deckelung als Zusage mit Datum („5 kg bis 14. November"), nicht als Absage |
 | Lange Inaktivität | Sanfter Neustart |

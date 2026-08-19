@@ -7,6 +7,9 @@ entsteht. Grundlage sind zwei Dokumente des Product Owners: der **Produktplan** 
 Produkt ist) und das **Playbook** (wie entwickelt wird). Beide sind in `docs/` in
 Anforderungen übersetzt.
 
+**Bei Widersprüchen zwischen Dokumenten gilt `docs/FINAL_ARCHITECTURE.md`.** Es ist das
+Ergebnis der Kritikphase und überschreibt frühere Planung bewusst.
+
 ## Produktvision
 
 Eine persönliche, adaptive Goal-Execution-App. Der Nutzer beschreibt Alltag, Möglichkeiten
@@ -26,8 +29,11 @@ persönliche Verhaltensmodell.
 Der MVP validiert **einen** Use Case: „5 kg abnehmen" in einem realistischen Zeitraum.
 
 Enthalten: Account, gestaffeltes Onboarding, ein Hauptziel mit Zeitraum, persönlicher
-Startplan, Today, Wochenplan, Progress, einfaches Tracking, Gewicht/Zielmetrik, Check-ins,
-Wochenanalyse, erste Insights, Experimente und Plananpassungen.
+Startplan mit sichtbarer Begründung, Today, Wochenplan, Progress, Insights, Playbook,
+einfaches Tracking, Gewicht/Zielmetrik, Check-ins, Wochenanalyse, Planpflege, Experimente
+und Plananpassungen.
+
+Today umfasst im MVP genau drei Domains: **Ernährung, Training, Bewegung**.
 
 Nicht enthalten — und auch nicht „schnell nebenbei": Wearables und Health-APIs,
 Social/Community, Marketplace, komplexe Gamification, vollständige Lebensmitteldatenbank,
@@ -44,6 +50,10 @@ beliebig viele parallele Ziele, native Apps, medizinische Diagnosefunktionen.
    Produkt funktionsfähig.
 4. **Nachvollziehbarkeit.** Jede wesentliche Empfehlung referenziert die konkreten Daten,
    aus denen sie entstanden ist.
+5. **Metrikklassen sind getrennt.** Experimente werden ausschließlich an Verhaltensmetriken
+   ausgewertet, niemals an Zielmetriken wie Gewicht. Erzwungen über Typen.
+6. **Fehlende Daten sind kein Versagen.** Der Status `unknown` geht nie in die
+   Mustererkennung ein.
 
 ## AI-Regeln
 

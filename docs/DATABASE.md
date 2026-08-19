@@ -48,18 +48,26 @@ versioniert — sonst ist der Vorher-Nachher-Vergleich eines Experiments nicht r
 ### `plan_items`
 `plan_id`, `date`, `domain` (`training` | `nutrition` | `movement` | `sleep` |
 `self_improvement` | `priority`), `title`, `details` (jsonb), `planned_duration_min`,
-`time_slot`, `status` (`planned` | `done` | `moved` | `missed` | `not_relevant`),
-`status_changed_at`.
+`time_slot`, `status` (`planned` | `done` | `moved` | `missed` | `not_relevant` |
+`unknown`), `status_changed_at`.
 
-Die Unterscheidung zwischen `missed` und `not_relevant` ist für die Adaptive Engine
-entscheidend: `not_relevant` ist ein Planungsfehler, `missed` ein Verhaltenssignal.
+Drei Statuswerte sind für die Adaptive Engine bedeutungstragend und dürfen nicht
+zusammenfallen: `missed` ist ein Verhaltenssignal, `not_relevant` ein Planungsfehler, und
+`unknown` schlicht fehlende Information. Nur `missed` geht in die Mustererkennung ein.
+
+Im MVP sind die zulässigen Domains auf `training`, `nutrition` und `movement` beschränkt;
+`sleep`, `self_improvement` und `priority` bleiben im Enum, werden aber erst ab V2 geplant.
 
 ### `check_ins`
 `profile_id`, `date`, `energy`, `mood`, `note`. Kurz und optional.
 
 ### `measurements`
-`profile_id`, `metric_key`, `value`, `unit`, `measured_at`. Trends werden berechnet, nie
-gespeichert.
+`profile_id`, `metric_key`, `metric_class` (`behavior` | `outcome`), `value`, `unit`,
+`measured_at`. Trends werden berechnet, nie gespeichert.
+
+`metric_class` ist nicht kosmetisch: Experimente dürfen ausschließlich an `behavior`
+ausgewertet werden, `outcome` (Gewicht) dient nur Progress und Zielprognose über lange
+Fenster. Die Engine erzwingt das über Typen, siehe `FINAL_ARCHITECTURE.md`.
 
 ### `experiments`
 `profile_id`, `goal_id`, `hypothesis`, `variable`, `change_description`, `baseline` (jsonb),
@@ -101,3 +109,4 @@ profiles 1─n personal_rules
 - Der Unique-Index auf genau ein aktives Ziel greift.
 - Kaskadierendes Löschen hinterlässt keine Waisen.
 - Enum-Constraints weisen ungültige Statuswerte ab.
+- `metric_class` ist verpflichtend und nicht nachträglich änderbar.
