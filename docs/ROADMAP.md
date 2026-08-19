@@ -17,7 +17,7 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | --- | --- | --- |
 | 0 | Fundament: Projektstruktur, `CLAUDE.md`, `DECISIONS.md`, Phase-0-Dokumente | **erledigt** |
 | 1 | Product Critic: `PRODUCT_CRITIQUE.md`, daraus `FINAL_ARCHITECTURE.md` | **erledigt** |
-| 2 | Datenfundament: Supabase-Projekt, Migrations, RLS, generierte Typen, Tests | **teilweise** |
+| 2 | Datenfundament: Supabase-Projekt, Migrations, RLS, generierte Typen, Tests | **erledigt** |
 | 3 | Goal & Plan Engine, Sicherheitsinvarianten, Struktur- und Feldwirksamkeitstest | offen |
 | 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Playbook, Profile | offen |
 | 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | offen |
@@ -38,13 +38,3 @@ Nach erfolgreicher MVP-Validierung: Health → Fitness → Nutrition → Sleep �
 Productivity → Performance → Life. Der Vorteil bleibt das über Monate entstehende
 persönliche Verhaltensmodell, nicht das Modell dahinter.
 
-## Offener Blocker
-
-Schritt 2 ist bis auf das gehostete Projekt fertig: Migrations geschrieben und gegen ein
-lokales Postgres 16 verifiziert (13 Assertions, alle grün). Das Anlegen des Supabase-Projekts
-scheitert am Free-Tier-Limit von zwei aktiven Projekten in `JDR05's Org`. Offen bleiben damit
-nur: Migrations gegen das gehostete Projekt anwenden, TypeScript-Typen generieren und
-`get_advisors` prüfen.
-
-Schritt 3 (Engine) hängt nicht davon ab — die Engine ist reiner TypeScript-Code ohne
-Datenbankzugriff.

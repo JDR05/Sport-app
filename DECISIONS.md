@@ -7,6 +7,23 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-016: Supabase-Projekt `life-system`, `Us2` dafür pausiert
+
+**Entscheidung:** Das Datenfundament liegt im Supabase-Projekt `life-system`
+(`ujytwuonyxinjurrrgwg`, eu-central-1, 0 €/Monat). Um es im Free-Tier anlegen zu können,
+wurde auf Anweisung des Product Owners das Projekt `Us2` pausiert.
+
+**Begründung und Konsequenz:** Der Free-Tier erlaubt zwei aktive Projekte pro Owner; `Us2`
+und `faellig` belegten beide Plätze. Die Empfehlung lautete `faellig` (Blast Radius von einer
+Person statt zwei), der Product Owner hat sich für `Us2` entschieden.
+
+**Wichtig für später:** `Us2` ist eine Paar-App mit einem zweiten Nutzer. Pausieren ist
+reversibel und löscht keine Daten, aber die App ist für beide Nutzer offline, bis das Projekt
+reaktiviert wird. Wer diese Entscheidung rückgängig machen will, braucht dafür einen freien
+Projekt-Slot oder ein Pro-Abo.
+
+---
+
 ## 2026-08-19 — ADR-015: Preisabfrage frühestens ab Monat 3
 
 **Entscheidung:** In Validierungsphase 5 wird keine Zahlungsbereitschaft abgefragt, sondern
