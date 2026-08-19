@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens.
+ *
+ * A deliberately quiet palette: warm paper, near-black ink, one muted accent.
+ * The brief rules out "generische Health-App-Optik", so no neon, no gradients,
+ * no progress confetti. The three MVP domains get their own restrained hue so
+ * a glance at Today tells you what kind of action something is.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --paper: #faf9f7;
+  --surface: #ffffff;
+  --surface-sunken: #f2f0ec;
+  --ink: #1b1a18;
+  --ink-muted: #6b6862;
+  --ink-faint: #97938c;
+  --line: #e6e3dd;
+  --accent: #3f6b52;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8efe9;
+
+  --training: #3f6b52;
+  --training-soft: #e8efe9;
+  --nutrition: #9a6428;
+  --nutrition-soft: #f6eee2;
+  --movement: #47617d;
+  --movement-soft: #e7edf3;
+
+  --warn: #8a4b2a;
+  --warn-soft: #f7ebe4;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #131211;
+    --surface: #1c1b19;
+    --surface-sunken: #232220;
+    --ink: #edebe7;
+    --ink-muted: #a5a099;
+    --ink-faint: #7c7871;
+    --line: #2e2c29;
+    --accent: #7aa98b;
+    --accent-ink: #12211a;
+    --accent-soft: #22302a;
+
+    --training: #7aa98b;
+    --training-soft: #22302a;
+    --nutrition: #cc9a5e;
+    --nutrition-soft: #322920;
+    --movement: #8aa8c6;
+    --movement-soft: #212a33;
+
+    --warn: #d09070;
+    --warn-soft: #33241d;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--ink-muted);
+  --color-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-training: var(--training);
+  --color-training-soft: var(--training-soft);
+  --color-nutrition: var(--nutrition);
+  --color-nutrition-soft: var(--nutrition-soft);
+  --color-movement: var(--movement);
+  --color-movement-soft: var(--movement-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --font-sans: var(--font-inter);
+}
+
+@layer base {
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The app is a mobile surface; rubber-band scrolling on the shell looks broken. */
+  html {
+    overscroll-behavior-y: none;
+  }
 }

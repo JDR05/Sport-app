@@ -7,6 +7,36 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-020: Fünf Tabs, Playbook als eigene Route
+
+**Entscheidung:** Die Bottom-Navigation hat fünf Ziele — Heute, Plan, Fortschritt, Insights,
+Profil. Das Playbook hat eine eigene Route `/playbook`, ist aber über Insights erreichbar
+statt als sechster Tab.
+
+**Begründung:** ADR-009 verlangt, dass das Playbook ein eigener Screen ist, und der
+Produktplan nennt genau fünf Navigationsziele. Ein sechster Tab macht die Leiste auf dem
+Telefon eng — also genau die Überladung, die die UX-Prinzipien ausschließen. Beide
+Anforderungen sind erfüllt: eigener Screen, aber kein Platz im Hauptmenü.
+
+---
+
+## 2026-08-19 — ADR-019: Client-State als bewusstes Gerüst für Schritt 4
+
+**Entscheidung:** Die Onboarding-Antworten liegen in Schritt 4 in `localStorage`, der Plan
+wird im Browser aus der Engine abgeleitet. Kein Auth, kein Datenbankzugriff, keine Server
+Actions.
+
+**Begründung:** Die Screens sollen gegen die echte Engine gebaut und beurteilt werden können,
+bevor Auth und Persistenz existieren — sonst hängt das UX-Review an Infrastruktur, die
+inhaltlich nichts beiträgt. Die Screens sehen ausschließlich `PlanInput` und `PlanResult`;
+Schritt 5 tauscht die Speicherschicht gegen Supabase, ohne dass eine Komponente sich ändern
+muss.
+
+**Konsequenz:** Die Daten liegen aktuell nur im jeweiligen Browser. Das steht so auch im
+Profil-Screen, statt es zu verschweigen.
+
+---
+
 ## 2026-08-19 — ADR-018: Onboarding-Stufe 1 wird gemessen, nicht diskutiert
 
 **Entscheidung:** Ein Feld steht genau dann in Stufe 1 des Onboardings, wenn
