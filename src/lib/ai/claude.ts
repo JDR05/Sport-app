@@ -1,0 +1,163 @@
+// The Claude adapter.
+//
+// Server-side only — the API key must never reach the browser. Every response
+// goes through JSON parsing, schema validation and the plausibility checks
+// before it is allowed to become a value, and any failure at any stage returns
+// a result rather than throwing. The caller then falls back.
+
+import Anthropic from '@anthropic-ai/sdk'
+import { goalClassificationSchema, suggestionsSchema } from './schemas'
+import { checkClassification, checkSuggestions } from './validate'
+import type { AiAdapter, AiConfig, AiResult } from './types'
+import type { GoalClassification, Suggestions } from './schemas'
+import type { PlanInput, PlanResult } from '@/lib/domain/types'
+import { CLASSIFY_SYSTEM, SUGGEST_SYSTEM } from './prompts'
+
+export class ClaudeAdapter implements AiAdapter {
+  readonly name = 'claude'
+  private client: Anthropic
+  private config: AiConfig
+
+  constructor(config: AiConfig) {
+    this.config = config
+    this.client = new Anthropic({ apiKey: config.apiKey })
+  }
+
+  async classifyGoal(rawText: string): Promise<AiResult<GoalClassification>> {
+    return this.call({
+      model: this.config.classifyModel,
+      // Classification is a small, well-defined task; low effort keeps it cheap
+      // and fast without costing accuracy.
+      effort: 'low',
+      maxTokens: 1500,
+      system: CLASSIFY_SYSTEM,
+      user: `Ziel des Nutzers: ${rawText.trim().slice(0, 500)}`,
+      parse: (json) => {
+        const parsed = goalClassificationSchema.safeParse(json)
+        if (!parsed.success) return { ok: false as const, detail: parsed.error.message }
+        const violations = checkClassification(parsed.data)
+        if (violations.length > 0) {
+          return { ok: false as const, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+        }
+        return { ok: true as const, value: parsed.data }
+      },
+    })
+  }
+
+  async suggest(input: PlanInput, plan: PlanResult): Promise<AiResult<Suggestions>> {
+    return this.call({
+      model: this.config.suggestModel,
+      effort: 'high',
+      maxTokens: 4000,
+      system: SUGGEST_SYSTEM,
+      user: buildContext(input, plan),
+      parse: (json) => {
+        const parsed = suggestionsSchema.safeParse(json)
+        if (!parsed.success) return { ok: false as const, detail: parsed.error.message }
+        const violations = checkSuggestions(parsed.data)
+        if (violations.length > 0) {
+          return { ok: false as const, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+        }
+        return { ok: true as const, value: parsed.data }
+      },
+    })
+  }
+
+  private async call<T>(args: {
+    model: string
+    effort: 'low' | 'high'
+    maxTokens: number
+    system: string
+    user: string
+    parse: (json: unknown) => { ok: true; value: T } | { ok: false; detail: string; implausible?: boolean }
+  }): Promise<AiResult<T>> {
+    if (!this.config.apiKey) {
+      return { ok: false, reason: 'no_api_key', detail: 'ANTHROPIC_API_KEY is not set' }
+    }
+
+    let response: Anthropic.Message
+    try {
+      response = await this.client.messages.create(
+        {
+          model: args.model,
+          max_tokens: args.maxTokens,
+          // The system prompt is identical on every call, so caching it makes
+          // repeated requests cost a tenth of the input price.
+          system: [{ type: 'text', text: args.system, cache_control: { type: 'ephemeral' } }],
+          output_config: { effort: args.effort },
+          messages: [{ role: 'user', content: args.user }],
+        },
+        { timeout: this.config.timeoutMs },
+      )
+    } catch (error) {
+      if (error instanceof Anthropic.APIConnectionTimeoutError) {
+        return { ok: false, reason: 'timeout', detail: `no response within ${this.config.timeoutMs} ms` }
+      }
+      if (error instanceof Anthropic.AuthenticationError) {
+        return { ok: false, reason: 'no_api_key', detail: 'the configured key was rejected' }
+      }
+      if (error instanceof Anthropic.APIError) {
+        return { ok: false, reason: 'api_error', detail: `${error.status}: ${error.message}` }
+      }
+      return { ok: false, reason: 'api_error', detail: String(error) }
+    }
+
+    // A safety refusal is a normal outcome, not an exception.
+    if (response.stop_reason === 'refusal') {
+      return { ok: false, reason: 'implausible', detail: 'the model declined the request' }
+    }
+
+    const text = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+      .trim()
+
+    let json: unknown
+    try {
+      json = JSON.parse(stripCodeFence(text))
+    } catch {
+      return { ok: false, reason: 'invalid_json', detail: text.slice(0, 200) }
+    }
+
+    const result = args.parse(json)
+    if (!result.ok) {
+      return {
+        ok: false,
+        reason: result.implausible ? 'implausible' : 'schema_invalid',
+        detail: result.detail.slice(0, 300),
+      }
+    }
+    return { ok: true, value: result.value, source: 'ai' }
+  }
+}
+
+/** Models are told not to wrap the JSON, but a fence is the most common slip. */
+function stripCodeFence(text: string): string {
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/)
+  return fenced ? fenced[1] : text
+}
+
+/**
+ * The context the model gets. Deliberately structured and trimmed: only what the
+ * task needs, so that personal data is not shipped wholesale to a third party.
+ */
+function buildContext(input: PlanInput, plan: PlanResult): string {
+  const p = input.profile
+  const lines = [
+    `Ziel (eigene Worte): ${input.goal.rawText}`,
+    `Zielart: ${input.goal.archetype}`,
+    `Bereits geplant: ${plan.strategy.goalTrack.headline}`,
+    `Plan-Aktionen: ${plan.items.map((i) => i.title).join(' · ')}`,
+    '',
+    'Was der Nutzer angegeben hat:',
+    `- Alltag: ${input.schedule.workPattern ?? 'keine Angabe'}, freie Tage: ${input.schedule.freeSlots.map((s) => s.weekday).join(', ') || 'keine'}`,
+    `- Sport: ${p.sport.preferredActivities.join(', ') || 'keine Angabe'}; ausgeschlossen: ${p.sport.dislikedActivities.join(', ') || 'nichts'}; Erfahrung: ${p.sport.experience ?? 'keine Angabe'}`,
+    `- Ernährung: kocht ${p.nutrition.cooksAtHome ?? 'keine Angabe'}, auswärts ${p.nutrition.eatsOutPerWeek ?? '?'}×/Woche, ${p.nutrition.dietaryPattern ?? 'keine Angabe'}, Gemüse ${p.nutrition.vegetablePortionsPerDay ?? '?'} Portionen/Tag`,
+    `- Schlaf: ${p.sleep.usualBedtime ?? '?'} bis ${p.sleep.usualWakeTime ?? '?'}, Qualität ${p.sleep.quality ?? 'keine Angabe'}`,
+    `- Kopf: Bildschirmzeit ${p.mind.screenTimeHoursPerDay ?? '?'} h/Tag, Fokus ${p.mind.focusStruggle ?? 'keine Angabe'}`,
+    '',
+    'Gib ein bis drei Anregungen, die über das bereits Geplante hinausgehen.',
+  ]
+  return lines.join('\n')
+}

@@ -109,7 +109,11 @@ const METRIC_FOR: Partial<Record<GoalArchetype, { key: string; unit: string; lab
   strength: { key: 'load_kg', unit: 'kg', label: 'Last', startLabel: 'Womit trainierst du aktuell?', targetLabel: 'Was ist dein Ziel?' },
 }
 
-function buildAnswers(d: Draft, archetype: GoalArchetype): Answers {
+function buildAnswers(
+  d: Draft,
+  archetype: GoalArchetype,
+  classifiedBy: 'ai' | 'keywords' | 'user',
+): Answers {
   const metricSpec = METRIC_FOR[archetype]
   const metrics: GoalMetric[] =
     metricSpec && (d.metricStart !== null || d.metricTarget !== null)
@@ -156,7 +160,7 @@ function buildAnswers(d: Draft, archetype: GoalArchetype): Answers {
       rawText: d.goalText.trim(),
       archetype,
       targetDate: d.targetDate,
-      classifiedBy: d.archetype === null ? 'keywords' : 'user',
+      classifiedBy,
     },
     metrics,
     constraints:
@@ -183,8 +187,13 @@ export default function OnboardingPage() {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setD((prev) => ({ ...prev, [key]: value }))
 
+  // Deterministic classification is instant and shown straight away. When an API
+  // key is configured the server upgrades it on the way to the next step; until
+  // then this is the answer, and the UI says which one the user is looking at.
   const detected = useMemo(() => classifyGoalText(d.goalText), [d.goalText])
-  const archetype = d.archetype ?? detected.archetype
+  const [aiArchetype, setAiArchetype] = useState<GoalArchetype | null>(null)
+  const [classifying, setClassifying] = useState(false)
+  const archetype = d.archetype ?? aiArchetype ?? detected.archetype
   const metricSpec = METRIC_FOR[archetype]
 
   // The metric step is skipped for goals that have no number to state.
@@ -194,8 +203,37 @@ export default function OnboardingPage() {
   const canContinue = stepName !== 'Ziel' || d.goalText.trim().length >= 3
 
   const finish = () => {
-    saveAnswers(buildAnswers(d, archetype))
+    saveAnswers(buildAnswers(d, archetype, d.archetype !== null ? 'user' : aiArchetype ? 'ai' : 'keywords'))
     router.push('/today')
+  }
+
+  /** Asks the server to classify. Never blocks progress: a failure just keeps
+   *  the deterministic answer, which is already on screen. */
+  const advanceFromGoal = async () => {
+    if (d.archetype !== null) {
+      setStep(step + 1)
+      return
+    }
+    setClassifying(true)
+    try {
+      const response = await fetch('/api/ai/classify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rawText: d.goalText }),
+      })
+      if (response.ok) {
+        const result = (await response.json()) as {
+          value: { archetype: GoalArchetype }
+          source: 'ai' | 'fallback'
+        }
+        if (result.source === 'ai') setAiArchetype(result.value.archetype)
+      }
+    } catch {
+      // Offline or the route is unavailable — the deterministic answer stands.
+    } finally {
+      setClassifying(false)
+      setStep(step + 1)
+    }
   }
 
   return (
@@ -228,6 +266,11 @@ export default function OnboardingPage() {
               <p className="mt-1 text-sm leading-relaxed text-muted">
                 Danach richtet sich, was geplant wird — und welche Sicherheitsgrenzen gelten.
                 Passt das nicht, korrigier es hier.
+              </p>
+              <p className="mt-1 text-xs text-faint">
+                {aiArchetype !== null
+                  ? 'Von der KI eingeordnet.'
+                  : 'Ohne KI erkannt — anhand von Schlüsselwörtern.'}
               </p>
               <div className="mt-3">
                 <ChoiceGroup
@@ -408,8 +451,11 @@ export default function OnboardingPage() {
       )}
 
       <div className="mt-8 flex flex-col gap-2">
-        <Button onClick={isLast ? finish : () => setStep(step + 1)} disabled={!canContinue}>
-          {isLast ? 'Plan erstellen' : 'Weiter'}
+        <Button
+          onClick={isLast ? finish : stepName === 'Ziel' ? advanceFromGoal : () => setStep(step + 1)}
+          disabled={!canContinue || classifying}
+        >
+          {classifying ? 'Ziel wird eingeordnet …' : isLast ? 'Plan erstellen' : 'Weiter'}
         </Button>
         {step > 0 && <Button variant="quiet" onClick={() => setStep(step - 1)}>Zurück</Button>}
         {step > 0 && !isLast && (

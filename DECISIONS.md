@@ -7,6 +7,29 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-028: Modellwahl ist Konfiguration, Voreinstellung `claude-opus-5`
+
+**Entscheidung:** Zieleinordnung und Vorschläge nutzen getrennt konfigurierbare Modelle
+(`AI_CLASSIFY_MODEL`, `AI_SUGGEST_MODEL`), voreingestellt auf `claude-opus-5`. Der
+Systemprompt wird zwischengespeichert. Ohne `ANTHROPIC_API_KEY` läuft der deterministische
+Adapter, ohne dass der aufrufende Code etwas davon merkt.
+
+**Begründung:** Die beiden Aufgaben haben unterschiedliche Anforderungen. Ein deutschen Satz
+in eine von sieben Schubladen zu sortieren, kann auch ein kleines Modell; bei den Vorschlägen
+zeigt sich Modellqualität unmittelbar im Produktnutzen. Beides an einen Schalter zu binden
+wäre eine unnötige Kopplung.
+
+**Kosten, gerechnet statt geschätzt:** rund 0,02 $ (Haiku 4.5) bis 0,12 $ (Opus 5) pro Nutzer
+und Monat. Bei zehn Testern also Cent-Beträge. Die Kostenfrage ist damit keine
+Architekturfrage, sondern eine Entscheidung des Product Owners — deshalb eine
+Umgebungsvariable und keine Festlegung im Code.
+
+**Wichtiger Nebeneffekt:** Da die App ohne Key vollständig funktioniert, kostet die
+Validierungsphase null. Das entspricht der Vorgabe des Playbooks, vor größerem Aufwand zu
+validieren.
+
+---
+
 ## 2026-08-19 — ADR-027: Bei benachbarten freien Tagen wird der Körper aufgeteilt
 
 **Entscheidung:** Liegen die einzigen freien Trainingstage direkt nebeneinander, plant der
