@@ -5,15 +5,26 @@
 Grundsatz: nur die Fragen sofort stellen, ohne die kein sinnvoller Plan entsteht. Alles
 Weitere wird später erfragt, wenn es gebraucht wird.
 
-**Stufe 1 — notwendig für den ersten Plan**
-- Ziel und Zeitraum („5 kg abnehmen", Zielzeitpunkt)
-- Basis: Alter, Größe, aktuelles Gewicht, Geschlecht (für die Grundumsatzberechnung)
-- Alltag: Aufsteh- und Schlafzeit, Arbeit/Studium, freie Zeitfenster, Wochenendstruktur
-- Sport: Sportarten, mögliche Trainingshäufigkeit, Dauer, Equipment, Leistungsstand
-- Ernährung: Vorlieben, Kochmöglichkeiten, verfügbare Zeit, Essenszeiten
-- Ausschlüsse: was der Nutzer ausdrücklich **nicht** tun möchte
+Welche Felder in Stufe 1 gehören, ist **nicht Geschmackssache, sondern gemessen**:
+`tests/engine.fields.test.ts` variiert jedes Feld einzeln und prüft, ob sich der Plan
+tatsächlich ändert. Was nichts verändert, wird nicht gefragt.
+
+**Stufe 1 — notwendig für den ersten Plan** (alle 20 nachweislich planwirksam)
+- Ziel: Titel und Zieldatum
+- Zielmetrik: aktuelles Gewicht, Zielgewicht
+- Basis: Geburtsjahr, Größe, Geschlecht (für die Grundumsatzberechnung)
+- Alltag: Arbeits-/Studienrhythmus, freie Zeitfenster
+- Sport: bevorzugte Aktivitäten, Trainingshäufigkeit, Einheitsdauer, Equipment,
+  Leistungsstand
+- Ernährung: Kochhäufigkeit, verfügbare Kochzeit, Auswärts-Essen pro Woche,
+  Ernährungsform, Mahlzeiten pro Tag
+- Ausschlüsse: nicht gewünschte Aktivitäten, blockierte Wochentage
 
 **Stufe 2 — später erfragt**
+- Aufsteh- und Schlafzeit, Wochenendstruktur, Lebenssituation. Diese vier standen
+  ursprünglich in Stufe 1, verändern den ersten Plan aber nachweislich nicht — die freien
+  Zeitfenster und der Arbeitsrhythmus decken dieselbe Information bereits ab. Sie werden
+  später erhoben, wo sie zählen (Schlaf für Recovery, Lebenssituation als Kontext).
 - Budget, detaillierte Präferenzen, Motivationsstil, Bildschirmzeit, Routinen
 
 **Abbruch:** Bricht der Nutzer nach Stufe 1 ab, muss ein Plan trotzdem erzeugbar sein.

@@ -7,6 +7,39 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-19 — ADR-018: Onboarding-Stufe 1 wird gemessen, nicht diskutiert
+
+**Entscheidung:** Ein Feld steht genau dann in Stufe 1 des Onboardings, wenn
+`tests/engine.fields.test.ts` nachweist, dass es den erzeugten Plan verändert. Aufsteh- und
+Schlafzeit, Wochenendstruktur und Lebenssituation sind dadurch nach Stufe 2 gewandert; die
+verbleibenden 20 Felder sind alle nachweislich planwirksam.
+
+**Begründung:** Der Zielkonflikt „kurzes Onboarding gegen echte Personalisierung" lässt sich
+nicht durch Meinung auflösen. Jede Frage kostet Abschlussquote; eine Frage, deren Antwort den
+Plan nicht verändert, kostet sie umsonst. Die vier verschobenen Felder waren redundant zu den
+freien Zeitfenstern und zum Arbeitsrhythmus.
+
+---
+
+## 2026-08-19 — ADR-017: Konkrete Sicherheitsgrenzen
+
+**Entscheidung:** Kalorien-Untergrenze 1500 kcal (männlich und ohne Angabe) bzw. 1200 kcal
+(weiblich); Defizit höchstens 25 % des Tagesbedarfs; Abnehmrate höchstens 0,75 % des
+Körpergewichts pro Woche und absolut höchstens 1,0 kg pro Woche; mindestens zwei Ruhetage für
+Einsteiger, einer sonst; nie mehr als drei Trainingstage am Stück. Grundumsatz nach
+Mifflin-St Jeor. Alle Werte in `src/lib/engine/constants.ts`.
+
+**Ergänzende Regel:** Fehlt eine Angabe, wählt die Engine immer die Variante, die zu **mehr**
+Essen und **weniger** Belastung führt. Bei unbekanntem Geschlecht also der höhere Grundumsatz
+*und* die höhere Kaloriengrenze — das ist die einzige Auflösung, die in beide Richtungen
+sicher ist.
+
+**Begründung:** ADR-008 legt fest, dass Sicherheitsgrenzen Code sind; hier stehen die Zahlen.
+Der doppelte Deckel auf die Rate ist Absicht: ein relativer Deckel allein wäre bei sehr hohem
+Körpergewicht zu großzügig, ein absoluter allein bei sehr niedrigem zu knapp.
+
+---
+
 ## 2026-08-19 — ADR-016: Supabase-Projekt `life-system`, `Us2` dafür pausiert
 
 **Entscheidung:** Das Datenfundament liegt im Supabase-Projekt `life-system`
