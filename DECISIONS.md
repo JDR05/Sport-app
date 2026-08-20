@@ -7,6 +7,52 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-041: Die KI entscheidet **was**, die Engine entscheidet **wann und ob**
+
+**Ausloeser:** Der Product Owner hat den Kernmangel benannt: *die KI hat keine Hebel, die sie
+bewegen kann.* Sie ordnete ein Ziel einer von sieben Schubladen zu und war fertig; danach lief
+ein deterministischer Planer nach Schema F. Wer „motivierter werden" oder „weniger
+prokrastinieren" eingab, landete in `general_health` und bekam **eine** Zielaktion.
+
+**Entscheidung:** Die KI liefert einen typisierten **Vorschlag** — Aktionen mit Titel,
+Bereich, Dauer, Haeufigkeit und Begruendung. Sie schlaegt **keine Termine** vor. Wo etwas
+landet, ob es ueberhaupt hineinpasst, ob dazwischen genug Erholung liegt: das entscheidet die
+Engine, die als einzige die freien Zeitfenster, harten Ausschluesse, Ruhetage und Tagesdeckel
+kennt.
+
+**Zwei Modi**, nach Entscheidung des Product Owners: `augment` legt bis zu drei Aktionen auf
+den Archetyp-Plan — haeufige Ziele behalten also ihren geprueften Plan und bekommen trotzdem
+etwas Persoenliches. `takeover` ersetzt die Zielspur ganz, aber **nur bei `general_health`**,
+also dort, wo ohnehin nichts Passendes gebaut wurde.
+
+**Der Archetyp behaelt seine Domaenen.** Ein Vorschlag darf nicht in einen Bereich schreiben,
+dessen Last der Archetyp verwaltet — Trainingsumfang bei Kraft und Ausdauer, Anzahl der
+Ernaehrungsaenderungen bei `nutrition_quality`. Das ist keine Stilfrage: Diese Deckel sind
+Invarianten, und ein Vorschlag, der hineingreift, erzeugt keinen etwas vollen Plan, sondern
+einen **abgelehnten** — der Mensch saehe gar nichts. Offen bleibt genau der Raum, in dem die
+Archetypen schwach sind: Kopf, Routine, Fokus, Bewegung. Also dort, wo diese Ziele leben.
+
+**Warum das die Sicherheitsarchitektur nicht schwaecht:** Eine von der KI erfundene Aktion ist
+ein gewoehnliches `PlannedItem` und durchlaeuft **dieselben** Invarianten wie eine vom
+Archetyp erzeugte. Ein Plan, der eine Grenze reisst, wird **ganz** verworfen, nicht
+zurechtgestutzt — stilles Reparieren wuerde verbergen, dass ein schlechter Vorschlag entstand.
+
+**Der Vorschlag ist Eingabe, kein Aufruf.** Er steht in `PlanInput`, nicht hinter einem
+`fetch` in der Engine. `generatePlan` bleibt rein: keine Uhr, kein Netzwerk, dieselbe Eingabe
+ergibt denselben Plan — und damit bleiben alle Gates billig genug fuer jeden Commit.
+
+**Drei Invarianten mussten praeziser werden.** `nutrition_quality` zaehlte *alle*
+Zielaktionen als „Ernaehrungsaenderungen", `habit_routine` alle als „neue Gewohnheit",
+`strength` und `endurance` alle als Trainingseinheiten. Ihre eigenen Namen und Begruendungen
+meinen jeweils ihre Domaene. Der Fehler konnte vorher nicht auffallen, weil die Zielspur
+immer nur eine Domaene enthielt. Jetzt zaehlen sie, was sie behaupten zu zaehlen.
+
+**Ohne API-Key** bleibt der deterministische Pfad, was er ist — aber die App ist bei
+ungewoehnlichen Zielen dann deutlich schwaecher, und das soll sie sagen statt es zu
+verschweigen. Siehe `docs/AI_CAPABILITIES.md`.
+
+---
+
 ## 2026-08-20 — ADR-040: Leak-Pruefung selbst gebaut, weil sie im kostenlosen Plan fehlt
 
 **Korrektur zu einer frueheren Empfehlung.** Ich hatte den Product Owner gebeten, in Supabase

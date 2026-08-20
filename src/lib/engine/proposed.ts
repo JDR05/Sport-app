@@ -1,0 +1,168 @@
+// Turning a model's proposal into scheduled actions.
+//
+// The division of labour, from docs/AI_CAPABILITIES.md: the model says *what*
+// and roughly how often; this file decides *when*. Only the engine knows the
+// free slots, the hard exclusions, the rest days and the ceiling per day — so
+// only the engine may place anything on a calendar.
+//
+// Everything produced here is an ordinary PlannedItem. It goes through
+// assertPlanInvariants exactly like an archetype's own output, and a plan that
+// violates a limit is rejected whole rather than trimmed. Silently repairing a
+// bad suggestion would hide that one was produced, and this architecture wants
+// to be able to see that.
+
+import { dateOf, pickDays, slotOf, spreadAcrossWeek, type PlanContext } from './context'
+import { MIN_REST_DAYS, MIN_VIABLE_SESSION_MINUTES } from './constants'
+import { weekdayOf } from './dates'
+import type {
+  GoalArchetype, PlanDomain, PlannedItem, ProposedAction, TimeSlot, Weekday,
+} from '@/lib/domain/types'
+
+/**
+ * How many proposed actions may ride along on top of an archetype plan.
+ *
+ * Three, because Today shows three to five actions in total and the archetype
+ * has already claimed most of that. A model handed an unbounded budget fills
+ * it, and the result is the twenty-cards-per-screen the brief rules out.
+ */
+export const MAX_AUGMENT_ACTIONS = 3
+
+/**
+ * Domains each archetype manages itself, and which a proposal may not add to
+ * while that archetype is planning.
+ *
+ * Not a stylistic boundary — a safety one. Strength caps training items to keep
+ * rest days; nutrition quality caps additions to three a week because one
+ * change at a time is the whole method. Those caps are enforced as invariants,
+ * so a proposal reaching into such a domain does not produce a slightly busy
+ * plan: it produces a *rejected* plan, and the person sees nothing at all.
+ *
+ * What is left open is exactly the space the archetypes are weakest in — mind,
+ * routine, focus, movement. Which is where goals like "motivierter werden" or
+ * "weniger prokrastinieren" actually live, and why this restriction costs the
+ * model almost nothing it needed.
+ */
+const OWNED_DOMAINS: Record<GoalArchetype, readonly PlanDomain[]> = {
+  body_composition: ['training', 'nutrition'],
+  strength: ['training'],
+  endurance: ['training'],
+  sleep_recovery: ['sleep'],
+  nutrition_quality: ['nutrition'],
+  habit_routine: ['self_improvement'],
+  // The fallback owns nothing, which is precisely why it is the one archetype a
+  // proposal is allowed to replace outright.
+  general_health: [],
+}
+
+/** Whether a proposed action may be scheduled alongside this archetype. */
+export function isOpenDomain(archetype: GoalArchetype, domain: PlanDomain): boolean {
+  return !OWNED_DOMAINS[archetype].includes(domain)
+}
+
+export function scheduleProposed(
+  ctx: PlanContext,
+  actions: ProposedAction[],
+  limit: number,
+  /**
+   * Days the archetype already put training on.
+   *
+   * Training load belongs to the archetype: it owns the rest-day rule, the
+   * consecutive-day cap and, for strength, the recovery gap between muscle
+   * groups. So a proposal may ride along on a day that is already a training
+   * day — "ten minutes of mobility after your session" — but it may not create
+   * a new one, because that is how the rest-day budget gets spent by something
+   * that never knew about it.
+   *
+   * Empty means there is no archetype track to ride along with, which is the
+   * takeover case: the proposal may then open training days of its own, still
+   * bounded by the rest-day minimum below.
+   */
+  existingTrainingDays: Weekday[] = [],
+): PlannedItem[] {
+  const items: PlannedItem[] = []
+  const trainingDays = trainingBudget(ctx, existingTrainingDays)
+
+  for (const action of actions.slice(0, limit)) {
+    // Training is placed only on days that survived the hard exclusions and the
+    // recovery spread. `pickDays` falls back to the whole week when nothing is
+    // available, which is right for a reminder and wrong for a session — it
+    // would put training on a day the person said never works. With no usable
+    // day, the action is dropped rather than moved somewhere forbidden.
+    const days =
+      action.domain === 'training'
+        ? trainingDays.slice(0, action.timesPerWeek)
+        : pickDays(ctx, action.timesPerWeek)
+
+    if (days.length === 0) continue
+
+    const minutes =
+      action.minutes === 0
+        ? null
+        : Math.max(
+            MIN_VIABLE_SESSION_MINUTES,
+            ctx.sessionMinutesCap === null
+              ? action.minutes
+              : Math.min(action.minutes, ctx.sessionMinutesCap),
+          )
+
+    for (const day of days) {
+      items.push({
+        scheduledOn: dateOf(ctx, day),
+        domain: action.domain,
+        track: 'goal',
+        title: action.title,
+        plannedDurationMin: minutes,
+        timeSlot: resolveSlot(ctx, day, action.preferredSlot),
+        rationale: {
+          text: action.reasoning,
+          // Named so the user can see this came from the model rather than the
+          // rulebook, and so a bug here is traceable in stored rows.
+          basedOn: ['ai.proposal', 'goal.rawText'],
+        },
+        details: { kind: 'ai_proposed', timesPerWeek: action.timesPerWeek },
+      })
+    }
+  }
+
+  return items
+}
+
+/**
+ * Which days a proposal may put training on.
+ *
+ * Riding along with the archetype where there is one; otherwise as many days as
+ * the rest-day minimum leaves, spread so no run of training days grows too
+ * long. Either way this is the *only* source of training days for a proposal,
+ * so no path exists by which the model adds load the recovery rules did not
+ * account for.
+ */
+function trainingBudget(ctx: PlanContext, existing: Weekday[]): Weekday[] {
+  if (existing.length > 0) return existing
+
+  const experience = ctx.experience
+  const maxDays = Math.max(0, 7 - MIN_REST_DAYS[experience])
+  return spreadAcrossWeek(ctx.availableDays, Math.min(maxDays, ctx.availableDays.length))
+}
+
+/** The weekdays a set of items already places training on. */
+export function trainingDaysOf(items: PlannedItem[]): Weekday[] {
+  return [
+    ...new Set(
+      items.filter((i) => i.domain === 'training').map((i) => weekdayOf(i.scheduledOn)),
+    ),
+  ]
+}
+
+/**
+ * A learned time-of-day preference outranks the model's guess: the rule came
+ * from this person's own behaviour, the guess came from a sentence.
+ */
+function resolveSlot(
+  ctx: PlanContext,
+  day: Parameters<typeof dateOf>[1],
+  preferred: TimeSlot | 'any',
+): TimeSlot | null {
+  if (ctx.rules.preferredSlot) return slotOf(ctx.input, day, ctx.rules.preferredSlot)
+  if (preferred !== 'any') return preferred
+  return slotOf(ctx.input, day)
+}

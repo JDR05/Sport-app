@@ -160,6 +160,34 @@ export type PersonalRule = {
   confidence: number
 }
 
+/**
+ * What the model contributed, already validated, as plain data.
+ *
+ * It arrives as *input* to the engine rather than being fetched from inside it,
+ * which keeps generatePlan pure: no clock, no network, same input, same plan.
+ * It also means every AI-proposed action runs through the identical invariant
+ * checks as an archetype-produced one — see docs/AI_CAPABILITIES.md.
+ */
+export type ProposedAction = {
+  title: string
+  reasoning: string
+  domain: PlanDomain
+  minutes: number
+  timesPerWeek: number
+  preferredSlot: TimeSlot | 'any'
+}
+
+export type AiProposal = {
+  headline: string
+  actions: ProposedAction[]
+  reasoning: string
+  /**
+   * `augment` puts these on top of what the archetype planned. `takeover` makes
+   * them the goal track, for a goal no archetype fits.
+   */
+  mode: 'augment' | 'takeover'
+}
+
 export type PlanInput = {
   /**
    * ISO date. Passed in rather than read from the clock: the engine must be a
@@ -172,6 +200,8 @@ export type PlanInput = {
   constraints: Constraint[]
   schedule: Schedule
   personalRules: PersonalRule[]
+  /** Absent when no key is configured, or when the model failed or was refused. */
+  aiProposal?: AiProposal | null
 }
 
 // --------------------------------------------------------- the output ----

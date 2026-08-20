@@ -39,3 +39,52 @@ export const suggestionsSchema = z.object({
 
 export type Suggestion = z.infer<typeof suggestionSchema>
 export type Suggestions = z.infer<typeof suggestionsSchema>
+
+// ------------------------------------------------------- the plan levers ----
+
+/**
+ * One action the model proposes for the goal track.
+ *
+ * Note what is *not* in here: no date, no weekday, no time. The model says what
+ * should happen and roughly how often; the engine decides when, because only
+ * the engine knows the free slots, the rest days, the hard exclusions and the
+ * ceiling per day. That split is what lets the model be genuinely creative
+ * without being able to reach a single safety limit.
+ *
+ * `timesPerWeek` is capped at 5 rather than 7: a proposal that fills every day
+ * leaves no room for the health baseline and no rest, and an action nobody can
+ * skip is an action people abandon.
+ */
+export const proposedActionSchema = z.object({
+  title: z.string().min(3).max(80),
+  /** Must reference something the person actually told the app. */
+  reasoning: z.string().min(20).max(400),
+  domain: z.enum(['training', 'nutrition', 'movement', 'sleep', 'self_improvement', 'priority']),
+  minutes: z.number().int().min(0).max(90),
+  timesPerWeek: z.number().int().min(1).max(5),
+  preferredSlot: z.enum(['early', 'midday', 'evening', 'any']),
+})
+
+export type ProposedAction = z.infer<typeof proposedActionSchema>
+
+/**
+ * What the model may contribute to a plan.
+ *
+ * `metricKey`/`unit` let it name a number for a goal nobody thought of — but it
+ * never sets the metric *class*. Whether something counts as behaviour or as an
+ * outcome stays deterministic, because the entire experiment logic rests on
+ * that distinction (ADR-012).
+ */
+export const planProposalSchema = z.object({
+  /** One sentence, shown above the plan. */
+  headline: z.string().min(5).max(120),
+  actions: z.array(proposedActionSchema).min(1).max(5),
+  /** A behaviour worth counting for an unusual goal. Null when there is none. */
+  metricKey: z.string().max(40).nullable(),
+  metricLabel: z.string().max(40).nullable(),
+  unit: z.string().max(16).nullable(),
+  /** Why this set, as a whole. Shown when the user asks why. */
+  reasoning: z.string().min(20).max(600),
+})
+
+export type PlanProposal = z.infer<typeof planProposalSchema>

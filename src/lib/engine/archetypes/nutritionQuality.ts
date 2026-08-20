@@ -203,7 +203,13 @@ export const nutritionQuality: ArchetypeStrategy = {
   },
 
   assertInvariants(plan: PlanResult): void {
-    const items = plan.strategy.goalTrack.items
+    // Nutrition items only. The cap is on *dietary changes at once* — that is
+    // what the constant is named after and what the method rests on — not on
+    // how many actions the plan contains in total. Counting every goal action
+    // as a nutrition addition made the rule fire on things that change nothing
+    // about how someone eats, which surfaced the moment the AI could add an
+    // action in another domain.
+    const items = plan.strategy.goalTrack.items.filter((i) => i.domain === 'nutrition')
 
     if (items.length > MAX_NUTRITION_ADDITIONS_PER_WEEK) {
       throw new PlanInvariantError(

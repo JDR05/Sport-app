@@ -142,7 +142,9 @@ export const strength: ArchetypeStrategy = {
   },
 
   assertInvariants(plan: PlanResult, input: PlanInput): void {
-    const items = plan.strategy.goalTrack.items
+    // Training items only. A mobility reminder is not a strength session and
+    // must not count against the rest-day budget.
+    const items = plan.strategy.goalTrack.items.filter((i) => i.domain === 'training')
     const days = items.map((i) => i.scheduledOn).sort()
 
     const experience = input.profile.sport.experience ?? 'beginner'

@@ -9,8 +9,10 @@ import { MAX_ITEMS_PER_DAY } from './constants'
 import { buildContext, type PlanContext } from './context'
 import { planBaseline } from './baseline'
 import { strategyFor } from './archetypes'
+import { isOpenDomain, MAX_AUGMENT_ACTIONS, scheduleProposed, trainingDaysOf } from './proposed'
 import type {
-  Assumption, BaselineTrack, PlanDomain, PlanInput, PlannedItem, Rationale, WeekStrategy,
+  Assumption, BaselineTrack, GoalTrack, PlanDomain, PlanInput, PlannedItem, Rationale,
+  WeekStrategy,
 } from '@/lib/domain/types'
 
 export type StrategyResult = {
@@ -24,7 +26,8 @@ export function buildStrategy(input: PlanInput): StrategyResult {
   const ctx: PlanContext = buildContext(input)
   const archetype = strategyFor(input.goal.archetype)
 
-  const goalTrack = archetype.planGoalTrack(ctx)
+  const planned = archetype.planGoalTrack(ctx)
+  const goalTrack = withProposed(ctx, planned)
   const clamped = archetype.clampGoal(ctx)
   const baseline = thinLightDomains(ctx, planBaseline(ctx, goalTrack))
 
@@ -40,6 +43,58 @@ export function buildStrategy(input: PlanInput): StrategyResult {
   }
 
   return { strategy, items, assumptions: ctx.assumptions, rationale: ctx.rationale }
+}
+
+/**
+ * Folds the model's proposal into the goal track.
+ *
+ * Two modes, from the product owner's decision: `augment` puts a few proposed
+ * actions on top of what the archetype planned, so a common goal keeps the
+ * tested deterministic plan and still gets something specific to this person.
+ * `takeover` replaces the goal track entirely, for a goal no archetype fits —
+ * "weniger prokrastinieren" is not a body, sleep or endurance problem, and
+ * general_health used to answer it with a single action.
+ *
+ * Either way the result is ordinary PlannedItems facing the ordinary
+ * invariants. The archetype still supplies the safety regime; a takeover
+ * changes what is planned, never what is allowed.
+ */
+function withProposed(ctx: PlanContext, track: GoalTrack): GoalTrack {
+  const proposal = ctx.input.aiProposal
+  if (!proposal || proposal.actions.length === 0) return track
+
+  const archetype = track.archetype
+
+  // A takeover is only ever offered where nothing was fitted in the first
+  // place. Replacing a strength or body-composition track would discard the
+  // rate caps and recovery rules that make those archetypes safe — and those
+  // stay enforced regardless, so the plan would simply be refused.
+  if (proposal.mode === 'takeover' && archetype === 'general_health') {
+    const items = scheduleProposed(ctx, proposal.actions, proposal.actions.length)
+    // An empty result would mean a goal with nothing in it, which is worse than
+    // the thin deterministic plan it would have replaced.
+    if (items.length === 0) return track
+
+    ctx.rationale.push({ text: proposal.reasoning, basedOn: ['ai.proposal', 'goal.rawText'] })
+    return {
+      ...track,
+      headline: proposal.headline,
+      summary: proposal.actions.map((a) => a.title),
+      items,
+      signature: { ...track.signature, source: 'ai' },
+    }
+  }
+
+  const open = proposal.actions.filter((a) => isOpenDomain(archetype, a.domain))
+  const extra = scheduleProposed(ctx, open, MAX_AUGMENT_ACTIONS, trainingDaysOf(track.items))
+  if (extra.length === 0) return track
+
+  ctx.rationale.push({ text: proposal.reasoning, basedOn: ['ai.proposal', 'goal.rawText'] })
+  return {
+    ...track,
+    items: [...track.items, ...extra],
+    signature: { ...track.signature, source: 'engine+ai' },
+  }
 }
 
 /**

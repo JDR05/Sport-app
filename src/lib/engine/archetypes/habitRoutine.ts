@@ -171,7 +171,11 @@ export const habitRoutine: ArchetypeStrategy = {
   },
 
   assertInvariants(plan: PlanResult): void {
-    const items = plan.strategy.goalTrack.items
+    // Habit items only, for the same reason as nutrition: the rule is "one new
+    // habit at a time", not "one action at a time".
+    const items = plan.strategy.goalTrack.items.filter(
+      (i) => i.domain === 'self_improvement',
+    )
     const newHabits = new Set(
       items.filter((i) => i.details.newHabit === true).map((i) => String(i.details.habit)),
     )

@@ -169,7 +169,10 @@ export const endurance: ArchetypeStrategy = {
   },
 
   assertInvariants(plan: PlanResult, input: PlanInput): void {
-    const weeklyKm = plan.strategy.goalTrack.items.reduce(
+    const enduranceItems = plan.strategy.goalTrack.items.filter(
+      (i) => i.domain === 'training',
+    )
+    const weeklyKm = enduranceItems.reduce(
       (sum, i) => sum + Number(i.details.km ?? 0),
       0,
     )
@@ -183,7 +186,7 @@ export const endurance: ArchetypeStrategy = {
       )
     }
 
-    const trainingDays = new Set(plan.strategy.goalTrack.items.map((i) => i.scheduledOn))
+    const trainingDays = new Set(enduranceItems.map((i) => i.scheduledOn))
     if (trainingDays.size > 7 - ENDURANCE_MIN_REST_DAYS) {
       throw new PlanInvariantError(
         `endurance: ${trainingDays.size} training days leaves fewer than ${ENDURANCE_MIN_REST_DAYS} rest days`,
