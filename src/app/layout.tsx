@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { cookies } from 'next/headers'
+import { isTheme, THEME_COOKIE, themeAttribute } from '@/lib/theme'
 import './globals.css'
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
@@ -12,7 +14,10 @@ export const metadata: Metadata = {
     'Du sagst, wer du werden willst. Cadence zeigt dir, wie du dorthin kommst – und lernt dabei, was für dich tatsächlich funktioniert.',
   applicationName: 'Cadence',
   manifest: '/manifest.webmanifest',
-  icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }] },
+  // No `icons` entry on purpose: app/icon.svg and app/apple-icon.png are file
+  // conventions Next picks up by itself, and declaring icons here would
+  // override them — which is how the app ends up shipping a link to a file
+  // that was deleted.
   // An installed app should open like an app, not like a browser tab.
   appleWebApp: { capable: true, title: 'Cadence', statusBarStyle: 'default' },
 }
@@ -36,9 +41,15 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({ children }: LayoutProps<'/'>) {
+export default async function RootLayout({ children }: LayoutProps<'/'>) {
+  // Read here rather than in the browser: the attribute has to be on the very
+  // first frame, or someone on dark mode sees a white flash on every
+  // navigation. 'system' stamps nothing and lets the stylesheet decide.
+  const stored = (await cookies()).get(THEME_COOKIE)?.value
+  const theme = themeAttribute(isTheme(stored) ? stored : 'system')
+
   return (
-    <html lang="de" className={`${inter.variable} h-full`}>
+    <html lang="de" data-theme={theme} className={`${inter.variable} h-full`}>
       {/* No plan provider here: the login and sign-up screens have no plan,
           and the onboarding is what creates one. It wraps the app group only. */}
       <body className="min-h-full">{children}</body>

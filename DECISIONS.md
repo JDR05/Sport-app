@@ -7,6 +7,57 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-047: Ein Zeichen, das die App selbst zeigt
+
+**Entscheidung:** Die Marke ist ein offener Ring mit einem abgesetzten Beat. Der Ring ist die
+Woche — derselbe Fortschrittsring, den die App auf Fortschritt und Heute zeichnet. Die Öffnung
+liest sich als **C**, der akzentuierte Beat ist die Änderung, die das Experiment probiert hat.
+
+Dazu echte Installations-Icons: `app/icon.svg`, `app/apple-icon.png` (180 px), `favicon.ico`
+sowie 192/512 und ein **maskable** 512 im Manifest. Alle werden aus derselben Geometrie
+erzeugt (`scripts/`-loses Einmalskript, Werte im Code dokumentiert).
+
+**Begründung:** Der vorherige Balken-Marke fehlte ein Bezug zum Produkt — sie hätte zu jeder
+Analytics-App gehören können. Der Ring gehört zu dieser: er ist das, was der Nutzer täglich
+ansieht.
+
+Die vielen Dateiformate sind kein Overkill, sondern Voraussetzung: iOS ignoriert die
+Manifest-Icons für den Homescreen und verlangt ein `apple-touch-icon`-PNG, Android verlangt
+für den adaptiven Zuschnitt ein maskable Icon, dessen Inhalt innerhalb von 80 % des Feldes
+bleibt.
+
+---
+
+## 2026-08-20 — ADR-048: Eine Palette, zwei Erscheinungen — über `light-dark()`
+
+**Entscheidung:** Die Farbtokens stehen einmal da und nennen beide Werte pro Zeile
+(`light-dark(hell, dunkel)`). Der Modus wird ausschließlich über `color-scheme` gesteuert.
+Die Kontoseite bietet System/Hell/Dunkel; die Wahl liegt in einem Cookie, und der Server
+stempelt `data-theme` auf `<html>`.
+
+**Begründung:** Die übliche Lösung — ein Hell-Block plus ein duplizierter Dunkel-Block unter
+`prefers-color-scheme` — verrottet: eine Farbe, die in der einen Hälfte ergänzt und in der
+anderen vergessen wird, fällt Monate später als ein einzelner falscher Farbfleck auf. Mit
+`light-dark()` ist das Vergessen strukturell unmöglich.
+
+Der Cookie statt localStorage ist der Grund, warum es kein weißes Aufblitzen gibt: die
+Einstellung muss beim **ersten** Frame feststehen, und nur der Server kann das leisten.
+`system` stempelt bewusst nichts — sonst würde eingefroren, was das Gerät zufällig beim
+Rendern war.
+
+---
+
+## 2026-08-20 — ADR-049: Das Manifest darf nicht hinter dem Login liegen
+
+**Entscheidung:** Der Auth-Proxy schließt `.webmanifest` genauso aus wie Bilder.
+
+**Begründung:** Der Browser lädt das Manifest, bevor sich jemand angemeldet hat, und oft ohne
+Credentials selbst wenn er angemeldet ist. Vorher antwortete `/manifest.webmanifest` mit einer
+Weiterleitung auf `/login` — die Installationsaufforderung erschien nie, und die App ließ sich
+gar nicht auf den Homescreen legen. Gegengeprüft: jetzt 200.
+
+---
+
 ## 2026-08-20 — ADR-045: Der Plan kennt die Termine, die es schon gibt
 
 **Entscheidung:** `Schedule` hat neben `freeSlots` jetzt `commitments` — feste, wöchentlich

@@ -3,10 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { RequirePlan } from '@/components/RequirePlan'
 import { SignOutButton } from '@/components/SignOutButton'
+import { ThemeSetting } from '@/components/ThemeSetting'
 import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 
 import type { GoalArchetype } from '@/lib/domain/types'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
+import type { Theme } from '@/lib/theme'
 
 const ARCHETYPE_LABEL: Record<GoalArchetype, string> = {
   body_composition: 'Körper und Gewicht',
@@ -23,7 +25,13 @@ const WORK_PATTERN: Record<string, string> = {
   shift: 'Schicht', irregular: 'Unregelmäßig',
 }
 
-export function ProfileView({ answers }: { answers: StoredPlanInput }) {
+export function ProfileView({
+  answers,
+  theme,
+}: {
+  answers: StoredPlanInput
+  theme: Theme
+}) {
   const router = useRouter()
 
   return (
@@ -93,6 +101,22 @@ export function ProfileView({ answers }: { answers: StoredPlanInput }) {
               Dein bisheriges Ziel wird pausiert, nicht gelöscht. Was du bis jetzt getan hast,
               bleibt Teil deiner Geschichte — und das persönliche Modell lernt weiter daraus.
             </Note>
+
+            <SectionHeading>Darstellung</SectionHeading>
+            <ThemeSetting current={theme} />
+            <Note>
+              „System“ folgt der Einstellung deines Handys und wechselt abends mit. Die Wahl
+              gilt für dieses Gerät.
+            </Note>
+
+            <SectionHeading>Sprache</SectionHeading>
+            <Card>
+              <p className="text-sm font-semibold text-ink">Deutsch</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                Englisch ist geplant. Es fehlt noch, weil auch die Begründungen im Plan
+                übersetzt werden müssen — halb übersetzt wäre schlechter als gar nicht.
+              </p>
+            </Card>
 
             <SectionHeading>Konto</SectionHeading>
             <SignOutButton />

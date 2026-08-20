@@ -15,33 +15,50 @@
  * Full rationale and usage rules: docs/DESIGN_SYSTEM.md.
  */
 
+/*
+ * One palette, two appearances.
+ *
+ * Written with light-dark() rather than as a light block plus a duplicated
+ * dark block under a media query. The duplicate version is the usual way and
+ * it rots: a colour added to one half and forgotten in the other shows up as a
+ * single wrong swatch in dark mode months later. Here every token states both
+ * of its values on one line, so forgetting is not possible.
+ *
+ * It also makes the theme switch trivial. light-dark() reads `color-scheme`,
+ * so the account setting only has to set that one property — no class has to
+ * be threaded through every component, and the server can stamp it before
+ * first paint, which is what stops the white flash on a dark phone.
+ */
 :root {
-  --paper: #faf9f7;
-  --surface: #ffffff;
-  --surface-sunken: #f2f0ec;
-  --ink: #1b1a18;
-  --ink-muted: #6b6862;
-  --ink-faint: #97938c;
-  --line: #e6e3dd;
-  --accent: #3f6b52;
-  --accent-ink: #ffffff;
-  --accent-soft: #e8efe9;
+  /* `light dark` means: follow the system unless something says otherwise. */
+  color-scheme: light dark;
 
-  --training: #3f6b52;
-  --training-soft: #e8efe9;
-  --nutrition: #9a6428;
-  --nutrition-soft: #f6eee2;
-  --movement: #47617d;
-  --movement-soft: #e7edf3;
+  --paper: light-dark(#faf9f7, #131211);
+  --surface: light-dark(#ffffff, #1c1b19);
+  --surface-sunken: light-dark(#f2f0ec, #232220);
+  --ink: light-dark(#1b1a18, #edebe7);
+  --ink-muted: light-dark(#6b6862, #a5a099);
+  --ink-faint: light-dark(#97938c, #7c7871);
+  --line: light-dark(#e6e3dd, #2e2c29);
+  --accent: light-dark(#3f6b52, #7aa98b);
+  --accent-ink: light-dark(#ffffff, #12211a);
+  --accent-soft: light-dark(#e8efe9, #22302a);
+
+  --training: light-dark(#3f6b52, #7aa98b);
+  --training-soft: light-dark(#e8efe9, #22302a);
+  --nutrition: light-dark(#9a6428, #cc9a5e);
+  --nutrition-soft: light-dark(#f6eee2, #322920);
+  --movement: light-dark(#47617d, #8aa8c6);
+  --movement-soft: light-dark(#e7edf3, #212a33);
   /* Sleep and mind used to borrow the movement hue, which made a sleep goal
      look like a walking goal at a glance — the one thing the colour is for. */
-  --sleep: #5b5a8c;
-  --sleep-soft: #eaeaf3;
-  --mind: #7a5570;
-  --mind-soft: #f2eaf0;
+  --sleep: light-dark(#5b5a8c, #9a99cc);
+  --sleep-soft: light-dark(#eaeaf3, #262633);
+  --mind: light-dark(#7a5570, #c095b4);
+  --mind-soft: light-dark(#f2eaf0, #302530);
 
-  --warn: #8a4b2a;
-  --warn-soft: #f7ebe4;
+  --warn: light-dark(#8a4b2a, #d09070);
+  --warn-soft: light-dark(#f7ebe4, #33241d);
 
   /* -------------------------------------------------------------- shape --
      Three radii, not seven. A card, a control, a pill. */
@@ -57,34 +74,11 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #131211;
-    --surface: #1c1b19;
-    --surface-sunken: #232220;
-    --ink: #edebe7;
-    --ink-muted: #a5a099;
-    --ink-faint: #7c7871;
-    --line: #2e2c29;
-    --accent: #7aa98b;
-    --accent-ink: #12211a;
-    --accent-soft: #22302a;
-
-    --training: #7aa98b;
-    --training-soft: #22302a;
-    --nutrition: #cc9a5e;
-    --nutrition-soft: #322920;
-    --movement: #8aa8c6;
-    --movement-soft: #212a33;
-    --sleep: #9a99cc;
-    --sleep-soft: #262633;
-    --mind: #c095b4;
-    --mind-soft: #302530;
-
-    --warn: #d09070;
-    --warn-soft: #33241d;
-  }
-}
+/* The account setting. Stamped on <html> by the server from a cookie, so the
+   first paint is already correct — a dark-mode user should never be shown a
+   white screen for one frame. */
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
 
 @theme inline {
   --color-paper: var(--paper);

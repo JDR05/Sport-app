@@ -28,50 +28,6 @@ export function ProgressView({ data }: { data: ProgressData }) {
           <Screen>
             <ScreenTitle title="Fortschritt" subtitle="Wo stehst du, und was hält dich zurück?" />
 
-            <Card tone="accent">
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                Deine Zielspur
-              </p>
-              <p className="mt-1 text-[15px] font-semibold text-ink">{s.goalTrack.headline}</p>
-              <ul className="mt-2 space-y-1 text-sm text-muted">
-                {s.goalTrack.summary.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </Card>
-
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <StatTile
-                label="Zieldatum"
-                value={s.targetDate ? formatGermanDate(s.targetDate).replace(/ \d{4}$/, '') : 'offen'}
-                hint={s.targetDateAdjusted ? 'angepasst' : 'wie gewünscht'}
-              />
-              <StatTile
-                label="Aktionen"
-                value={`${plan.items.filter((i) => i.track === 'goal').length}`}
-                hint="fürs Ziel diese Woche"
-              />
-            </div>
-
-            {data.spec ? (
-              <>
-                <SectionHeading>{data.spec.label}</SectionHeading>
-                <MetricEntry spec={data.spec} history={data.history} />
-              </>
-            ) : (
-              <>
-                <SectionHeading>Zielmetrik</SectionHeading>
-                <Card>
-                  <p className="text-sm font-semibold text-ink">Dieses Ziel hat keine Zahl</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">
-                    Nicht jedes Ziel lässt sich messen, und das ist in Ordnung. Bewertet wird
-                    hier dein Verhalten, nicht ein Wert auf einer Waage.
-                  </p>
-                </Card>
-              </>
-            )}
-
-            <SectionHeading>Diese Woche</SectionHeading>
             {data.scores.overall.planned === 0 ? (
               <EmptyState
                 title="Diese Woche ist noch nichts geplant"
@@ -113,6 +69,50 @@ export function ProgressView({ data }: { data: ProgressData }) {
                   </div>
                 )}
               </Card>
+            )}
+
+
+            <Card tone="accent">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                Deine Zielspur
+              </p>
+              <p className="mt-1 text-[15px] font-semibold text-ink">{s.goalTrack.headline}</p>
+              <ul className="mt-2 space-y-1 text-sm text-muted">
+                {s.goalTrack.summary.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </Card>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <StatTile
+                label="Zieldatum"
+                value={s.targetDate ? formatGermanDate(s.targetDate).replace(/ \d{4}$/, '') : 'offen'}
+                hint={s.targetDateAdjusted ? 'angepasst' : 'wie gewünscht'}
+              />
+              <StatTile
+                label="Aktionen"
+                value={`${plan.items.filter((i) => i.track === 'goal').length}`}
+                hint="fürs Ziel diese Woche"
+              />
+            </div>
+
+            {data.spec ? (
+              <>
+                <SectionHeading>{data.spec.label}</SectionHeading>
+                <MetricEntry spec={data.spec} history={data.history} />
+              </>
+            ) : (
+              <>
+                <SectionHeading>Zielmetrik</SectionHeading>
+                <Card>
+                  <p className="text-sm font-semibold text-ink">Dieses Ziel hat keine Zahl</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">
+                    Nicht jedes Ziel lässt sich messen, und das ist in Ordnung. Bewertet wird
+                    hier dein Verhalten, nicht ein Wert auf einer Waage.
+                  </p>
+                </Card>
+              </>
             )}
 
             <SectionHeading>Konsistenz</SectionHeading>

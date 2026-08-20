@@ -1,14 +1,22 @@
 // The Cadence mark.
 //
-// Four beats. Three sit where a plan would put them; the third is lower and
-// carries the accent — the beat the app moved because the original one never
-// worked for this person.
+// An open ring with one beat sitting outside it.
 //
-// That is the whole product in a glyph: a rhythm, and the willingness to
-// change it. It also survives 16 pixels, which rules out anything cleverer.
+// The ring is the week — the same progress ring the app draws on Progress and
+// Today, so the logo is not a decoration bolted on but the thing the product
+// actually shows you. The gap makes it read as a C, and the accented beat is
+// the one that left the loop: the change the app tried because the original
+// rhythm never worked for this person.
 //
-// Drawn with currentColor so it inherits from wherever it sits, with the moved
-// beat as the single accented element.
+// That is the whole product in a glyph, and it still resolves at 16 pixels,
+// which rules out anything cleverer.
+//
+// Geometry note: the arc runs clockwise from the lower terminal (50°) to the
+// upper one (-62°) the long way round, so the opening faces right. Writing the
+// two gap ends the other way round draws the short arc instead, which produces
+// a crescent — worth stating, because it is not obvious from the numbers.
+
+const RING = 'M17.40 18.43 A8.4 8.4 0 1 1 15.94 4.58'
 
 export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
@@ -21,11 +29,9 @@ export function LogoMark({ size = 24, className }: { size?: number; className?: 
       aria-label="Cadence"
       className={className}
     >
-      <rect x="2" y="10" width="3.5" height="12" rx="1.75" fill="currentColor" />
-      <rect x="8" y="5" width="3.5" height="17" rx="1.75" fill="currentColor" />
-      {/* The moved beat. */}
-      <rect x="14" y="15" width="3.5" height="7" rx="1.75" className="fill-accent" />
-      <rect x="20" y="7" width="3.5" height="15" rx="1.75" fill="currentColor" />
+      <path d={RING} stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      {/* The beat that moved. */}
+      <circle cx="20.31" cy="7.2" r="2.8" className="fill-accent" />
     </svg>
   )
 }
