@@ -32,6 +32,24 @@ import type {
  */
 export type StoredPlanInput = Omit<PlanInput, 'today'>
 
+/**
+ * The database could not answer. Deliberately not the same as "there is
+ * nothing stored yet".
+ *
+ * The two used to be indistinguishable: every query result was read as data or
+ * nothing, errors included. A single failed read therefore looked exactly like
+ * a person who had never set anything up, and the app answered the only way it
+ * could — by sending them through the whole intake again, which then replaced
+ * the goal they already had. Losing someone's setup because one query hiccuped
+ * is not an acceptable failure mode, so this is loud instead.
+ */
+export class PlanInputUnavailableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PlanInputUnavailableError'
+  }
+}
+
 /** Null means: this person has not finished the onboarding yet. */
 export async function loadPlanInput(profileId: string): Promise<StoredPlanInput | null> {
   const supabase = await createClient()
@@ -57,6 +75,14 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
       .eq('profile_id', profileId)
       .eq('active', true),
   ])
+
+  // A failed read is reported, never interpreted. This also covers the case
+  // where two goals are somehow active at once: maybeSingle() errors on two
+  // rows, and treating that as "no goal" would have quietly started a third.
+  const failed = [profileRow, goalRow, metricRows, scheduleRow, constraintRows, ruleRows]
+    .map((r) => r.error)
+    .find((e) => e !== null)
+  if (failed) throw new PlanInputUnavailableError(failed.message)
 
   // No goal means no plan. Everything else can be missing and the engine will
   // record an assumption instead of failing.

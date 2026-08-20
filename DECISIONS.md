@@ -7,6 +7,27 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-044: Das Onboarding ist zerstörend und wird deshalb bewacht
+
+**Entscheidung:** `/onboarding` zeigt einem Menschen mit aktivem Ziel nicht mehr das leere
+Formular, sondern nennt das bestehende Ziel und fragt. Das Formular gibt es nur nach
+ausdrücklicher Zustimmung (`?reset=1`). Zusätzlich unterscheidet `loadPlanInput` jetzt
+zwischen „nichts gespeichert" und „Abfrage fehlgeschlagen": ein Fehler wirft
+`PlanInputUnavailableError` und landet in einer Fehleransicht mit „Nochmal versuchen".
+Höchstens ein aktives Ziel je Person ist ein Unique-Index.
+
+**Begründung:** Das Onboarding abzuschicken pausiert das bestehende Ziel und legt ein neues
+an — es ist also zerstörend, war aber ungeschützt erreichbar. Gleichzeitig war jeder
+fehlgeschlagene Datenbankzugriff nicht von „hat noch nie etwas eingerichtet" zu unterscheiden,
+weil nur `data` gelesen wurde und `error` nicht. Eine kurze Störung sah damit exakt aus wie ein
+neuer Nutzer, und die App antwortete mit dem Formular, dessen Ausfüllen die echte Einrichtung
+ersetzte. Aus Sicht des Product Owners: „immer wenn du pushst, kommt das Onboarding nochmal."
+
+Beide Hälften mussten weg. Selbst wenn die Weiterleitung irgendwann wieder danebengreift, kann
+das Onboarding jetzt nichts mehr ersetzen, ohne dass jemand es verlangt hat.
+
+---
+
 ## 2026-08-20 — ADR-042: Die Regel eines laufenden Experiments verändert den Plan sofort
 
 **Entscheidung:** Sobald der Nutzer ein Experiment annimmt, wird die getestete Regel als
