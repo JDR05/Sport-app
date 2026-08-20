@@ -14,7 +14,8 @@ import { describe, expect, it } from 'vitest'
 import {
   readCommitments, readConstraintValue,
   readFreeSlots, readMind, readNutrition,
-  readSexAtBirth, readSleep, readSport, readWorkPattern,
+  readSexAtBirth, readSleep, readSport, readWakeTimes,
+  readWorkPattern,
 } from '@/lib/db/schemas'
 import { generatePlan } from '@/lib/engine'
 import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
@@ -129,6 +130,7 @@ describe('a profile stored as complete garbage', () => {
         workPattern: readWorkPattern('???'),
         freeSlots: readFreeSlots('???'),
         commitments: readCommitments('???'),
+        wakeTimes: readWakeTimes('???'),
       },
     }
 

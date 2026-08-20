@@ -11,6 +11,7 @@
 
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { scheduleRow } from './schedule-row'
 import type { Constraint, Goal, GoalMetric, Profile, Schedule } from '@/lib/domain/types'
 
 export type OnboardingData = {
@@ -44,12 +45,7 @@ export async function saveOnboarding(
   if (profile.error) return { ok: false, error: profile.error.message }
 
   const schedule = await supabase.from('schedules').upsert(
-    {
-      profile_id: profileId,
-      work_pattern: data.schedule.workPattern,
-      free_slots: data.schedule.freeSlots,
-      commitments: data.schedule.commitments,
-    },
+    { profile_id: profileId, ...scheduleRow(data.schedule) },
     { onConflict: 'profile_id' },
   )
   if (schedule.error) return { ok: false, error: schedule.error.message }

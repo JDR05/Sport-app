@@ -486,6 +486,7 @@ export type Database = {
           sleep_time: string | null
           updated_at: string
           wake_time: string | null
+          wake_times: Json
           weekend_differs: boolean
           work_pattern: string | null
         }
@@ -498,6 +499,7 @@ export type Database = {
           sleep_time?: string | null
           updated_at?: string
           wake_time?: string | null
+          wake_times?: Json
           weekend_differs?: boolean
           work_pattern?: string | null
         }
@@ -510,6 +512,7 @@ export type Database = {
           sleep_time?: string | null
           updated_at?: string
           wake_time?: string | null
+          wake_times?: Json
           weekend_differs?: boolean
           work_pattern?: string | null
         }

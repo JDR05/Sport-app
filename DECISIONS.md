@@ -7,6 +7,41 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-051: Die Nacht ist keine freie Zeit
+
+**Entscheidung:** Aufstehzeiten werden **je Wochentag** erfasst (partiell — ein Tag ohne
+Angabe bleibt unbekannt). Ein neues reines Modul `src/lib/engine/night.ts` rechnet aus, wie
+viel Nacht nach dem letzten festen Termin eines Tages bis zum Wecker am Morgen danach übrig
+bleibt. Liegt sie bei **7 h oder darunter**, wird der Abend nicht mehr beplant, und der Plan
+sagt in einem Satz warum. Konstanten: `WIND_DOWN_MINUTES = 60`, `MIN_NIGHT_HOURS = 7`.
+
+**Begründung:** Der Fall des Product Owners: Fußball bis 21:00, Mittwoch um 5:00 raus. Diese
+Nacht steht fest, bevor der Plan irgendetwas gesagt hat. Ein Planer, der den Dienstagabend als
+leeres Zeitfenster behandelt, fügt keine Einheit hinzu — er nimmt Schlaf weg, und das ist
+genau die Richtung, die die Sicherheitsregeln ausschließen.
+
+Bewusst nur der Abend: ein Morgen am selben Tag bleibt planbar, weil er die Nacht nichts
+kostet. Wer Dienstagabend Fußball hat, kann Dienstagmorgen laufen.
+
+Eine Aufstehzeit für die ganze Woche hätte nicht gereicht — Studium, Schicht und wechselnde
+Vorlesungen haben sieben verschiedene Morgen. Ohne Angabe rechnet die App nicht, statt eine
+Uhrzeit zu erfinden.
+
+---
+
+## 2026-08-20 — ADR-052: Die Zeile in die Datenbank ist eine reine Funktion
+
+**Entscheidung:** `scheduleRow()` bildet `Schedule` auf die Datenbankzeile ab, mit einem Test,
+der jeden Feldnamen des Domain-Typs gegen die Zeile prüft.
+
+**Begründung:** Zweimal in diesem Projekt wurde etwas erfasst, korrekt durchtypisiert und
+trotzdem nie gespeichert oder nie gelesen — die alte einzelne `wake_time` und die Check-ins.
+TypeScript fängt das nicht: ein Insert-Objekt, dem eine Eigenschaft fehlt, ist gültig. Aus dem
+Save herausgezogen wird daraus etwas Prüfbares, und aus „jemand hat daran gedacht" wird
+„sonst schlägt die Suite fehl".
+
+---
+
 ## 2026-08-20 — ADR-050: Ein Muster wird nie ohne seinen Umstand genannt
 
 **Entscheidung:** Der Check-in erfasst zusätzlich **Schlaf** (Stunden) und **Stress** (1–5,

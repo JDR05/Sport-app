@@ -55,6 +55,12 @@ const onboardingSchema = z.object({
     workPattern: z.enum(['student', 'office', 'remote', 'shift', 'irregular']).nullable(),
     freeSlots: z.array(freeSlotSchema).max(50),
     commitments: z.array(commitmentSchema).max(30),
+    // Partial by design: a weekday nobody answered stays absent, and the
+    // engine says less rather than inventing an hour somebody has to be up.
+    wakeTimes: z.record(
+      z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+      z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    ),
   }),
   constraints: z
     .array(

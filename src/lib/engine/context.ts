@@ -10,7 +10,8 @@ import {
   MIN_REST_DAYS,
   MIN_VIABLE_SESSION_MINUTES,
 } from './constants'
-import { commitmentsOn, freeSlotsMinusCommitments, sportDays } from './commitments'
+import { commitmentsOn, freeSlotsMinusCommitments, minutesOfDay, sportDays } from './commitments'
+import { endOf, hoursLabel, nextWeekday, shortNights, timeOf, type Night } from './night'
 import { addDays, startOfWeek, timeSlotOf } from './dates'
 import { applyDayRules, readRules, type ActiveRules } from './rules'
 import {
@@ -71,12 +72,20 @@ export function buildContext(raw: PlanInput): PlanContext {
   // slotOf — then works on time that is genuinely free, and none of them can
   // forget to ask. What is left is the real week, not the offered one.
   const commitments = raw.schedule.commitments
+
+  // An evening after a late commitment, before an early morning, is not free
+  // time — it is the night. Removing it here, next to the commitments, means
+  // every archetype inherits the limit instead of each one having to remember
+  // that sleep exists.
+  const nights = shortNights(raw.schedule)
+  const withoutNights = protectNights(
+    freeSlotsMinusCommitments(raw.schedule.freeSlots, commitments),
+    nights,
+  )
+
   const input: PlanInput = {
     ...raw,
-    schedule: {
-      ...raw.schedule,
-      freeSlots: freeSlotsMinusCommitments(raw.schedule.freeSlots, commitments),
-    },
+    schedule: { ...raw.schedule, freeSlots: withoutNights },
   }
 
   const alreadySporting = sportDays(commitments)
@@ -139,6 +148,20 @@ export function buildContext(raw: PlanInput): PlanContext {
         `dein Ziel einzahlt. Wenn du zusätzlich zu diesen Terminen trainieren willst, trag ` +
         `dein Wochenziel höher ein.`,
       basedOn: ['schedule.commitments'],
+    })
+  }
+
+  // Named, not silently applied. A limit the user cannot see is one they have
+  // no reason to believe in, and this one takes a whole evening away.
+  for (const night of nights) {
+    rationale.push({
+      text:
+        `${WEEKDAY_LABEL[night.weekday]} hast du ${night.because.label} bis ` +
+        `${timeOf(endOf(night.because))}, und ${WEEKDAY_LABEL[nextWeekday(night.weekday)]} musst ` +
+        `du um ${timeOf(night.wakeAt)} raus. Selbst wenn du direkt ins Bett gehst, sind das ` +
+        `${hoursLabel(night.hours)}. Der Plan legt an diesem Abend nichts mehr obendrauf — ` +
+        `Schlaf ist hier das Training.`,
+      basedOn: ['schedule.commitments', 'schedule.wakeTimes'],
     })
   }
 
@@ -412,4 +435,26 @@ export function round1(n: number): number {
 
 export function formatDecimal(n: number): string {
   return round1(n).toFixed(1).replace('.', ',')
+}
+
+
+/**
+ * Removes the evening of a night that is already short.
+ *
+ * Only the part of the day that would push bedtime later goes: a morning slot
+ * on the same day is untouched, because it costs the night nothing. Someone who
+ * has football on Tuesday evening can still run on Tuesday morning — the plan
+ * just stops pretending the evening is available twice.
+ */
+function protectNights(slots: FreeSlot[], nights: Night[]): FreeSlot[] {
+  if (nights.length === 0) return slots
+  const byDay = new Map(nights.map((n) => [n.weekday, n]))
+
+  return slots.filter((slot) => {
+    const night = byDay.get(slot.weekday)
+    if (!night) return true
+    // The slot survives only if it is over before the commitment's wind-down
+    // begins — anything later is the night itself.
+    return minutesOfDay(slot.start) + slot.minutes <= endOf(night.because)
+  })
 }

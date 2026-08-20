@@ -84,6 +84,8 @@ type Draft = {
   existingRoutines: string
 
   commitments: Commitment[]
+  /** 'HH:MM' per weekday, partial: a day nobody answered stays unknown. */
+  wakeTimes: Partial<Record<Weekday, string>>
 
   dislikedActivities: Activity[]
   blockedDays: Weekday[]
@@ -100,6 +102,7 @@ const EMPTY: Draft = {
   usualBedtime: null, usualWakeTime: null, sleepQuality: null, wakesAtNight: null, screenBeforeBed: null,
   screenTimeHoursPerDay: null, focusStruggle: null, existingRoutines: '',
   commitments: [],
+  wakeTimes: {},
   dislikedActivities: [], blockedDays: [],
 }
 
@@ -193,6 +196,7 @@ function buildAnswers(
         minutes: d.slotMinutes ?? 45,
       })),
       commitments: d.commitments,
+      wakeTimes: d.wakeTimes,
     },
   }
 }
@@ -441,7 +445,14 @@ export function OnboardingForm() {
       {stepName === 'Schlaf' && (
         <>
           <Field label="Wann gehst du normalerweise schlafen?"><TimeInput value={d.usualBedtime} onChange={(v) => set('usualBedtime', v)} /></Field>
-          <Field label="Wann stehst du auf?"><TimeInput value={d.usualWakeTime} onChange={(v) => set('usualWakeTime', v)} /></Field>
+          <Field label="Wann musst du raus?">
+            <WakeTimes
+              value={d.wakeTimes}
+              usual={d.usualWakeTime}
+              onUsual={(v) => set('usualWakeTime', v)}
+              onChange={(v) => set('wakeTimes', v)}
+            />
+          </Field>
           <Field label="Wie gut schläfst du?">
             <ChoiceGroup options={[{ value: 'poor', label: 'Schlecht' }, { value: 'ok', label: 'Geht so' }, { value: 'good', label: 'Gut' }]} value={d.sleepQuality} onChange={(v) => set('sleepQuality', v)} columns={3} />
           </Field>
@@ -515,5 +526,86 @@ export function OnboardingForm() {
         )}
       </div>
     </Screen>
+  )
+}
+
+/**
+ * The alarm, day by day.
+ *
+ * One wake time for the week cannot describe the people this app is for: a
+ * student's mornings are all different, shift work inverts, and it is the
+ * Wednesday alarm that decides whether Tuesday evening has any room left in it.
+ *
+ * It opens as a single field, because most people do have one usual morning and
+ * making everyone fill in seven would be the app behaving like a form. "Nicht
+ * jeden Tag gleich" unfolds the week, prefilled with what they just typed, so
+ * the extra work is only done by the people whose week actually needs it.
+ *
+ * A day left empty stays empty. Unknown is a real answer here — the engine
+ * reasons about how much night is left, and inventing an hour would make it
+ * confident about something nobody said.
+ */
+function WakeTimes({
+  value,
+  usual,
+  onUsual,
+  onChange,
+}: {
+  value: Partial<Record<Weekday, string>>
+  usual: string | null
+  onUsual: (value: string | null) => void
+  onChange: (value: Partial<Record<Weekday, string>>) => void
+}) {
+  const perDay = Object.keys(value).length > 0
+  const [open, setOpen] = useState(perDay)
+
+  if (!open) {
+    return (
+      <>
+        <TimeInput
+          value={usual}
+          onChange={(v) => {
+            onUsual(v)
+            onChange(v === null ? {} : Object.fromEntries(WEEKDAYS.map((w) => [w, v])))
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-2 text-sm text-accent underline underline-offset-4"
+        >
+          Nicht jeden Tag gleich
+        </button>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        {WEEKDAYS.map((weekday) => (
+          <div key={weekday} className="flex items-center gap-3">
+            <span className="w-10 shrink-0 text-sm font-medium text-muted">
+              {WEEKDAY_SHORT[weekday]}
+            </span>
+            <div className="flex-1">
+              <TimeInput
+                value={value[weekday] ?? null}
+                onChange={(v) => {
+                  const next = { ...value }
+                  if (v === null) delete next[weekday]
+                  else next[weekday] = v
+                  onChange(next)
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Note>
+        Leer lassen ist in Ordnung. Für einen Tag ohne Angabe rechnet die App nicht mit einer
+        Uhrzeit, statt sich eine auszudenken.
+      </Note>
+    </>
   )
 }

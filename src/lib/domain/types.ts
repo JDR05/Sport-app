@@ -180,6 +180,17 @@ export type Schedule = {
   workPattern: WorkPattern | null
   freeSlots: FreeSlot[]
   commitments: Commitment[]
+  /**
+   * 'HH:MM' per weekday, partial. A day that is absent is unknown, and unknown
+   * is never read as a number — the engine says less rather than guessing when
+   * somebody has to be up.
+   *
+   * Per weekday rather than one value for the week, because the people this
+   * app is for do not have one: a student's week has seven different mornings,
+   * shift work inverts, and it is the Wednesday alarm that decides whether
+   * Tuesday evening has any room left in it.
+   */
+  wakeTimes: Partial<Record<Weekday, string>>
 }
 
 export type PersonalRule = {

@@ -110,6 +110,24 @@ export function readFreeSlots(value: unknown): FreeSlot[] {
   return out
 }
 
+/**
+ * Wake times that do not parse are dropped, not guessed at.
+ *
+ * A day with no answer stays absent rather than becoming a default hour. The
+ * engine reasons about how much night is left; inventing a wake time would
+ * make it reason confidently about a number nobody gave it.
+ */
+export function readWakeTimes(value: unknown): Schedule['wakeTimes'] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  const out: Schedule['wakeTimes'] = {}
+  for (const [day, time] of Object.entries(value)) {
+    const parsedDay = weekday.safeParse(day)
+    const parsed = timeOfDay.safeParse(time)
+    if (parsedDay.success && parsed.success) out[parsedDay.data] = parsed.data
+  }
+  return out
+}
+
 /** Commitments that do not parse are dropped, not guessed at. */
 export function readCommitments(value: unknown): Commitment[] {
   if (!Array.isArray(value)) return []

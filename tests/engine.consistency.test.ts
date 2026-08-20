@@ -34,7 +34,7 @@ const CASES: Array<{ name: string; input: PlanInput }> = [
       name: `${p.name} · ${g.name} · im Verein`,
       input: {
         ...makeInput(p, g),
-        schedule: { workPattern: null, freeSlots: EVENINGS, commitments: CLUB },
+        schedule: { workPattern: null, freeSlots: EVENINGS, commitments: CLUB , wakeTimes: {} },
       },
     })),
   ),

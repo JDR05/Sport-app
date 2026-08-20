@@ -34,7 +34,7 @@ function footballer(goalIndex: number): PlanInput {
       ...base.profile,
       sport: { ...base.profile.sport, experience: 'intermediate', sessionsPerWeekTarget: 3 },
     },
-    schedule: { workPattern: null, freeSlots: EVENINGS, commitments: FOOTBALL },
+    schedule: { workPattern: null, freeSlots: EVENINGS, commitments: FOOTBALL , wakeTimes: {} },
   }
 }
 

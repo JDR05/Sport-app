@@ -67,7 +67,7 @@ describe('nobody named a free slot', () => {
   //
   // The existing loop below missed it because `incompleteInput` carries two
   // free slots, so the empty case never ran.
-  const noSlots = { ...incompleteInput, schedule: { workPattern: null, freeSlots: [], commitments: [] } }
+  const noSlots = { ...incompleteInput, schedule: { workPattern: null, freeSlots: [], commitments: [], wakeTimes: {} } }
 
   it('still produces a plan with goal actions, for every archetype', () => {
     for (const goal of GOALS) {

@@ -148,3 +148,30 @@ export const MAX_NEW_HABITS_AT_ONCE = 1
 /** A habit that is too big to fail at is better than one too big to do. */
 export const HABIT_MIN_MINUTES = 5
 export const HABIT_MAX_MINUTES = 20
+
+// ------------------------------------------------------------- the night --
+//
+// What a late commitment costs the evening after it.
+//
+// The product owner's case: football until nine, up at five. That night is
+// fixed at roughly seven hours before the plan has said anything, and putting
+// another session into the same evening spends hours that are not there. The
+// app has to see that, or it plans a week that only works on paper.
+
+/**
+ * Between a commitment ending and actually being asleep: getting home, eating,
+ * winding down. An hour is conservative for someone leaving a pitch or a gym,
+ * and being conservative here errs towards *more* sleep, which is the only
+ * direction the safety rules allow.
+ */
+export const WIND_DOWN_MINUTES = 60
+
+/**
+ * The night the plan protects. At or below this, the evening is treated as
+ * spoken for and nothing else is scheduled into it.
+ *
+ * Seven hours is the low end of the adult range, chosen deliberately rather
+ * than an ideal eight: the app is describing a limit it will not push someone
+ * past, not prescribing a bedtime.
+ */
+export const MIN_NIGHT_HOURS = 7
