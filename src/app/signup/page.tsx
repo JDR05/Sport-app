@@ -1,6 +1,10 @@
+import type { Metadata } from 'next'
 import { Screen, ScreenTitle } from '@/components/ui'
+import { Wordmark } from '@/components/Logo'
 import { AuthForm } from '@/components/AuthForm'
 import { signUp } from '@/app/auth/actions'
+
+export const metadata: Metadata = { title: 'Konto anlegen' }
 
 export default async function SignupPage({ searchParams }: PageProps<'/signup'>) {
   const params = await searchParams
@@ -8,6 +12,9 @@ export default async function SignupPage({ searchParams }: PageProps<'/signup'>)
   if (params.bestaetigen === '1') {
     return (
       <Screen>
+        <div className="mb-8 mt-2">
+          <Wordmark />
+        </div>
         <ScreenTitle
           title="Fast fertig"
           subtitle="Wir haben dir eine E-Mail geschickt."
@@ -22,6 +29,9 @@ export default async function SignupPage({ searchParams }: PageProps<'/signup'>)
 
   return (
     <Screen>
+      <div className="mb-8 mt-2">
+        <Wordmark />
+      </div>
       <ScreenTitle
         title="Konto anlegen"
         subtitle="Danach beschreibst du dein Ziel, und die App baut daraus deinen Plan."

@@ -5,9 +5,16 @@ import './globals.css'
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Persönlicher Plan',
+  // A template rather than a fixed string, so every screen says where you are
+  // without each page repeating the brand.
+  title: { default: 'Cadence', template: '%s · Cadence' },
   description:
-    'Du sagst, wer du werden willst. Die App zeigt dir, wie du dorthin kommst – und lernt dabei, was für dich tatsächlich funktioniert.',
+    'Du sagst, wer du werden willst. Cadence zeigt dir, wie du dorthin kommst – und lernt dabei, was für dich tatsächlich funktioniert.',
+  applicationName: 'Cadence',
+  manifest: '/manifest.webmanifest',
+  icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }] },
+  // An installed app should open like an app, not like a browser tab.
+  appleWebApp: { capable: true, title: 'Cadence', statusBarStyle: 'default' },
 }
 
 /**

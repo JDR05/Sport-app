@@ -1,12 +1,18 @@
 @import "tailwindcss";
 
 /*
- * Design tokens.
+ * Cadence — design tokens.
  *
- * A deliberately quiet palette: warm paper, near-black ink, one muted accent.
- * The brief rules out "generische Health-App-Optik", so no neon, no gradients,
- * no progress confetti. The three MVP domains get their own restrained hue so
- * a glance at Today tells you what kind of action something is.
+ * The name is the brief: the rhythm you can hold, not the pace you can manage
+ * once. Everything here is chosen so the app feels like something you keep
+ * open for months rather than something that shouts for a week.
+ *
+ * Warm paper, near-black ink, one muted accent. The playbook rules out
+ * "generische Health-App-Optik", so: no neon, no gradients, no confetti, no
+ * progress rings that fill up. Each domain gets its own restrained hue so a
+ * glance at Today says what kind of action something is without reading.
+ *
+ * Full rationale and usage rules: docs/DESIGN_SYSTEM.md.
  */
 
 :root {
@@ -27,9 +33,28 @@
   --nutrition-soft: #f6eee2;
   --movement: #47617d;
   --movement-soft: #e7edf3;
+  /* Sleep and mind used to borrow the movement hue, which made a sleep goal
+     look like a walking goal at a glance — the one thing the colour is for. */
+  --sleep: #5b5a8c;
+  --sleep-soft: #eaeaf3;
+  --mind: #7a5570;
+  --mind-soft: #f2eaf0;
 
   --warn: #8a4b2a;
   --warn-soft: #f7ebe4;
+
+  /* -------------------------------------------------------------- shape --
+     Three radii, not seven. A card, a control, a pill. */
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+  --radius-pill: 999px;
+
+  /* ------------------------------------------------------------- motion --
+     Short and few. Movement should confirm a tap, never perform. Anything
+     above 200ms on a phone reads as lag rather than polish. */
+  --motion-tap: 90ms;
+  --motion-enter: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -51,6 +76,10 @@
     --nutrition-soft: #322920;
     --movement: #8aa8c6;
     --movement-soft: #212a33;
+    --sleep: #9a99cc;
+    --sleep-soft: #262633;
+    --mind: #c095b4;
+    --mind-soft: #302530;
 
     --warn: #d09070;
     --warn-soft: #33241d;
@@ -74,9 +103,16 @@
   --color-nutrition-soft: var(--nutrition-soft);
   --color-movement: var(--movement);
   --color-movement-soft: var(--movement-soft);
+  --color-sleep: var(--sleep);
+  --color-sleep-soft: var(--sleep-soft);
+  --color-mind: var(--mind);
+  --color-mind-soft: var(--mind-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --font-sans: var(--font-inter);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
 }
 
 @layer base {
@@ -90,5 +126,21 @@
   /* The app is a mobile surface; rubber-band scrolling on the shell looks broken. */
   html {
     overscroll-behavior-y: none;
+  }
+
+  /* Numbers are read in columns — a weight series, a completion rate. Tabular
+     figures stop them shifting sideways as the digits change. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Someone who asked their system for less movement means it. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

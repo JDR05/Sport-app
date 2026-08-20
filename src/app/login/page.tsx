@@ -1,6 +1,10 @@
+import type { Metadata } from 'next'
 import { Screen, ScreenTitle } from '@/components/ui'
+import { Wordmark } from '@/components/Logo'
 import { AuthForm } from '@/components/AuthForm'
 import { signIn } from '@/app/auth/actions'
+
+export const metadata: Metadata = { title: 'Anmelden' }
 
 export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const params = await searchParams
@@ -10,6 +14,9 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
 
   return (
     <Screen>
+      <div className="mb-8 mt-2">
+        <Wordmark />
+      </div>
       <ScreenTitle title="Willkommen zurück" subtitle="Dein Plan wartet." />
 
       {justConfirmed && (

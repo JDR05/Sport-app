@@ -101,11 +101,23 @@ const EMPTY: Draft = {
 
 const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
 
-/** Which archetypes carry a numeric target the user can state up front. */
+/**
+ * Which archetypes carry a numeric target, and what that number is.
+ *
+ * The point of this table is that it is *per archetype*. Someone working on
+ * their sleep is never asked what they weigh, and never shown a weight chart —
+ * their number is hours, because that is the thing their goal is about. The
+ * rest of the intake is still collected (ADR-024) and still shapes the plan; it
+ * simply does not get a chart on a screen where it would only be noise.
+ *
+ * Archetypes missing from this table have no number, and the app says so
+ * rather than inventing one. Not everything worth changing is measurable.
+ */
 const METRIC_FOR: Partial<Record<GoalArchetype, { key: string; unit: string; label: string; startLabel: string; targetLabel: string }>> = {
   body_composition: { key: 'weight_kg', unit: 'kg', label: 'Gewicht', startLabel: 'Was wiegst du aktuell?', targetLabel: 'Was möchtest du wiegen?' },
   endurance: { key: 'distance_km', unit: 'km', label: 'Umfang', startLabel: 'Wie viele km schaffst du aktuell pro Woche?', targetLabel: 'Wie viele km sollen es werden?' },
   strength: { key: 'load_kg', unit: 'kg', label: 'Last', startLabel: 'Womit trainierst du aktuell?', targetLabel: 'Was ist dein Ziel?' },
+  sleep_recovery: { key: 'sleep_hours', unit: 'h', label: 'Schlaf', startLabel: 'Wie viele Stunden schläfst du aktuell?', targetLabel: 'Wie viele sollen es werden?' },
 }
 
 /** The payload the server action validates again before writing anything. */

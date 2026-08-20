@@ -13,10 +13,14 @@ import { isResolved } from '@/lib/adaptive/detect'
 import { ProgressView, type ProgressData } from './ProgressView'
 import type { MetricSpec } from '@/components/MetricEntry'
 
+// What each metric is called on screen. Only the metric belonging to the
+// active goal ever appears here — a sleep goal shows hours, never kilograms,
+// even though the weight is stored and still informs the plan.
 const UNIT_LABEL: Record<string, string> = {
   weight_kg: 'Gewicht',
   distance_km: 'Wochenumfang',
   load_kg: 'Trainingslast',
+  sleep_hours: 'Schlaf',
 }
 
 export default async function ProgressPage() {
@@ -33,6 +37,7 @@ export default async function ProgressPage() {
         metricKey: metric.metricKey,
         unit: metric.unit,
         label: UNIT_LABEL[metric.metricKey] ?? 'Zielwert',
+        target: metric.targetValue,
       }
     : null
 

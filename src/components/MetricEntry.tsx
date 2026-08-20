@@ -11,12 +11,15 @@
 
 import { useState } from 'react'
 import { submitMeasurement } from '@/app/(app)/actions'
+import { MetricChart } from '@/components/MetricChart'
 import { Button, Card, Note } from '@/components/ui'
 
 export type MetricSpec = {
   metricKey: string
   unit: string
   label: string
+  /** Drawn as a reference line, when the goal has a number to reach. */
+  target?: number | null
 }
 
 export function MetricEntry({
@@ -56,9 +59,6 @@ export function MetricEntry({
     setValue('')
   }
 
-  const average = movingAverage(entries.map((e) => e.value))
-  const enough = entries.length >= MIN_FOR_TREND
-
   return (
     <Card>
       <label htmlFor="metric" className="block text-sm font-semibold text-ink">
@@ -87,39 +87,65 @@ export function MetricEntry({
         </p>
       )}
 
-      {entries.length > 0 && (
-        <dl className="mt-4 flex items-baseline justify-between gap-4 text-sm">
-          <dt className="text-muted">
-            {enough ? `Trend (${MIN_FOR_TREND}-Werte-Mittel)` : 'Zuletzt'}
-          </dt>
-          <dd className="font-semibold text-ink">
-            {formatNumber(enough ? average : entries[entries.length - 1].value)} {spec.unit}
-          </dd>
-        </dl>
-      )}
+      {entries.length >= 2 ? (
+        <>
+          <div className="mt-4">
+            <MetricChart
+              points={entries.map((e) => ({ date: e.measuredAt, value: e.value }))}
+              unit={spec.unit}
+              label={spec.label}
+              target={spec.target}
+            />
+          </div>
+          <p className="mt-1 text-xs text-faint">
+            Punkte sind deine Tageswerte, die Linie ist der Trend. Einzelne Tage schwanken —
+            die Linie ist das, was zählt.
+          </p>
 
-      {entries.length > 0 && !enough && (
-        <Note>
-          Ab {MIN_FOR_TREND} Werten zeigt die App den gleitenden Mittelwert statt des Tageswerts.
-          Einzelne Tage schwanken und sagen für sich genommen nichts.
-        </Note>
-      )}
+          {/* The data as data. Also what a screen reader reads, so the chart is
+              never the only route to it. */}
+          <details className="mt-3">
+            <summary className="cursor-pointer list-none text-xs font-medium text-muted underline decoration-line underline-offset-4">
+              Alle Werte
+            </summary>
+            <table className="mt-2 w-full text-sm">
+              <thead className="text-left text-xs text-faint">
+                <tr>
+                  <th scope="col" className="font-medium">Datum</th>
+                  <th scope="col" className="text-right font-medium">{spec.label}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...entries].reverse().map((e) => (
+                  <tr key={e.measuredAt}>
+                    <td className="py-0.5 text-muted">
+                      {new Date(e.measuredAt).toLocaleDateString('de-DE')}
+                    </td>
+                    <td className="tnum py-0.5 text-right text-ink">
+                      {formatNumber(e.value)} {spec.unit}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        </>
+      ) : entries.length === 1 ? (
+        <>
+          <dl className="mt-4 flex items-baseline justify-between gap-4 text-sm">
+            <dt className="text-muted">Zuletzt</dt>
+            <dd className="tnum font-semibold text-ink">
+              {formatNumber(entries[0].value)} {spec.unit}
+            </dd>
+          </dl>
+          <Note>
+            Ab dem zweiten Wert zeichnet die App den Verlauf. Ein einzelner Wert ist noch
+            keine Richtung.
+          </Note>
+        </>
+      ) : null}
     </Card>
   )
-}
-
-/**
- * How many readings before a trend is shown instead of a single value.
- *
- * Three is the smallest number at which an average means anything at all, and
- * showing one earlier would be dressing a single measurement up as a direction.
- */
-const MIN_FOR_TREND = 3
-
-function movingAverage(values: number[]): number {
-  const window = values.slice(-MIN_FOR_TREND)
-  if (window.length === 0) return 0
-  return window.reduce((sum, v) => sum + v, 0) / window.length
 }
 
 function formatNumber(n: number): string {
