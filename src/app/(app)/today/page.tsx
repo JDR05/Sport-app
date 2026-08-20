@@ -28,24 +28,28 @@ export default function TodayPage() {
               subtitle={formatGermanDate(today)}
             />
 
-            {/* What matters today, and why — the one thing every screen must answer. */}
-            <Card tone="accent">
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                {week.strategy.goalTrack.archetype === 'general_health'
-                  ? 'Deine Basis'
-                  : 'Dein Ziel'}
-              </p>
-              <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
+            {/* The goal, as one line under the date rather than a card of its
+                own. It is context for the actions, not a competitor for them —
+                and it used to take a third of the first screen to say what fits
+                in a sentence. The whole reasoning is a tap away on the Plan
+                screen, so nothing is lost, only quieter. */}
+            <p className="-mt-4 text-[15px] leading-snug text-muted">
+              <span className="font-semibold text-ink">
                 {week.strategy.goalTrack.headline}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-muted">
-                {week.rationale[0]?.text}
-              </p>
-            </Card>
+              </span>
+              {week.strategy.goalTrack.archetype === 'general_health'
+                ? ' · deine Basis'
+                : ' · dein Ziel'}
+            </p>
 
-            <SectionHeading>
-              {items.length > 0 ? `Heute · ${items.length} Aktionen` : 'Heute'}
-            </SectionHeading>
+            {items.length > 0 && (
+              <div className="mb-2.5 flex items-baseline justify-between">
+                <SectionHeading>Heute</SectionHeading>
+                <span className="text-[11px] font-medium tabular-nums text-faint">
+                  {items.filter((i) => i.status === 'done').length}/{items.length}
+                </span>
+              </div>
+            )}
 
             {items.length === 0 ? (
               <Card>
@@ -67,16 +71,13 @@ export default function TodayPage() {
               </div>
             )}
 
-            {restToday && items.length > 0 && (
-              <Note>
-                Heute steht kein Training an. Die Gesundheitsbasis läuft weiter — sie gehört zum
-                Plan, nicht daneben.
-              </Note>
-            )}
-
+            {/* One line, not three. The rule about untouched actions matters,
+                but repeating it under every screen is how a product starts
+                sounding anxious. */}
             <Note>
-              Nicht abgehakte Aktionen zählen als „unbekannt“ und fließen nie als Versagen in die
-              Auswertung ein.
+              {restToday && items.length > 0
+                ? 'Heute kein Training — die Basis läuft weiter. Nicht Abgehaktes zählt nie gegen dich.'
+                : 'Nicht Abgehaktes zählt nie gegen dich.'}
             </Note>
 
             <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />

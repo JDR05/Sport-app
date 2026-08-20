@@ -7,6 +7,33 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-054: Der Ring ist die eine Form
+
+**Entscheidung:** Ring als durchgehende Gestalt: Wortmarke, Wochen-Score und ab jetzt auch das
+Abhaken (`CheckRing`, 44 px). Die Aktionskarte zeigt nur noch Ring, Titel, Domain und Dauer;
+„Verschoben / Nicht geschafft / Passte nicht" und die Begründung liegen hinter **einer**
+Aufklappung.
+
+**Begründung:** Drei Rückmeldungen auf einmal — zu viel Text, Layout, „wirkt austauschbar".
+
+Vorher standen unter jeder Aktion vier Statusknöpfe über zwei Zeilen plus ein „Warum?". Ein
+Tag mit drei Aktionen war eine Wand aus zwölf Knöpfen und drei Absätzen, und das, was man
+fünfmal am Tag tut — abhaken — kostete genauso viel Aufwand wie das, was man fast nie tut.
+Jetzt ist der Normalfall ein Tippen.
+
+Nichts wird versteckt: alles ist eine Aufklappung entfernt, entsprechend der Vorgabe des
+Product Owners, dass alles irgendwo sichtbar bleibt. Es schreit nur nicht mehr alles
+gleichzeitig.
+
+Die Wiederholung derselben Form an drei Stellen ist, was eine App nach sich selbst aussehen
+lässt statt nach einer Komponentenbibliothek — und sie ist hier wörtlich gemeint: jedes
+Antippen ist ein Segment des Rings auf Fortschritt.
+
+Übergänge nur auf Farbe, nie auf Layout. Eine animierte Größenänderung kostet einen Frame und
+liest sich als Verzögerung — genau die Beschwerde, mit der das angefangen hat.
+
+---
+
 ## 2026-08-20 — ADR-053: Der Check-in fragt nach dem Ziel, nicht nach allem
 
 **Entscheidung:** Drei weitere Felder — `diet_quality`, `soreness`, `alcohol_units`,
