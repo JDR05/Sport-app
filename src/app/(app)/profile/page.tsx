@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
+import { SignOutButton } from '@/components/SignOutButton'
 import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 
 import type { GoalArchetype } from '@/lib/domain/types'
@@ -95,9 +96,11 @@ export default function ProfilePage() {
             >
               Antworten löschen und neu starten
             </Button>
+            <SectionHeading>Konto</SectionHeading>
+            <SignOutButton />
             <Note>
-              Deine Antworten liegen aktuell nur in diesem Browser. Konto und Synchronisierung
-              kommen im nächsten Entwicklungsschritt.
+              Deine Antworten liegen aktuell nur in diesem Browser. Die Übertragung in dein
+              Konto kommt im nächsten Entwicklungsschritt.
             </Note>
           </Screen>
         )

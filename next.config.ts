@@ -1,30 +1,16 @@
 import type { NextConfig } from 'next'
 
 /**
- * Security headers.
+ * Security headers that do not depend on the request.
  *
- * Deliberately only the directives that need no nonce. A `default-src` or
- * `script-src` without one would block Next's own inline bootstrap script and
- * white-screen the app — the full policy arrives with `proxy.ts` in the auth
- * step, where a nonce can be generated per request. Half a CSP that works beats
- * a whole one that is switched off again after the first outage.
+ * The Content-Security-Policy is NOT here: it needs a fresh nonce per request
+ * and therefore lives in `src/lib/supabase/proxy.ts`. Setting a second one here
+ * would make the browser enforce both at once, and the strictest parts of two
+ * different policies rarely add up to a working page.
  *
- * See node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md.
+ * These still earn their place: the proxy skips static assets, and these do not.
  */
-const CONTENT_SECURITY_POLICY = [
-  // Clickjacking. Also covered by X-Frame-Options for older browsers.
-  "frame-ancestors 'none'",
-  // No Flash, no Java, no legacy plugin surface.
-  "object-src 'none'",
-  // Stops an injected <base> tag from re-pointing every relative URL.
-  "base-uri 'self'",
-  // A form can only post back to this origin, never to someone else's.
-  "form-action 'self'",
-  'upgrade-insecure-requests',
-].join('; ')
-
 const SECURITY_HEADERS = [
-  { key: 'Content-Security-Policy', value: CONTENT_SECURITY_POLICY },
   { key: 'X-Frame-Options', value: 'DENY' },
   // No MIME sniffing: an uploaded file cannot talk a browser into running it.
   { key: 'X-Content-Type-Options', value: 'nosniff' },

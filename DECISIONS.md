@@ -7,6 +7,36 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-035: Authentifizierung in drei Schichten, jede fuer sich ausreichend
+
+**Entscheidung:** Der Zugriffsschutz liegt an drei Stellen, absichtlich mehrfach:
+
+1. **`src/proxy.ts`** (in Next 16 der neue Name fuer Middleware) leitet Nicht-Angemeldete um
+   und erneuert das Session-Cookie. Das ist eine **optimistische** Pruefung.
+2. **`requireUser()` / `currentUser()`** in `src/lib/auth/session.ts` pruefen unmittelbar an
+   den Daten, mit `getClaims()` und `React.cache`.
+3. **Row Level Security** in Postgres filtert jede Zeile auf `auth.uid()`.
+
+**Begruendung:** Die Next-Dokumentation sagt ausdruecklich, dass der Proxy nicht die einzige
+Verteidigung sein darf — er laeuft auch bei Prefetches und liest nur ein Cookie. Eine
+Ebene tiefer sitzt deshalb die echte Pruefung, und darunter die Datenbank, die selbst dann
+noch haelt, wenn beide Ebenen darueber umgangen wuerden.
+
+**`getClaims()`, nicht `getSession()`:** `getSession()` gibt zurueck, was im Cookie steht,
+ohne es zu pruefen. Serverseitig hiesse das, einem Wert zu vertrauen, den der Client
+kontrolliert. `getClaims()` prueft jedes Mal die Signatur.
+
+**Nebenwirkung, die zufaellig eine Luecke schliesst:** Da der Proxy fuer `/api/*` mit 401
+antwortet statt mit einer Weiterleitung, ist `/api/ai/classify` nicht mehr offen. Dieser
+Endpunkt kostet pro Aufruf Geld; er hat zusaetzlich eine eigene Pruefung im Handler bekommen,
+weil die Ausgabenstelle ihre eigene Tuer verdient.
+
+**Volle CSP ab jetzt aktiv.** Der Nonce entsteht pro Anfrage im Proxy. Das erzwingt
+dynamisches Rendering — was nichts kostet, weil ab jetzt ohnehin jede Seite Cookies liest.
+Gegen einen echten Browser geprueft: hydriert, gestylt, null CSP-Verstoesse.
+
+---
+
 ## 2026-08-19 — ADR-034: Kein Service-Key im Deployment, RLS ist das Sicherheitsmodell
 
 **Entscheidung:** Die App nutzt ausschliesslich den oeffentlichen Publishable Key.
