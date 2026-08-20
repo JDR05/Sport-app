@@ -25,33 +25,47 @@ const DOMAIN_CLASS: Record<PlanDomain, string> = {
 }
 
 export function Screen({ children }: { children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-md px-5 pb-28 pt-6">{children}</div>
+  return <div className="mx-auto w-full max-w-md px-5 pb-28 pt-5">{children}</div>
 }
 
+/**
+ * The screen's own title.
+ *
+ * Larger and tighter than before. On a phone the first line has to carry the
+ * whole answer to "where am I", and 24px with default tracking read as a
+ * paragraph heading rather than as a screen.
+ */
 export function ScreenTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <header className="mb-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+      <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink">
+        {title}
+      </h1>
+      {subtitle && <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{subtitle}</p>}
     </header>
   )
 }
 
 export function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h2 className="mb-2 mt-7 text-xs font-semibold uppercase tracking-wider text-faint">
+    <h2 className="mb-2.5 mt-8 text-[11px] font-semibold uppercase tracking-[0.09em] text-faint">
       {children}
     </h2>
   )
 }
 
+/**
+ * Cards sit on warm paper, so they need a shadow rather than only a border to
+ * read as surfaces. It is one step, barely there — enough to separate, not
+ * enough to look like a stack of floating panels.
+ */
 export function Card({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'accent' | 'warn' }) {
   const toneClass =
     tone === 'accent'
-      ? 'bg-accent-soft border-transparent'
+      ? 'bg-accent-soft border-accent/15'
       : tone === 'warn'
-        ? 'bg-warn-soft border-transparent'
-        : 'bg-surface border-line'
+        ? 'bg-warn-soft border-warn/15'
+        : 'bg-surface border-line shadow-[0_1px_2px_rgba(27,26,24,0.04)]'
   return <div className={`rounded-2xl border ${toneClass} p-4`}>{children}</div>
 }
 
