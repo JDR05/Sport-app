@@ -7,6 +7,40 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-038: Diese App wird ausschliesslich dynamisch gerendert
+
+**Ausloeser:** Ein Fehler, den der Product Owner gefunden hat und der genau so aussah wie
+gar nichts. Im Onboarding liess sich „Weiter" nicht druecken. Die Seite war korrekt
+dargestellt, Tippen funktionierte, kein Fehler im Log, keine Meldung im Browser.
+
+**Ursache:** `/onboarding` war die letzte statisch vorgerenderte Seite. Die CSP arbeitet mit
+einem Nonce pro Anfrage und `'strict-dynamic'` — letzteres weist den Browser an, `'self'` zu
+**ignorieren** und ausschliesslich Skripten mit passendem Nonce zu vertrauen. Eine
+vorgerenderte Seite entsteht, bevor es die Anfrage gibt, kann also kein Nonce tragen. Alle elf
+Script-Tags wurden abgelehnt, React hydrierte nie, und jeder Button blieb in dem Zustand
+eingefroren, den der Server geliefert hatte. Tippen ging weiter, weil das der Browser selbst
+macht.
+
+**Entscheidung:** `export const dynamic = 'force-dynamic'` im Root-Layout. Das entspricht der
+Wahrheit ueber dieses Produkt: Jeder Screen haengt entweder an einer Sitzung oder gehoert zur
+Anmeldung. Es gibt hier keine Seite, die sich sinnvoll ohne Anfrage bauen laesst.
+
+**Der eigentliche Ertrag ist der Waechter.** `scripts/check-nonces.mjs` laesst den Build
+scheitern, sobald eine vorgerenderte Seite ein Skript ohne Nonce ausliefert. Diese Fehlerklasse
+ist deshalb so gefaehrlich, weil sie sich nicht wie ein Fehler anfuehlt — ohne den Waechter
+faellt sie erst auf, wenn jemand vor der App sitzt und nichts passiert.
+
+**Eine Ausnahme, und sie ist geprueft statt behauptet:** `global-error` ersetzt das Root-Layout,
+wenn dieses selbst gescheitert ist, und muss deshalb vorgerendert existieren. Sie ist vom
+Nonce-Zwang ausgenommen — aber nur, solange sie ohne JavaScript funktioniert. Der Waechter
+prueft das nach: ein `onclick` oder ein `type="button"` laesst den Build scheitern. Ein
+Submit-Button in einem Formular bleibt erlaubt, denn der funktioniert seit jeher ohne Skripte.
+
+**Kosten:** Kein statisches Caching mehr. Bei einer persoenlichen App, deren Inhalt pro Nutzer
+und pro Tag verschieden ist, war davon ohnehin nichts zu gewinnen.
+
+---
+
 ## 2026-08-20 — ADR-037: Der Plan wird berechnet, nicht gespeichert
 
 **Entscheidung:** Persistiert werden die **Eingaben** — Profil, Ziel, Zielmetriken, Tagesstruktur,

@@ -10,6 +10,18 @@ export const metadata: Metadata = {
     'Du sagst, wer du werden willst. Die App zeigt dir, wie du dorthin kommst – und lernt dabei, was für dich tatsächlich funktioniert.',
 }
 
+/**
+ * Nothing in this app can be built before the request exists.
+ *
+ * Every screen is either behind a session or part of signing in, and the CSP
+ * stamps a fresh nonce per request. A prerendered page cannot carry that nonce,
+ * and under 'strict-dynamic' the browser then refuses every script on it — the
+ * page renders, accepts typing, and never hydrates. Declaring it here covers
+ * the built-in shells (404, global error) too, which no per-page export
+ * reaches. scripts/check-nonces.mjs fails the build if one slips through.
+ */
+export const dynamic = 'force-dynamic'
+
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#faf9f7' },
