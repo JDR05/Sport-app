@@ -46,13 +46,27 @@ export function ProgressView({ data }: { data: ProgressData }) {
                         : `${data.scores.overall.done} von ${data.scores.overall.resolved} bewertet`
                     }
                   />
-                  <p className="text-sm leading-relaxed text-muted">
-                    {data.scores.overall.rate === null
-                      ? 'Hak auf „Heute“ Aktionen ab, dann füllt sich der Ring. Ein Tag ohne Eintrag zählt nie dagegen.'
-                      : data.scores.overall.untouched > 0
-                        ? `${data.scores.overall.untouched} Aktionen hast du nicht bewertet. Die zählen nicht mit — weder dafür noch dagegen.`
-                        : 'Alles bewertet. Der Ring zeigt genau das, was passiert ist.'}
-                  </p>
+                  {/* Naming a gap without offering a way to close it is worse
+                      than not naming it, so the sentence links to where the
+                      week can actually be answered. */}
+                  <div className="text-sm leading-relaxed text-muted">
+                    {data.scores.overall.rate === null ? (
+                      <p>
+                        Hak Aktionen ab, dann füllt sich der Ring. Ein Tag ohne Eintrag zählt
+                        nie dagegen.
+                      </p>
+                    ) : data.scores.overall.untouched > 0 ? (
+                      <p>
+                        {data.scores.overall.untouched} Aktionen dieser Woche hast du nicht
+                        bewertet. Die zählen nicht mit — weder dafür noch dagegen.{' '}
+                        <Link href="/plan" className="text-accent underline underline-offset-4">
+                          Im Wochenplan nachtragen
+                        </Link>
+                      </p>
+                    ) : (
+                      <p>Alles bewertet. Der Ring zeigt genau das, was passiert ist.</p>
+                    )}
+                  </div>
                 </div>
 
                 {data.scores.domains.length > 1 && (
