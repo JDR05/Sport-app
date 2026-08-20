@@ -7,6 +7,31 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-053: Der Check-in fragt nach dem Ziel, nicht nach allem
+
+**Entscheidung:** Drei weitere Felder — `diet_quality`, `soreness`, `alcohol_units`,
+`caffeine_late` — existieren in der Datenbank für alle. **Gefragt** wird je Archetyp:
+drei Kernfragen (Energie, Stimmung, Schlaf) plus höchstens drei aus dem Ziel. Definiert in
+`src/lib/engine/checkin-fields.ts`, Obergrenze `MAX_CHECKIN_FIELDS = 6`.
+
+**Begründung:** Neun Fragen jeden Abend wären genau der „zweite Job", den das Playbook
+ausschließt — und sie würden die Antworten schlechter machen: wer sich verhört fühlt, tippt
+die Mitte. Ein Schlafziel hat nichts mit Muskelkater zu tun, ein Kraftziel nichts mit einem
+Glas Wein.
+
+Die Spalten existieren trotzdem für alle, damit ein Zielwechsel die Historie nicht entwertet:
+was einmal erfasst wurde, bleibt lesbar, es wird nur nicht mehr gefragt.
+
+Schlaf steht bewusst im Kern statt im Schlaf-Archetyp: er ist der Faktor, von dem die meisten
+anderen Muster abhängen, und der, mit dem die App einen schlechten Dienstag erklären kann,
+ohne jemandem etwas vorzuwerfen.
+
+Ein Test verlangt, dass drei Ziele mit unterschiedlichen Hebeln auch unterschiedliche Fragen
+bekommen — dieselbe Prüfung, die die Planungs-Engine bestehen muss. Sonst wäre die Relevanz
+eine Behauptung statt ein Verhalten.
+
+---
+
 ## 2026-08-20 — ADR-051: Die Nacht ist keine freie Zeit
 
 **Entscheidung:** Aufstehzeiten werden **je Wochentag** erfasst (partiell — ein Tag ohne

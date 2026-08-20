@@ -79,7 +79,7 @@ export default function TodayPage() {
               Auswertung ein.
             </Note>
 
-            <CheckInCard today={today} />
+            <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />
           </Screen>
         )
       }}

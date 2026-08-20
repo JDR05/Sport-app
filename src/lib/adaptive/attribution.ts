@@ -30,12 +30,22 @@ export type DayContext = {
   energy: number | null
   /** 1..5, higher is better. */
   mood: number | null
-  /** 1..5, higher is *more* stress — the one scale that reads downwards. */
+  /** 1..5, higher is *more* stress — one of the two scales that read upwards. */
   stress: number | null
   sleepHours: number | null
+  /** 1..5, higher is better. */
+  dietQuality: number | null
+  /** 1..5, higher is *more* soreness. The other upward scale. */
+  soreness: number | null
 }
 
-export type AttributionFactor = 'short_sleep' | 'low_energy' | 'high_stress' | 'late_commitment'
+export type AttributionFactor =
+  | 'short_sleep'
+  | 'low_energy'
+  | 'high_stress'
+  | 'high_soreness'
+  | 'poor_diet'
+  | 'late_commitment'
 
 export type Attribution = {
   factor: AttributionFactor
@@ -121,6 +131,30 @@ export function attribute(
       statement:
         `${WEEKDAY_LABEL[weekday]} liegt dein Stress bei ${scale(stress.onBucket)}, ` +
         `sonst bei ${scale(stress.elsewhere)}.`,
+    })
+  }
+
+  const soreness = compare(onDay, otherDays, (d) => d.soreness)
+  if (soreness && soreness.onBucket - soreness.elsewhere >= SCALE_GAP) {
+    found.push({
+      factor: 'high_soreness',
+      bucket: weekday,
+      ...soreness,
+      statement:
+        `${WEEKDAY_LABEL[weekday]} ist dein Muskelkater bei ${scale(soreness.onBucket)}, ` +
+        `sonst bei ${scale(soreness.elsewhere)}. Der Körper trägt an diesen Tagen mehr.`,
+    })
+  }
+
+  const diet = compare(onDay, otherDays, (d) => d.dietQuality)
+  if (diet && diet.elsewhere - diet.onBucket >= SCALE_GAP) {
+    found.push({
+      factor: 'poor_diet',
+      bucket: weekday,
+      ...diet,
+      statement:
+        `${WEEKDAY_LABEL[weekday]} bewertest du dein Essen mit ${scale(diet.onBucket)}, ` +
+        `sonst mit ${scale(diet.elsewhere)}.`,
     })
   }
 

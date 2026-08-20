@@ -2,18 +2,25 @@
 
 // The daily check-in.
 //
-// Two numbers and a sentence, and all three optional. A day nobody rated is
-// missing information, not a bad day — the same rule that governs an untouched
-// action. So there is no nagging, no streak, and no empty state that implies
-// failure.
+// Everything is optional, and a day nobody rated is missing information rather
+// than a bad day — the same rule that governs an untouched action. So there is
+// no nagging, no streak, and no empty state that implies failure.
+//
+// What it asks follows the goal. Nine things are recorded across the app, and
+// asking all nine every evening would be the second job the brief rules out; it
+// would also make the answers worse, because people who feel interrogated start
+// tapping the middle option. Three core questions plus at most three from the
+// archetype (src/lib/engine/checkin-fields.ts).
 //
 // Energy and mood are asked separately because they come apart: a week of
-// training can leave someone tired and content at once, and a plan that reads
+// training can leave someone tired and content at once, and a plan that read
 // those as one number would draw the wrong conclusion from both.
 
 import { useCallback, useEffect, useState } from 'react'
 import { getCheckIns, submitCheckIn } from '@/app/(app)/actions'
 import { Card, SectionHeading } from '@/components/ui'
+import { checkInFields, type CheckInField } from '@/lib/engine/checkin-fields'
+import type { GoalArchetype } from '@/lib/domain/types'
 
 const SCALE = [1, 2, 3, 4, 5] as const
 
@@ -23,24 +30,53 @@ const ENERGY_LABEL: Record<number, string> = {
 const MOOD_LABEL: Record<number, string> = {
   1: 'mies', 2: 'gedrückt', 3: 'neutral', 4: 'gut', 5: 'richtig gut',
 }
-// The one scale that reads upwards, so it is labelled unmistakably.
+// Reads upwards, so it is labelled unmistakably.
 const STRESS_LABEL: Record<number, string> = {
   1: 'ruhig', 2: 'wenig', 3: 'mittel', 4: 'viel', 5: 'zu viel',
 }
+const DIET_LABEL: Record<number, string> = {
+  1: 'gar nicht gut', 2: 'eher nicht', 3: 'geht so', 4: 'gut', 5: 'richtig gut',
+}
+// Also upwards: 5 is a lot of soreness.
+const SORENESS_LABEL: Record<number, string> = {
+  1: 'frisch', 2: 'leicht', 3: 'spürbar', 4: 'deutlich', 5: 'heftig',
+}
 
 /**
- * Half-hour steps from four to ten hours, plus the open ends.
+ * Half-hour steps from four to ten hours.
  *
  * A number field would ask for a precision nobody has about their own night,
  * and it would put a keyboard in the way of a two-second gesture.
  */
 const SLEEP_STEPS = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10] as const
 
-export function CheckInCard({ today }: { today: string }) {
-  const [energy, setEnergy] = useState<number | null>(null)
-  const [mood, setMood] = useState<number | null>(null)
-  const [stress, setStress] = useState<number | null>(null)
-  const [sleepHours, setSleepHours] = useState<number | null>(null)
+/** Whole drinks up to five. Beyond that the exact number changes nothing. */
+const DRINK_STEPS = [0, 1, 2, 3, 4, 5] as const
+
+type Values = {
+  energy: number | null
+  mood: number | null
+  stress: number | null
+  sleepHours: number | null
+  dietQuality: number | null
+  soreness: number | null
+  alcoholUnits: number | null
+  caffeineLate: boolean | null
+}
+
+const EMPTY: Values = {
+  energy: null, mood: null, stress: null, sleepHours: null,
+  dietQuality: null, soreness: null, alcoholUnits: null, caffeineLate: null,
+}
+
+export function CheckInCard({
+  today,
+  archetype,
+}: {
+  today: string
+  archetype: GoalArchetype
+}) {
+  const [values, setValues] = useState<Values>(EMPTY)
   const [note, setNote] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -51,10 +87,16 @@ export function CheckInCard({ today }: { today: string }) {
       if (!current) return
       const todays = entries.find((e) => e.checkedInOn === today)
       if (todays) {
-        setEnergy(todays.energy)
-        setMood(todays.mood)
-        setStress(todays.stress)
-        setSleepHours(todays.sleepHours)
+        setValues({
+          energy: todays.energy,
+          mood: todays.mood,
+          stress: todays.stress,
+          sleepHours: todays.sleepHours,
+          dietQuality: todays.dietQuality,
+          soreness: todays.soreness,
+          alcoholUnits: todays.alcoholUnits,
+          caffeineLate: todays.caffeineLate,
+        })
         setNote(todays.note ?? '')
         setSaved(true)
       }
@@ -66,73 +108,100 @@ export function CheckInCard({ today }: { today: string }) {
   }, [today])
 
   const save = useCallback(
-    (next: {
-      energy?: number | null
-      mood?: number | null
-      stress?: number | null
-      sleepHours?: number | null
-      note?: string
-    }) => {
-      const payload = {
+    (next: Values, nextNote: string) => {
+      void submitCheckIn({
         checkedInOn: today,
-        energy: next.energy !== undefined ? next.energy : energy,
-        mood: next.mood !== undefined ? next.mood : mood,
-        stress: next.stress !== undefined ? next.stress : stress,
-        sleepHours: next.sleepHours !== undefined ? next.sleepHours : sleepHours,
-        note: (next.note !== undefined ? next.note : note).trim() || null,
-      }
-      void submitCheckIn(payload).then((result) => setSaved(result.ok))
+        ...next,
+        note: nextNote.trim() || null,
+      }).then((result) => setSaved(result.ok))
     },
-    [today, energy, mood, stress, sleepHours, note],
+    [today],
   )
 
+  /** Writes one field and saves, so nothing depends on state having settled. */
+  function set<K extends keyof Values>(field: K, value: Values[K]) {
+    const next = { ...values, [field]: value }
+    setValues(next)
+    save(next, note)
+  }
+
   if (!loaded) return null
+
+  const fields = checkInFields(archetype)
+  const asks = (field: CheckInField) => fields.includes(field)
 
   return (
     <>
       <SectionHeading>Wie war der Tag?</SectionHeading>
       <Card>
-        <Scale
-          label="Energie"
-          labels={ENERGY_LABEL}
-          value={energy}
-          onChange={(value) => {
-            setEnergy(value)
-            save({ energy: value })
-          }}
-        />
-        <div className="mt-4">
-          <Scale
-            label="Stimmung"
-            labels={MOOD_LABEL}
-            value={mood}
-            onChange={(value) => {
-              setMood(value)
-              save({ mood: value })
-            }}
-          />
-        </div>
-
-        <div className="mt-4">
-          <Scale
-            label="Stress"
-            labels={STRESS_LABEL}
-            value={stress}
-            onChange={(value) => {
-              setStress(value)
-              save({ stress: value })
-            }}
-          />
-        </div>
-
-        <div className="mt-4">
-          <Sleep
-            value={sleepHours}
-            onChange={(value) => {
-              setSleepHours(value)
-              save({ sleepHours: value })
-            }}
-          />
+        <div className="flex flex-col gap-4">
+          {asks('energy') && (
+            <Scale
+              label="Energie"
+              labels={ENERGY_LABEL}
+              value={values.energy}
+              onChange={(v) => set('energy', v)}
+            />
+          )}
+          {asks('mood') && (
+            <Scale
+              label="Stimmung"
+              labels={MOOD_LABEL}
+              value={values.mood}
+              onChange={(v) => set('mood', v)}
+            />
+          )}
+          {asks('stress') && (
+            <Scale
+              label="Stress"
+              labels={STRESS_LABEL}
+              value={values.stress}
+              onChange={(v) => set('stress', v)}
+            />
+          )}
+          {asks('dietQuality') && (
+            <Scale
+              label="Gegessen"
+              labels={DIET_LABEL}
+              value={values.dietQuality}
+              onChange={(v) => set('dietQuality', v)}
+            />
+          )}
+          {asks('soreness') && (
+            <Scale
+              label="Muskelkater"
+              labels={SORENESS_LABEL}
+              value={values.soreness}
+              onChange={(v) => set('soreness', v)}
+            />
+          )}
+          {asks('sleepHours') && (
+            <Steps
+              label="Schlaf letzte Nacht"
+              steps={SLEEP_STEPS}
+              value={values.sleepHours}
+              format={(h) => (h % 1 === 0 ? String(h) : h.toFixed(1).replace('.', ','))}
+              suffix="h"
+              onChange={(v) => set('sleepHours', v)}
+            />
+          )}
+          {asks('alcoholUnits') && (
+            <Steps
+              label="Alkohol"
+              steps={DRINK_STEPS}
+              value={values.alcoholUnits}
+              format={(n) => (n === 5 ? '5+' : String(n))}
+              suffix="Glas"
+              onChange={(v) => set('alcoholUnits', v)}
+            />
+          )}
+          {asks('caffeineLate') && (
+            <Toggle
+              label="Koffein nach 16 Uhr"
+              value={values.caffeineLate}
+              onChange={(v) => set('caffeineLate', v)}
+            />
+          )}
         </div>
 
         <label htmlFor="checkin-note" className="mt-4 block text-sm font-semibold text-ink">
@@ -145,7 +214,7 @@ export function CheckInCard({ today }: { today: string }) {
           value={note}
           placeholder="Was ist dir aufgefallen?"
           onChange={(e) => setNote(e.target.value)}
-          onBlur={() => save({ note })}
+          onBlur={() => save(values, note)}
           className="mt-2 w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
         />
 
@@ -156,52 +225,6 @@ export function CheckInCard({ today }: { today: string }) {
         </p>
       </Card>
     </>
-  )
-}
-
-/**
- * Last night's sleep, as a row of taps.
- *
- * This is the field that lets the app say "Dienstags schläfst du zwei Stunden
- * weniger" instead of "Dienstags läuft es schlechter" — the difference between
- * naming a circumstance and implying a verdict about the person.
- */
-function Sleep({
-  value,
-  onChange,
-}: {
-  value: number | null
-  onChange: (value: number | null) => void
-}) {
-  return (
-    <div>
-      <p className="text-sm font-semibold text-ink">
-        Schlaf letzte Nacht
-        {value !== null && (
-          <span className="ml-2 font-normal text-muted">
-            {value.toFixed(1).replace('.', ',')} h
-          </span>
-        )}
-      </p>
-      <div className="-mx-1 mt-2 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1">
-        {SLEEP_STEPS.map((h) => (
-          <button
-            key={h}
-            type="button"
-            aria-pressed={value === h}
-            aria-label={`${h.toFixed(1).replace('.', ',')} Stunden`}
-            onClick={() => onChange(value === h ? null : h)}
-            className={`shrink-0 snap-start rounded-pill border px-3 py-2 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
-              value === h
-                ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
-                : 'border-line bg-surface text-muted'
-            }`}
-          >
-            {h % 1 === 0 ? h : h.toFixed(1).replace('.', ',')}
-          </button>
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -230,15 +253,99 @@ function Scale({
             aria-label={`${label} ${n} von 5: ${labels[n]}`}
             aria-pressed={value === n}
             // Tapping the chosen value again clears it. Being able to take an
-            // answer back matters when the alternative is a wrong one on record.
+            // answer back matters more here than one fewer tap.
             onClick={() => onChange(value === n ? null : n)}
-            className={`rounded-lg border py-2 text-sm font-medium transition ${
+            className={`rounded-control border py-2.5 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
               value === n
-                ? 'border-accent bg-accent text-accent-ink'
-                : 'border-line bg-surface text-muted active:bg-sunken'
+                ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
+                : 'border-line bg-surface text-muted'
             }`}
           >
             {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** A horizontal row of values to tap, for anything with more than five steps. */
+function Steps({
+  label,
+  steps,
+  value,
+  format,
+  suffix,
+  onChange,
+}: {
+  label: string
+  steps: readonly number[]
+  value: number | null
+  format: (value: number) => string
+  suffix: string
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-ink">
+        {label}
+        {value !== null && (
+          <span className="ml-2 font-normal text-muted">
+            {format(value)} {suffix}
+          </span>
+        )}
+      </p>
+      <div className="-mx-1 mt-2 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1">
+        {steps.map((n) => (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={value === n}
+            aria-label={`${format(n)} ${suffix}`}
+            onClick={() => onChange(value === n ? null : n)}
+            className={`shrink-0 snap-start rounded-pill border px-3.5 py-2 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
+              value === n
+                ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
+                : 'border-line bg-surface text-muted'
+            }`}
+          >
+            {format(n)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Toggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: boolean | null
+  onChange: (value: boolean | null) => void
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-ink">{label}</p>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        {[
+          { v: true, label: 'Ja' },
+          { v: false, label: 'Nein' },
+        ].map((option) => (
+          <button
+            key={option.label}
+            type="button"
+            aria-pressed={value === option.v}
+            onClick={() => onChange(value === option.v ? null : option.v)}
+            className={`rounded-control border py-2.5 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
+              value === option.v
+                ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
+                : 'border-line bg-surface text-muted'
+            }`}
+          >
+            {option.label}
           </button>
         ))}
       </div>

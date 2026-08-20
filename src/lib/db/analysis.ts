@@ -73,6 +73,8 @@ export async function weeklyReview(
     mood: c.mood,
     stress: c.stress,
     sleepHours: c.sleepHours,
+    dietQuality: c.dietQuality,
+    soreness: c.soreness,
   }))
 
   return {

@@ -32,7 +32,11 @@ export type Database = {
           mood: number | null
           note: string | null
           profile_id: string
+          alcohol_units: number | null
+          caffeine_late: boolean | null
+          diet_quality: number | null
           sleep_hours: number | null
+          soreness: number | null
           stress: number | null
         }
         Insert: {
@@ -43,7 +47,11 @@ export type Database = {
           mood?: number | null
           note?: string | null
           profile_id: string
+          alcohol_units?: number | null
+          caffeine_late?: boolean | null
+          diet_quality?: number | null
           sleep_hours?: number | null
+          soreness?: number | null
           stress?: number | null
         }
         Update: {
@@ -54,7 +62,11 @@ export type Database = {
           mood?: number | null
           note?: string | null
           profile_id?: string
+          alcohol_units?: number | null
+          caffeine_late?: boolean | null
+          diet_quality?: number | null
           sleep_hours?: number | null
+          soreness?: number | null
           stress?: number | null
         }
       }

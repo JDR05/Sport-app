@@ -20,6 +20,14 @@ export type CheckIn = {
   stress: number | null
   /** Hours, to one decimal. What the person thinks they slept, not a sensor. */
   sleepHours: number | null
+  /** 1..5, higher is better. A rough sense of the eating, not a food diary. */
+  dietQuality: number | null
+  /** 1..5, reads upwards: 5 is heavy soreness. */
+  soreness: number | null
+  /** Standard drinks. A count, never shown back as a judgement. */
+  alcoholUnits: number | null
+  /** Caffeine after about four — the part that reaches the night. */
+  caffeineLate: boolean | null
   note: string | null
 }
 
@@ -44,6 +52,10 @@ export async function saveCheckIn(
       mood: checkIn.mood,
       stress: checkIn.stress,
       sleep_hours: checkIn.sleepHours,
+      diet_quality: checkIn.dietQuality,
+      soreness: checkIn.soreness,
+      alcohol_units: checkIn.alcoholUnits,
+      caffeine_late: checkIn.caffeineLate,
       note: checkIn.note,
     },
     { onConflict: 'profile_id,checked_in_on' },
@@ -66,6 +78,10 @@ export async function loadCheckIns(profileId: string, since: string): Promise<Ch
     mood: row.mood,
     stress: row.stress,
     sleepHours: row.sleep_hours === null ? null : Number(row.sleep_hours),
+    dietQuality: row.diet_quality,
+    soreness: row.soreness,
+    alcoholUnits: row.alcohol_units === null ? null : Number(row.alcohol_units),
+    caffeineLate: row.caffeine_late,
     note: row.note,
   }))
 }

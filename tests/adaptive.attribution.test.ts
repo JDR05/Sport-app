@@ -32,7 +32,10 @@ const football: Commitment = {
 
 /** Six Tuesdays and six Thursdays, starting on a known Tuesday. */
 function days(tuesday: Partial<DayContext>, other: Partial<DayContext>): DayContext[] {
-  const base: DayContext = { date: '', energy: null, mood: null, stress: null, sleepHours: null }
+  const base: DayContext = {
+    date: '', energy: null, mood: null, stress: null, sleepHours: null,
+    dietQuality: null, soreness: null,
+  }
   const out: DayContext[] = []
   for (let week = 0; week < 6; week++) {
     const day = 4 + week * 7 // 2026-08-04 is a Tuesday
@@ -111,7 +114,10 @@ describe('the vocabulary', () => {
   it('has no word for blame', () => {
     const found = attribute(
       TUESDAY,
-      days({ sleepHours: 5, energy: 2, stress: 4.5 }, { sleepHours: 8, energy: 4, stress: 2 }),
+      days(
+        { sleepHours: 5, energy: 2, stress: 4.5, soreness: 4.5, dietQuality: 2 },
+        { sleepHours: 8, energy: 4, stress: 2, soreness: 2, dietQuality: 4 },
+      ),
       [football],
     )
     expect(found.length).toBeGreaterThan(0)
@@ -128,6 +134,25 @@ describe('the vocabulary', () => {
     for (const a of found) {
       expect(a.statement.toLowerCase()).not.toMatch(/\bder grund\b|\bweil du\b|\bliegt daran\b/)
     }
+  })
+})
+
+describe('the two upward scales', () => {
+  it('reads soreness like stress, not like energy', () => {
+    const sore = attribute(TUESDAY, days({ soreness: 4.5 }, { soreness: 2 }), [])
+    expect(sore.map((a) => a.factor)).toContain('high_soreness')
+
+    // Fresh legs on the affected days are not a finding.
+    const fresh = attribute(TUESDAY, days({ soreness: 2 }, { soreness: 4.5 }), [])
+    expect(fresh.map((a) => a.factor)).not.toContain('high_soreness')
+  })
+
+  it('reads diet like energy: worse is the finding', () => {
+    const poor = attribute(TUESDAY, days({ dietQuality: 2 }, { dietQuality: 4 }), [])
+    expect(poor.map((a) => a.factor)).toContain('poor_diet')
+
+    const good = attribute(TUESDAY, days({ dietQuality: 4 }, { dietQuality: 2 }), [])
+    expect(good.map((a) => a.factor)).not.toContain('poor_diet')
   })
 })
 

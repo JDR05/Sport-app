@@ -38,6 +38,12 @@ const checkInSchema = z.object({
   // Half-hour resolution is as precise as anyone's estimate of their own
   // night. The upper bound is a sanity check, not a judgement.
   sleepHours: z.number().min(0).max(24).nullable(),
+  dietQuality: z.number().int().min(1).max(5).nullable(),
+  soreness: z.number().int().min(1).max(5).nullable(),
+  // A count of standard drinks. The upper bound is a sanity check on the
+  // input, not a comment on the evening.
+  alcoholUnits: z.number().min(0).max(50).nullable(),
+  caffeineLate: z.boolean().nullable(),
   note: z.string().trim().max(2000).nullable(),
 })
 
