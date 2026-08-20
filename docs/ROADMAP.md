@@ -22,7 +22,7 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | 3b | **Umbau auf Zielarchetypen**: offene Zielform, sechs Archetypen, Sicherheitsgrenzen je Zielart, Zielorientierungstest | **erledigt** |
 | 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Playbook, Profile | **erledigt** |
 | 4b | **Onboarding neu**: freies Ziel zuerst, danach vollständige Erhebung in einem Durchlauf | **erledigt** |
-| 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | **teilweise** — Auth, Persistenz und Abhaken erledigt; Check-in und Wochenauswertung offen |
+| 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | **erledigt** |
 | 6 | Adaptive Engine: Planpflege, Erkennung, Hypothesen, Experimente, Personal Rules — **vorgezogen**, siehe unten | **erledigt** |
 | 7 | AI-Layer: Adapter, Schemas, Validierung, Fallback, versionierte Prompts — **vorgezogen**, weil ein freies Ziel ohne KI nicht sinnvoll interpretierbar ist | **erledigt** |
 | 8 | End-to-End-QA: drei Personas, Edge Cases, Regressionslauf | offen |
@@ -32,6 +32,8 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | Punkt | Warum offen | Folge, solange offen |
 | --- | --- | --- |
 | **Custom SMTP + E-Mail-Vorlage** (ADR-036) | Vorlagen sind erst mit eigenem SMTP editierbar, dafuer fehlt eine Absenderadresse | Nach der Bestaetigung muss man sich **einmal manuell anmelden**. Versand laeuft ueber den Supabase-Testdienst mit Stundenlimit und ohne Zustellgarantie. |
+| **Leak-Pruefung nie live getestet** (ADR-040) | Der Proxy der Entwicklungsumgebung blockiert `api.pwnedpasswords.com` | Die Logik ist geprueft, der Netzwerkaufruf nicht. Beim ersten echten Registrieren mitpruefen. |
+| **Passwortregeln in Supabase** | Mindestlaenge und Zeichenklassen sind noch auf Standard | Schwaechere Passwoerter als noetig sind moeglich. Einstellbar unter Authentication → Providers → Email. |
 
 ## Reihenfolgelogik
 

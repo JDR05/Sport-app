@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { ensureWeekPlan, type WeekResult } from '@/lib/db/week-plan'
+import { loadCheckIns, saveCheckIn, saveMeasurement, type CheckIn } from '@/lib/db/tracking'
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -23,6 +24,50 @@ export async function loadWeek(today: unknown): Promise<WeekResult> {
 
   return ensureWeekPlan(user.id, parsed.data)
 }
+
+// ---------------------------------------------------------------- check-in ---
+
+const checkInSchema = z.object({
+  checkedInOn: isoDate,
+  // One to five, or nothing at all. A day nobody rated is not a bad day.
+  energy: z.number().int().min(1).max(5).nullable(),
+  mood: z.number().int().min(1).max(5).nullable(),
+  note: z.string().trim().max(2000).nullable(),
+})
+
+export async function submitCheckIn(payload: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+  const parsed = checkInSchema.safeParse(payload)
+  if (!parsed.success) return { ok: false }
+  return saveCheckIn(user.id, parsed.data)
+}
+
+export async function getCheckIns(since: unknown): Promise<CheckIn[]> {
+  const user = await requireUser()
+  const parsed = isoDate.safeParse(since)
+  if (!parsed.success) return []
+  return loadCheckIns(user.id, parsed.data)
+}
+
+// ------------------------------------------------------------- measurement ---
+
+const measurementSchema = z.object({
+  metricKey: z.string().min(1).max(64),
+  // Wide on purpose: this holds kilograms, kilometres and repetitions. The
+  // engine's own limits decide what is plausible for a given goal; a recording
+  // endpoint refusing a number it does not understand would be guessing.
+  value: z.number().finite().min(0).max(100000),
+  unit: z.string().min(1).max(16),
+})
+
+export async function submitMeasurement(payload: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+  const parsed = measurementSchema.safeParse(payload)
+  if (!parsed.success) return { ok: false }
+  return saveMeasurement(user.id, parsed.data.metricKey, parsed.data.value, parsed.data.unit)
+}
+
+// ------------------------------------------------------------------ status ---
 
 const statusSchema = z.enum(['planned', 'done', 'moved', 'missed', 'not_relevant', 'unknown'])
 

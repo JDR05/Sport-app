@@ -7,6 +7,40 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-040: Leak-Pruefung selbst gebaut, weil sie im kostenlosen Plan fehlt
+
+**Korrektur zu einer frueheren Empfehlung.** Ich hatte den Product Owner gebeten, in Supabase
+„Leaked Password Protection" einzuschalten. Die Option existiert dort nicht: Sie ist laut
+Supabase-Dokumentation **erst ab dem Pro-Plan** verfuegbar. Der Advisor meldet sie trotzdem,
+was den Hinweis irrefuehrend macht.
+
+**Entscheidung:** Die Pruefung liegt jetzt im eigenen Code, in `src/lib/auth/pwned.ts`, und
+laeuft vor dem Anlegen des Kontos.
+
+**Warum ueberhaupt:** Credential Stuffing raet keine Passwoerter, es spielt die
+hunderte Millionen durch, die bereits oeffentlich sind. Eine Gesundheits-App haelt genau die
+Art von Daten, die niemand mit seinem Namen verknuepft sehen moechte.
+
+**Das Passwort verlaesst den Server nie.** Der Dienst arbeitet mit k-Anonymitaet: Es gehen die
+ersten fuenf Zeichen des SHA-1-Hashes hinaus, zurueck kommen alle Suffixe mit diesem Praefix —
+einige hundert —, und der Abgleich passiert lokal. Der Dienst erfaehrt ein Praefix, das auf
+etwa einen von einer Million Hashes passt, und sonst nichts. `Add-Padding` sorgt dafuer, dass
+die Antwortgroesse nichts ueber die Trefferzahl verraet.
+
+**Sie faellt bewusst offen aus.** Ist der Dienst langsam oder nicht erreichbar, laeuft die
+Registrierung weiter. Der Ausfall eines Dritten darf niemanden aus dem eigenen Konto
+aussperren; Laenge und Form pruefen ohnehin weiter.
+
+**Nicht live getestet.** Der Proxy dieser Entwicklungsumgebung blockiert
+`api.pwnedpasswords.com`. Geprueft ist die Logik — der Hash-Split gegen einen bekannten Wert,
+das Parsen der Antwort, Padding-Eintraege, kaputte Antworten. Der Netzwerkaufruf selbst wurde
+hier nie ausgefuehrt.
+
+**Was auf dem kostenlosen Plan stattdessen geht** und eingeschaltet werden sollte:
+Mindestlaenge und erforderliche Zeichenklassen unter Authentication → Providers → Email.
+
+---
+
 ## 2026-08-20 — ADR-039: Eine Woche wird beim ersten Oeffnen festgeschrieben
 
 **Entscheidung:** ADR-037 haelt fest, dass Plaene berechnet und nicht gespeichert werden, und

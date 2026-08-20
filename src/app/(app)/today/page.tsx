@@ -3,6 +3,7 @@
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
+import { CheckInCard } from '@/components/CheckInCard'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { formatGermanDate, weekdayOf } from '@/lib/engine/dates'
 
@@ -77,6 +78,8 @@ export default function TodayPage() {
               Nicht abgehakte Aktionen zählen als „unbekannt“ und fließen nie als Versagen in die
               Auswertung ein.
             </Note>
+
+            <CheckInCard today={today} />
           </Screen>
         )
       }}

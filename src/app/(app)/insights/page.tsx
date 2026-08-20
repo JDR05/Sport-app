@@ -1,50 +1,33 @@
-'use client'
+// The adaptive engine, pointed at real data for the first time.
 
-import Link from 'next/link'
-import { RequirePlan } from '@/components/RequirePlan'
-import { Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { redirect } from 'next/navigation'
+import { requireUser } from '@/lib/auth/session'
+import { weeklyReview } from '@/lib/db/analysis'
+import { InsightsView, type InsightsData } from './InsightsView'
 
-export default function InsightsPage() {
-  return (
-    <RequirePlan>
-      {() => (
-        <Screen>
-          <ScreenTitle title="Insights" subtitle="Was funktioniert bei dir – und was nicht?" />
+export default async function InsightsPage() {
+  const user = await requireUser()
+  const today = new Date().toISOString().slice(0, 10)
+  const review = await weeklyReview(user.id, today)
+  if (!review) redirect('/onboarding')
 
-          <SectionHeading>Muster</SectionHeading>
-          <EmptyState
-            title="Noch kein Muster erkannt"
-            body="Eine einzelne Abweichung ist kein Muster. Die App wartet auf Wiederholung, bevor sie eine Hypothese aufstellt – lieber später etwas Belastbares als früh etwas Erfundenes."
-            progress={{ done: 0, needed: 14, unit: 'Tagen' }}
-          />
+  const { analysis } = review
 
-          <SectionHeading>Laufende Experimente</SectionHeading>
-          <EmptyState
-            title="Kein Experiment aktiv"
-            body="Sobald ein Muster belegt ist, schlägt die App genau eine kleine Änderung vor, misst sie über einen festen Zeitraum und behält sie nur, wenn sie wirkt."
-          />
+  const data: InsightsData = {
+    insights: analysis.insights,
+    experiment: analysis.experiment
+      ? {
+          hypothesis: analysis.experiment.hypothesis,
+          changeDescription: analysis.experiment.changeDescription,
+          endDate: analysis.experiment.endDate,
+          evidenceCount: analysis.experiment.evidence.length,
+        }
+      : null,
+    patchNotes: analysis.patch.notes,
+    moveCount: analysis.patch.moves.length,
+    removalCount: analysis.patch.removals.length,
+    weeksWithData: review.weeksWithData,
+  }
 
-          <SectionHeading>Dein Playbook</SectionHeading>
-          <Link href="/playbook" className="block">
-            <Card>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-ink">Persönliche Regeln</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">
-                    Was die App über dich gelernt hat. Noch leer – hier entsteht der Teil, den ein
-                    Chat nicht haben kann.
-                  </p>
-                </div>
-                <span aria-hidden className="text-xl text-faint">
-                  ›
-                </span>
-              </div>
-            </Card>
-          </Link>
-
-          <Note>Mustererkennung und Experimente entstehen im übernächsten Entwicklungsschritt.</Note>
-        </Screen>
-      )}
-    </RequirePlan>
-  )
+  return <InsightsView data={data} />
 }

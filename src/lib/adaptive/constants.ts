@@ -34,6 +34,16 @@ export const MIN_MISS_RATE = 0.5
  */
 export const MIN_CONTRAST = 0.3
 
+/**
+ * How far back detection looks, in weeks.
+ *
+ * Six is enough for the two-distinct-weeks rule to have something to work
+ * with, and short enough that a pattern from January stops describing someone
+ * in March. People change, and ADR-033 says the model has to be able to change
+ * with them; a window is the simplest way to mean it.
+ */
+export const ANALYSIS_WEEKS = 6
+
 /** Sessions at or above this length count as "long" for the duration pattern. */
 export const LONG_SESSION_MINUTES = 45
 

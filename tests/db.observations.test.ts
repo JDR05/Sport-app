@@ -5,7 +5,7 @@
 // is the same shape — otherwise the learning loop is proven against a fiction.
 
 import { describe, expect, it } from 'vitest'
-import { toObservations } from '@/lib/db/observations'
+import { analysisWindowStart, toObservations } from '@/lib/db/observations'
 import type { StoredItem } from '@/lib/db/week-plan'
 import { detectDeviations, analyze } from '@/lib/adaptive'
 import { generatePlan } from '@/lib/engine'
@@ -90,5 +90,24 @@ describe('the full loop, on data shaped like the database produces it', () => {
 
     expect(analysis.deviations).toEqual([])
     expect(analysis.experiment).toBeNull()
+  })
+})
+
+describe('the analysis window', () => {
+  it('spans exactly six calendar weeks, including this one', () => {
+    // 2026-08-20 is a Thursday; its week starts Monday 2026-08-17.
+    // Five weeks earlier is 2026-07-13, so the window covers 17.8., 10.8.,
+    // 3.8., 27.7., 20.7. and 13.7. — six Mondays.
+    expect(analysisWindowStart('2026-08-20')).toBe('2026-07-13')
+  })
+
+  it('starts on a Monday whatever day it is asked on', () => {
+    for (const day of ['2026-08-17', '2026-08-20', '2026-08-23']) {
+      expect(analysisWindowStart(day)).toBe('2026-07-13')
+    }
+  })
+
+  it('is a single week when asked for one', () => {
+    expect(analysisWindowStart('2026-08-20', 1)).toBe('2026-08-17')
   })
 })

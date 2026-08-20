@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { safeNext } from '@/lib/auth/redirect'
+import { isPwned } from '@/lib/auth/pwned'
 
 export type AuthState = { error: string | null }
 
@@ -72,6 +73,18 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
   const parsed = read(formData)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Eingabe unvollständig.' }
+  }
+
+  // Checked before the account exists, so a leaked password is never stored
+  // even briefly. Null means the service could not be reached; sign-up then
+  // continues rather than blocking someone over a third party's outage.
+  if ((await isPwned(parsed.data.password)) === true) {
+    return {
+      error:
+        'Dieses Passwort steht in bekannten Datenlecks und wird bereits automatisiert ' +
+        'durchprobiert. Bitte wähl ein anderes — am besten eine lange Wortfolge, die du ' +
+        'nirgends sonst benutzt.',
+    }
   }
 
   const supabase = await createClient()
