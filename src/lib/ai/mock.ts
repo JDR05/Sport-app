@@ -7,7 +7,7 @@
 
 import { classifyGoalText } from '@/lib/engine'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, Suggestions } from './schemas'
+import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
 import type { PlanInput, PlanResult } from '@/lib/domain/types'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
@@ -86,6 +86,26 @@ export class MockAdapter implements AiAdapter {
       },
     }
   }
+  /**
+   * Returns nothing, deliberately.
+   *
+   * The keyword classifier is a real answer — sorting a sentence into seven
+   * buckets is something a word list can genuinely do. Inventing plan actions
+   * for a goal nobody anticipated is not: any deterministic stand-in would be
+   * a fixed list dressed up as personalisation, which is exactly what this
+   * product claims not to be.
+   *
+   * So without a key there is no proposal, the archetype plans alone, and the
+   * app says so rather than pretending. ADR-041.
+   */
+  async proposePlan(): Promise<AiResult<PlanProposal>> {
+    return {
+      ok: false,
+      reason: 'no_api_key',
+      detail: 'plan proposals need a model; the deterministic path cannot invent actions',
+    }
+  }
+
 }
 
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
@@ -97,4 +117,24 @@ export class NullAdapter implements AiAdapter {
   async suggest(): Promise<AiResult<Suggestions>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
+  /**
+   * Returns nothing, deliberately.
+   *
+   * The keyword classifier is a real answer — sorting a sentence into seven
+   * buckets is something a word list can genuinely do. Inventing plan actions
+   * for a goal nobody anticipated is not: any deterministic stand-in would be
+   * a fixed list dressed up as personalisation, which is exactly what this
+   * product claims not to be.
+   *
+   * So without a key there is no proposal, the archetype plans alone, and the
+   * app says so rather than pretending. ADR-041.
+   */
+  async proposePlan(): Promise<AiResult<PlanProposal>> {
+    return {
+      ok: false,
+      reason: 'disabled',
+      detail: 'plan proposals need a model; the deterministic path cannot invent actions',
+    }
+  }
+
 }

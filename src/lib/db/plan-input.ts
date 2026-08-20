@@ -17,7 +17,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import {
-  readConstraintValue, readFreeSlots, readMind, readNutrition,
+  readAiProposal, readConstraintValue, readFreeSlots, readMind, readNutrition,
   readSexAtBirth, readSleep, readSport, readWorkPattern,
 } from './schemas'
 import type {
@@ -108,5 +108,13 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
     confidence: Number(r.confidence),
   }))
 
-  return { profile, goal, metrics, constraints, schedule, personalRules }
+  return {
+    profile,
+    goal,
+    metrics,
+    constraints,
+    schedule,
+    personalRules,
+    aiProposal: readAiProposal(g.ai_proposal),
+  }
 }

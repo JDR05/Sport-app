@@ -10,6 +10,10 @@ import type { GoalClassification, Suggestions } from '@/lib/ai'
 
 /** Stands in for every way a real call can fail. */
 class FailingAdapter implements AiAdapter {
+  async proposePlan(): Promise<AiResult<never>> {
+    return { ok: false, reason: this.reason, detail: 'test' }
+  }
+
   readonly name = 'claude'
   constructor(private reason: 'timeout' | 'invalid_json' | 'schema_invalid' | 'implausible' | 'api_error') {}
   async classifyGoal(): Promise<AiResult<GoalClassification>> {

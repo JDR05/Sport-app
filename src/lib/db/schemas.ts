@@ -12,7 +12,7 @@
 
 import { z } from 'zod'
 import type {
-  Constraint, FreeSlot, MindProfile, NutritionProfile, Profile, Schedule,
+  AiProposal, Constraint, FreeSlot, MindProfile, NutritionProfile, Profile, Schedule,
   SleepProfile, SportProfile,
 } from '@/lib/domain/types'
 
@@ -111,6 +111,38 @@ export function readWorkPattern(value: unknown): Schedule['workPattern'] {
 export function readSexAtBirth(value: unknown): Profile['sexAtBirth'] {
   const parsed = z.enum(['female', 'male', 'unspecified']).safeParse(value)
   return parsed.success ? parsed.data : null
+}
+
+/**
+ * A stored AI proposal, read back defensively.
+ *
+ * It was validated when it was written, but a row survives a deployment and
+ * the shape may move. An unreadable proposal becomes no proposal, and the
+ * archetype plans alone — the same fallback as no key at all.
+ */
+const storedProposalSchema = z.object({
+  headline: z.string().min(1).max(120),
+  reasoning: z.string().max(600),
+  mode: z.enum(['augment', 'takeover']),
+  actions: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(80),
+        reasoning: z.string().max(400),
+        domain: z.enum([
+          'training', 'nutrition', 'movement', 'sleep', 'self_improvement', 'priority',
+        ]),
+        minutes: z.number().int().min(0).max(90),
+        timesPerWeek: z.number().int().min(1).max(5),
+        preferredSlot: z.enum(['early', 'midday', 'evening', 'any']),
+      }),
+    )
+    .max(5),
+})
+
+export function readAiProposal(value: unknown): AiProposal | null {
+  const parsed = storedProposalSchema.safeParse(value)
+  return parsed.success && parsed.data.actions.length > 0 ? parsed.data : null
 }
 
 /**

@@ -6,8 +6,8 @@
 
 import { ClaudeAdapter } from './claude'
 import { MockAdapter, NullAdapter } from './mock'
-import type { AiAdapter, AiConfig, AiResult } from './types'
-import type { GoalClassification, Suggestions } from './schemas'
+import type { AiAdapter, AiConfig, AiFailure, AiResult } from './types'
+import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
 import type { PlanInput, PlanResult } from '@/lib/domain/types'
 
 /** Sensible for a small app; a slow answer is worse than a deterministic one. */
@@ -92,9 +92,36 @@ export async function suggest(
     : { value: null, source: 'none', fallbackReason: result.reason }
 }
 
+/**
+ * A plan proposal, or nothing.
+ *
+ * Nothing is an ordinary outcome, not an error: no key configured, the model
+ * refused, the schema did not hold, a plausibility rule fired. The caller plans
+ * deterministically in every one of those cases — which is why this returns a
+ * value rather than throwing.
+ */
+export type Proposed = {
+  proposal: PlanProposal | null
+  source: 'ai' | 'none'
+  reason?: AiFailure
+}
+
+export async function proposePlan(
+  input: PlanInput,
+  adapter: AiAdapter = createAdapter(),
+): Promise<Proposed> {
+  const result = await adapter.proposePlan(input)
+  return result.ok
+    ? { proposal: result.value, source: 'ai' }
+    : { proposal: null, source: 'none', reason: result.reason }
+}
+
 export { MockAdapter, NullAdapter } from './mock'
 export { ClaudeAdapter } from './claude'
-export { checkClassification, checkSuggestions } from './validate'
-export { CLASSIFY_PROMPT_VERSION, SUGGEST_PROMPT_VERSION } from './prompts'
+export { checkClassification, checkProposal, checkSuggestions } from './validate'
+// Exported so tests can hold the contract itself to account, not just its
+// consumers — the schema is the boundary, so it is worth asserting directly.
+export { goalClassificationSchema, planProposalSchema, suggestionsSchema } from './schemas'
+export { CLASSIFY_PROMPT_VERSION, PROPOSE_PROMPT_VERSION, SUGGEST_PROMPT_VERSION } from './prompts'
 export type { AiAdapter, AiConfig, AiResult, AiFailure } from './types'
-export type { GoalClassification, Suggestions, Suggestion } from './schemas'
+export type { GoalClassification, PlanProposal, ProposedAction, Suggestions, Suggestion } from './schemas'

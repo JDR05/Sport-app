@@ -27,9 +27,16 @@ const NUMERIC_HEALTH_CLAIM = [
 ]
 
 /** Never, under any goal. */
+// Word order in German is free, so a fixed phrase list leaks. "kürzer
+// schlafen" was caught and "schlafe kürzer" was not — the same instruction,
+// and the one rule CLAUDE.md states in absolute terms: never recommend less
+// sleep, for any goal, for any reason. Both directions are matched now.
 const SLEEP_REDUCTION = [
-  /weniger schlaf/i, /kürzer schlafen/i, /früher aufstehen um zu trainieren/i,
-  /\bschlaf\w*\s+(kürzen|reduzieren|opfern)\b/i,
+  /\bweniger\s+schlaf/i,
+  /\bkürzer\s+schlaf/i,
+  /\bschlaf\w*\s+(kürzer|kürzen|reduzieren|opfern|weniger)\b/i,
+  /\bfrüher\s+auf(stehen|zustehen)\b.{0,40}\b(trainier|sport|laufen)/i,
+  /\bnachts?\s+(durcharbeiten|wach bleiben)\b/i,
 ]
 
 const MEDICAL = [
@@ -41,6 +48,53 @@ function scan(text: string, patterns: RegExp[], rule: string): Violation[] {
   return patterns
     .filter((p) => p.test(text))
     .map((p) => ({ rule, detail: `"${text.slice(0, 80)}" matched ${p.source}` }))
+}
+
+/**
+ * Plausibility for a plan proposal.
+ *
+ * The same rule set the suggestions path uses, applied to the fields that
+ * actually reach a plan. Stricter in one place: a proposed action becomes
+ * something the person is asked to *do* every week, so an unrealistic duration
+ * matters more than in a piece of advice they can ignore.
+ */
+export function checkProposal(proposal: {
+  headline: string
+  reasoning: string
+  actions: Array<{ title: string; reasoning: string; minutes: number; timesPerWeek: number }>
+}): Violation[] {
+  const violations: Violation[] = []
+
+  const texts = [
+    proposal.headline,
+    proposal.reasoning,
+    ...proposal.actions.flatMap((a) => [a.title, a.reasoning]),
+  ]
+  for (const text of texts) {
+    violations.push(...scan(text, RESTRICTIVE, 'additive_only'))
+    violations.push(...scan(text, NUMERIC_HEALTH_CLAIM, 'no_numeric_health_claims'))
+    violations.push(...scan(text, SLEEP_REDUCTION, 'never_less_sleep'))
+    violations.push(...scan(text, MEDICAL, 'no_medical_claims'))
+  }
+
+  for (const [index, action] of proposal.actions.entries()) {
+    const where = `action[${index}]`
+
+    if (action.minutes > 45) {
+      violations.push({
+        rule: 'realistic_effort',
+        detail: `${where}: ${action.minutes} min is more than someone keeps up weekly`,
+      })
+    }
+
+    // Something demanded every single day is the first thing dropped, and its
+    // failure then reads as a behavioural pattern that is really a planning one.
+    if (action.timesPerWeek > 5) {
+      violations.push({ rule: 'too_frequent', detail: `${where}: ${action.timesPerWeek}×/week` })
+    }
+  }
+
+  return violations
 }
 
 export function checkSuggestions(value: Suggestions): Violation[] {

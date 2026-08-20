@@ -6,12 +6,12 @@
 // a result rather than throwing. The caller then falls back.
 
 import Anthropic from '@anthropic-ai/sdk'
-import { goalClassificationSchema, suggestionsSchema } from './schemas'
-import { checkClassification, checkSuggestions } from './validate'
+import { goalClassificationSchema, planProposalSchema, suggestionsSchema } from './schemas'
+import { checkClassification, checkProposal, checkSuggestions } from './validate'
 import type { AiAdapter, AiConfig, AiResult } from './types'
-import type { GoalClassification, Suggestions } from './schemas'
+import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
 import type { PlanInput, PlanResult } from '@/lib/domain/types'
-import { CLASSIFY_SYSTEM, SUGGEST_SYSTEM } from './prompts'
+import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM, SUGGEST_SYSTEM } from './prompts'
 
 export class ClaudeAdapter implements AiAdapter {
   readonly name = 'claude'
@@ -57,6 +57,31 @@ export class ClaudeAdapter implements AiAdapter {
         const violations = checkSuggestions(parsed.data)
         if (violations.length > 0) {
           return { ok: false as const, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+        }
+        return { ok: true as const, value: parsed.data }
+      },
+    })
+  }
+
+  async proposePlan(input: PlanInput): Promise<AiResult<PlanProposal>> {
+    return this.call({
+      model: this.config.suggestModel,
+      // The hardest thing the model is asked to do, and the one whose quality
+      // the user feels most directly.
+      effort: 'high',
+      maxTokens: 4000,
+      system: PROPOSE_SYSTEM,
+      user: buildProposalContext(input),
+      parse: (json) => {
+        const parsed = planProposalSchema.safeParse(json)
+        if (!parsed.success) return { ok: false as const, detail: parsed.error.message }
+        const violations = checkProposal(parsed.data)
+        if (violations.length > 0) {
+          return {
+            ok: false as const,
+            detail: violations.map((v) => v.rule).join(', '),
+            implausible: true,
+          }
         }
         return { ok: true as const, value: parsed.data }
       },
@@ -160,4 +185,40 @@ function buildContext(input: PlanInput, plan: PlanResult): string {
     'Gib ein bis drei Anregungen, die über das bereits Geplante hinausgehen.',
   ]
   return lines.join('\n')
+}
+
+/**
+ * The context a proposal is built from.
+ *
+ * Deliberately the input only, with no plan attached: for an unusual goal this
+ * runs before a plan exists, and for a common one showing the archetype's
+ * output would invite the model to restate it rather than add to it.
+ *
+ * The free slots are described as *how much time*, never as weekdays. If the
+ * model saw "Tuesday 19:30" it would propose Tuesdays, and the whole point of
+ * the split is that placement is the engine's job.
+ */
+function buildProposalContext(input: PlanInput): string {
+  const p = input.profile
+  const slots = input.schedule.freeSlots
+  const totalMinutes = slots.reduce((sum, s) => sum + s.minutes, 0)
+
+  return [
+    `Ziel in eigenen Worten: ${input.goal.rawText}`,
+    `Von der App eingeordnet als: ${input.goal.archetype}`,
+    input.goal.targetDate ? `Zieldatum: ${input.goal.targetDate}` : 'Kein Zieldatum genannt.',
+    '',
+    'Was dieser Mensch angegeben hat:',
+    `- Alltag: ${p.sport.experience ?? 'kein Leistungsstand angegeben'}, Arbeitsform ${input.schedule.workPattern ?? 'keine Angabe'}`,
+    `- Zeit pro Woche: ${slots.length} freie Zeitfenster, zusammen etwa ${totalMinutes} Minuten`,
+    `- Sport: mag ${p.sport.preferredActivities.join(', ') || 'keine Angabe'}; ausgeschlossen: ${p.sport.dislikedActivities.join(', ') || 'nichts'}`,
+    `- Ernährung: kocht ${p.nutrition.cooksAtHome ?? 'keine Angabe'}, auswärts ${p.nutrition.eatsOutPerWeek ?? '?'}×/Woche, ${p.nutrition.dietaryPattern ?? 'keine Angabe'}`,
+    `- Schlaf: ${p.sleep.usualBedtime ?? '?'} bis ${p.sleep.usualWakeTime ?? '?'}, Qualität ${p.sleep.quality ?? 'keine Angabe'}`,
+    `- Kopf: Bildschirmzeit ${p.mind.screenTimeHoursPerDay ?? '?'} h/Tag, Fokus ${p.mind.focusStruggle ?? 'keine Angabe'}`,
+    p.mind.existingRoutines.length > 0
+      ? `- Bestehende Routinen, an die sich anknüpfen lässt: ${p.mind.existingRoutines.join(', ')}`
+      : '- Keine bestehenden Routinen genannt.',
+    '',
+    'Entwirf zwei bis fünf Aktionen, die genau dieses Ziel bearbeiten. Keine Wochentage, keine Uhrzeiten.',
+  ].join('\n')
 }

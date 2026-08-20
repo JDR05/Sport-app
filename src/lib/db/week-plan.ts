@@ -18,6 +18,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { loadPlanInput } from './plan-input'
+import { withProposal } from './propose'
 import { generatePlan } from '@/lib/engine'
 import { startOfWeek } from '@/lib/engine/dates'
 import { PlanInvariantError } from '@/lib/engine/errors'
@@ -56,8 +57,12 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   const existing = await readWeek(profileId, weekStart, goalId)
   if (existing) return { ok: true, week: existing }
 
-  const input = await loadPlanInput(profileId)
-  if (!input) return { ok: false, reason: 'no_goal' }
+  const loaded = await loadPlanInput(profileId)
+  if (!loaded) return { ok: false, reason: 'no_goal' }
+
+  // Asked at most once per goal, and only when a week is actually being built —
+  // so a person who never opens the app is never paid for.
+  const input = await withProposal(profileId, { ...loaded, today })
 
   let plan
   try {

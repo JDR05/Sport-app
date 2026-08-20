@@ -4,7 +4,7 @@
 // Claude adapter, and a null adapter used to prove the product works with no AI
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
-import type { GoalClassification, Suggestions } from './schemas'
+import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
 import type { PlanInput, PlanResult } from '@/lib/domain/types'
 
 /** Never throws. A failed call is a value, so callers cannot forget to handle it. */
@@ -25,6 +25,12 @@ export interface AiAdapter {
   readonly name: string
   classifyGoal(rawText: string): Promise<AiResult<GoalClassification>>
   suggest(input: PlanInput, plan: PlanResult): Promise<AiResult<Suggestions>>
+  /**
+   * Actions for the plan itself — the lever from ADR-041. Takes the input
+   * only, not a plan: it runs *before* one exists, because for an unusual goal
+   * it is what the plan will be built from.
+   */
+  proposePlan(input: PlanInput): Promise<AiResult<PlanProposal>>
 }
 
 export type AiConfig = {
