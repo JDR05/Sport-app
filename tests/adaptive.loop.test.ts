@@ -10,8 +10,10 @@ import {
   applyDecision,
   derivePersonalRule,
   evaluateExperiment,
+  domainOfMetricKey,
   refinePlan,
   start,
+  trialRuleOf,
   type BehaviorMetric,
 } from '@/lib/adaptive'
 import { MIN_RULE_CONFIDENCE } from '@/lib/adaptive/constants'
@@ -35,8 +37,18 @@ describe('the full cycle', () => {
     const experiment = analysis.experiment
     expect(experiment).not.toBeNull()
 
-    // 2 — the user accepts, the experiment runs
+    // 2 — the user accepts, the experiment runs, and the plan changes *now*
     const running = start(experiment!)
+
+    // The step that was missing for a long time. An experiment that leaves the
+    // plan alone for fourteen days measures a fortnight in which nothing was
+    // different, so whatever it then concludes is noise — and that noise would
+    // be written into the personal model as a rule.
+    const trial = trialRuleOf(running)
+    const planBefore = generatePlan(aylin)
+    const planDuring = generatePlan({ ...aylin, personalRules: [trial] })
+    expect(signatureDistance(planSignature(planBefore), planSignature(planDuring)))
+      .toBeGreaterThan(0)
 
     // 3 — evaluation, on behaviour only
     const observed: BehaviorMetric = {
@@ -246,5 +258,59 @@ describe('plan care', () => {
   it('never replans the past', () => {
     const patch = refinePlan(WEDNESDAY_PROBLEM, TODAY)
     for (const move of patch.moves) expect(move.toDate > TODAY).toBe(true)
+  })
+})
+
+describe('a rule that is only being tested', () => {
+  // Two rules of the same key can now coexist: one learned, one under test.
+  // Which of them the planner follows must not depend on the order the
+  // database happened to return the rows in.
+  const learned: PersonalRule = {
+    ruleKey: 'prefer_time_slot',
+    ruleValue: { slot: 'evening' },
+    confidence: 0.8,
+  }
+  const underTest: PersonalRule = {
+    ruleKey: 'prefer_time_slot',
+    ruleValue: { slot: 'early' },
+    confidence: 0.5,
+    trial: true,
+  }
+
+  it('wins over an established rule of the same key', () => {
+    expect(readRules([learned, underTest]).preferredSlot).toBe('early')
+  })
+
+  it('wins whichever order the rows arrive in', () => {
+    // Otherwise an experiment would change the plan or not depending on row
+    // order — the same experiment producing two different answers.
+    expect(readRules([underTest, learned]).preferredSlot).toBe('early')
+  })
+
+  it('is carried by trialRuleOf, so the planner can tell it apart', () => {
+    const analysis = analyze(aylin, WEDNESDAY_PROBLEM)
+    expect(trialRuleOf(analysis.experiment!).trial).toBe(true)
+  })
+})
+
+describe('the metric key', () => {
+  it('round-trips the domain the baseline was measured on', () => {
+    // The baseline is computed over one domain. If the observation is later
+    // taken over the whole week, the difference between them is not an effect
+    // — it is the other domains — and a wrong rule enters the model for good.
+    const analysis = analyze(aylin, WEDNESDAY_PROBLEM)
+    const key = analysis.experiment!.metricKey
+    const domain = domainOfMetricKey(key)
+    if (key.includes('.')) {
+      expect(domain).not.toBeNull()
+      expect(key).toBe(`completion_rate.${domain}`)
+    } else {
+      expect(domain).toBeNull()
+    }
+  })
+
+  it('reads a plain completion_rate as covering every domain', () => {
+    expect(domainOfMetricKey('completion_rate')).toBeNull()
+    expect(domainOfMetricKey('completion_rate.nutrition')).toBe('nutrition')
   })
 })

@@ -102,10 +102,14 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
     if (value) constraints.push({ kind: row.kind, hard: row.hard, value })
   }
 
+  // Trial rules are included on purpose: the rule a running experiment is
+  // testing has to reach the planner, or the fortnight it runs for produces
+  // exactly the plan the person already had and the result is noise.
   const personalRules: PersonalRule[] = (ruleRows.data ?? []).map((r) => ({
     ruleKey: r.rule_key,
     ruleValue: (r.rule_value ?? {}) as Record<string, unknown>,
     confidence: Number(r.confidence),
+    trial: r.trial,
   }))
 
   return {

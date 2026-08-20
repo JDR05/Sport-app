@@ -82,6 +82,25 @@ export async function saveOnboarding(
     .eq('status', 'active')
   if (retired.error) return { ok: false, error: retired.error.message }
 
+  // An experiment belongs to the goal it was run for. Left open it would block
+  // every future experiment — only one may be open at a time — and its trial
+  // rule would keep shaping plans for a goal nobody is pursuing any more. It
+  // cannot be concluded either: the period it was measuring was interrupted,
+  // so there is no honest result to record.
+  const aborted = await supabase
+    .from('experiments')
+    .update({ status: 'aborted' })
+    .eq('profile_id', profileId)
+    .in('status', ['proposed', 'running', 'extended'])
+  if (aborted.error) return { ok: false, error: aborted.error.message }
+
+  const clearedTrials = await supabase
+    .from('personal_rules')
+    .delete()
+    .eq('profile_id', profileId)
+    .eq('trial', true)
+  if (clearedTrials.error) return { ok: false, error: clearedTrials.error.message }
+
   const goal = await supabase
     .from('goals')
     .insert({

@@ -158,6 +158,13 @@ export type PersonalRule = {
   ruleKey: string
   ruleValue: Record<string, unknown>
   confidence: number
+  /**
+   * True while the rule is only being tested by a running experiment. The
+   * planner applies it either way — a trial that changed nothing would test
+   * nothing — but it is not part of the personal model yet, so the Playbook
+   * does not claim it as something learned.
+   */
+  trial?: boolean
 }
 
 /**

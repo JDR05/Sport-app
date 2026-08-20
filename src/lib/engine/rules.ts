@@ -65,7 +65,15 @@ const DOMAIN_SET = new Set<string>([
 export function readRules(rules: PersonalRule[]): ActiveRules {
   const out: ActiveRules = { ...EMPTY_RULES, avoidWeekdays: [], lightDomains: [], appliedKeys: [] }
 
-  for (const rule of rules) {
+  // Established rules first, the rule under test second, so that a trial wins
+  // where two rules of the same key disagree. Without a fixed order this would
+  // depend on the row order the database happened to return, and an experiment
+  // testing a different time slot than the one already learned would sometimes
+  // change nothing at all. Additive keys are unaffected — for those a trial is
+  // simply one more entry.
+  const ordered = [...rules.filter((r) => !r.trial), ...rules.filter((r) => r.trial)]
+
+  for (const rule of ordered) {
     if (rule.confidence < MIN_APPLIED_CONFIDENCE) continue
     const v = rule.ruleValue
 

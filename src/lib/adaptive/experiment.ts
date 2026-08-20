@@ -12,7 +12,7 @@ import type { BehaviorMetric, Experiment, Hypothesis, Observation } from './type
 import { generatePlan } from '@/lib/engine'
 import { PlanInvariantError } from '@/lib/engine/errors'
 import { addDays } from '@/lib/engine/dates'
-import type { PersonalRule, PlanInput } from '@/lib/domain/types'
+import type { PersonalRule, PlanDomain, PlanInput } from '@/lib/domain/types'
 
 /**
  * Confidence a rule carries while it is only a proposal. It is high enough to
@@ -29,13 +29,9 @@ export function proposeExperiment(
   const proposed = proposedRuleFor(hypothesis.deviation, observations)
   if (!proposed) return null
 
-  const trialRule: PersonalRule = {
-    ruleKey: proposed.ruleKey,
-    ruleValue: proposed.ruleValue,
-    confidence: TRIAL_CONFIDENCE,
-  }
-
-  if (!producesASafePlan(input, trialRule)) return null
+  // The safety check runs against the rule exactly as it will be stored, trial
+  // flag included, so what is checked is what the planner will see.
+  if (!producesASafePlan(input, trialRule(proposed))) return null
 
   const scope = scopeOf(hypothesis, observations)
   const baselineRate = completionRate(scope)
@@ -95,6 +91,21 @@ function metricKeyFor(hypothesis: Hypothesis): string {
   return domain === null ? 'completion_rate' : `completion_rate.${domain}`
 }
 
+/**
+ * The inverse of metricKeyFor, and deliberately next to it.
+ *
+ * The baseline is computed over one domain, so the observation it is later
+ * compared against has to be narrowed the same way. When the two lived apart,
+ * the evaluation measured the whole week against a single-domain baseline and
+ * the difference between them was not an effect — it was the other domains.
+ * Whether a rule enters the personal model turns on this, so both halves of
+ * the key format stay in one place.
+ */
+export function domainOfMetricKey(metricKey: string): PlanDomain | null {
+  const [, domain] = metricKey.split('.')
+  return domain ? (domain as PlanDomain) : null
+}
+
 function describeChange(hypothesis: Hypothesis): string {
   const { deviation } = hypothesis
   switch (deviation.dimension) {
@@ -111,10 +122,18 @@ function describeChange(hypothesis: Hypothesis): string {
 
 /** The rule as it should be stored while the experiment runs. */
 export function trialRuleOf(experiment: Experiment): PersonalRule {
+  return trialRule(experiment.proposedRule)
+}
+
+function trialRule(proposed: { ruleKey: string; ruleValue: Record<string, unknown> }): PersonalRule {
   return {
-    ruleKey: experiment.proposedRule.ruleKey,
-    ruleValue: experiment.proposedRule.ruleValue,
+    ruleKey: proposed.ruleKey,
+    ruleValue: proposed.ruleValue,
     confidence: TRIAL_CONFIDENCE,
+    // Marks it as under test rather than learned: the planner applies it, the
+    // Playbook does not claim it, and it wins over an established rule of the
+    // same key for as long as the experiment runs.
+    trial: true,
   }
 }
 

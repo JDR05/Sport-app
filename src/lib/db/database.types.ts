@@ -304,6 +304,7 @@ export type Database = {
           rule_key: string
           rule_value: Json
           source_experiment_id: string | null
+          trial: boolean
           updated_at: string
         }
         Insert: {
@@ -315,6 +316,7 @@ export type Database = {
           rule_key: string
           rule_value: Json
           source_experiment_id?: string | null
+          trial?: boolean
           updated_at?: string
         }
         Update: {
@@ -326,6 +328,7 @@ export type Database = {
           rule_key?: string
           rule_value?: Json
           source_experiment_id?: string | null
+          trial?: boolean
           updated_at?: string
         }
       }

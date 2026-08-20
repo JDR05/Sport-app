@@ -16,10 +16,11 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { loadObservations } from './analysis'
 import {
-  applyDecision, completionRate, derivePersonalRule, evaluateExperiment,
-  type BehaviorMetric, type Evaluation, type Experiment,
+  applyDecision, completionRate, derivePersonalRule, domainOfMetricKey, evaluateExperiment,
+  trialRuleOf, type BehaviorMetric, type Evaluation, type Experiment,
 } from '@/lib/adaptive'
-import { MIN_RULE_CONFIDENCE } from '@/lib/adaptive/constants'
+import { EXPERIMENT_DAYS, MIN_RULE_CONFIDENCE } from '@/lib/adaptive/constants'
+import { addDays } from '@/lib/engine/dates'
 
 export type StoredExperiment = Experiment & { id: string }
 
@@ -38,38 +39,62 @@ export async function acceptExperiment(
     .maybeSingle()
   if (!goal.data) return { ok: false }
 
-  // One at a time. Two concurrent experiments make both results unreadable,
-  // and the engine already refuses to propose a second — this is the same rule
-  // enforced where it cannot be talked around.
-  const running = await supabase
+  // One at a time. Two concurrent experiments make both results unreadable.
+  // The insert is the check: a partial unique index over the open statuses
+  // rejects the second one. Reading first and then inserting looked equivalent
+  // but was not — two requests arriving together both read zero.
+  const inserted = await supabase
     .from('experiments')
+    .insert({
+      profile_id: profileId,
+      goal_id: goal.data.id,
+      hypothesis: experiment.hypothesis,
+      variable: experiment.variable,
+      change_description: experiment.changeDescription,
+      // The rule travels with the experiment, so adoption cannot invent a
+      // different change from the one that was actually tested.
+      baseline: {
+        metricKey: experiment.baseline.metricKey,
+        value: experiment.baseline.value,
+        proposedRule: experiment.proposedRule,
+        evidence: experiment.evidence,
+      },
+      metric_key: experiment.metricKey,
+      start_date: experiment.startDate,
+      end_date: experiment.endDate,
+      status: 'running',
+    })
     .select('id')
-    .eq('profile_id', profileId)
-    .in('status', ['proposed', 'running'])
-    .limit(1)
-  if ((running.data ?? []).length > 0) return { ok: false }
+    .single()
 
-  const { error } = await supabase.from('experiments').insert({
-    profile_id: profileId,
-    goal_id: goal.data.id,
-    hypothesis: experiment.hypothesis,
-    variable: experiment.variable,
-    change_description: experiment.changeDescription,
-    // The rule travels with the experiment, so adoption cannot invent a
-    // different change from the one that was actually tested.
-    baseline: {
-      metricKey: experiment.baseline.metricKey,
-      value: experiment.baseline.value,
-      proposedRule: experiment.proposedRule,
-      evidence: experiment.evidence,
+  if (inserted.error || !inserted.data) return { ok: false }
+
+  // The change starts now, not when the experiment ends. This is the step that
+  // was missing: without it the next fourteen days produce the same plan as the
+  // fourteen before, and whatever the numbers then say is about nothing.
+  const trial = trialRuleOf(experiment)
+  const rule = await supabase.from('personal_rules').upsert(
+    {
+      profile_id: profileId,
+      rule_key: trial.ruleKey,
+      rule_value: trial.ruleValue,
+      confidence: trial.confidence,
+      source_experiment_id: inserted.data.id,
+      trial: true,
+      active: true,
     },
-    metric_key: experiment.metricKey,
-    start_date: experiment.startDate,
-    end_date: experiment.endDate,
-    status: 'running',
-  })
+    { onConflict: 'profile_id,rule_key,trial' },
+  )
 
-  return { ok: error === null }
+  // An experiment whose change never reached the plan is worse than none: it
+  // would conclude on a fortnight in which nothing was different. Roll it back
+  // rather than let it run as a lie.
+  if (rule.error) {
+    await supabase.from('experiments').delete().eq('id', inserted.data.id).eq('profile_id', profileId)
+    return { ok: false }
+  }
+
+  return { ok: true }
 }
 
 /** Declining is data too: it says this change was wrong for this person. */
@@ -126,7 +151,10 @@ export async function loadRunningExperiment(
     .from('experiments')
     .select('*')
     .eq('profile_id', profileId)
-    .eq('status', 'running')
+    // 'extended' is still running — it is the same test with more time. Reading
+    // only 'running' lost it, and with it every future experiment: the open-
+    // experiment check would keep finding it while nothing ever concluded it.
+    .in('status', ['running', 'extended'])
     .order('start_date', { ascending: false })
     .maybeSingle()
 
@@ -170,8 +198,12 @@ export async function concludeIfDue(
   if (!running || today <= running.endDate) return null
 
   const observations = await loadObservations(profileId, today, 12)
+  const domain = domainOfMetricKey(running.metricKey)
   const during = observations.filter(
-    (o) => o.scheduledOn >= running.startDate && o.scheduledOn <= running.endDate,
+    (o) =>
+      o.scheduledOn >= running.startDate &&
+      o.scheduledOn <= running.endDate &&
+      (domain === null || o.domain === domain),
   )
 
   const observed = completionRate(during)
@@ -208,9 +240,18 @@ export async function concludeIfDue(
   const concluded = applyDecision(experiment, evaluation)
 
   const supabase = await createClient()
+
+  // 'continue' means too little happened to read anything into it, so the test
+  // gets another period rather than a verdict. The end date has to move with
+  // the status: leaving it in the past would re-conclude the same experiment on
+  // every page load and fill the record with duplicate results.
   await supabase
     .from('experiments')
-    .update({ status: concluded.status })
+    .update(
+      evaluation.decision === 'continue'
+        ? { status: concluded.status, end_date: addDays(running.endDate, EXPERIMENT_DAYS) }
+        : { status: concluded.status },
+    )
     .eq('id', running.id)
     .eq('profile_id', profileId)
 
@@ -233,10 +274,25 @@ export async function concludeIfDue(
         rule_value: rule.ruleValue,
         confidence: rule.confidence,
         source_experiment_id: running.id,
+        trial: false,
         active: true,
       },
-      { onConflict: 'profile_id,rule_key' },
+      { onConflict: 'profile_id,rule_key,trial' },
     )
+  }
+
+  // The trial rule goes as soon as the experiment stops running — adopted, it
+  // has just been written again as a real rule; rejected, it must stop shaping
+  // the plan, or a change that demonstrably made things worse would quietly
+  // stay in effect forever. While the test is extended it stays, because the
+  // test is still running.
+  if (evaluation.decision !== 'continue') {
+    await supabase
+      .from('personal_rules')
+      .delete()
+      .eq('profile_id', profileId)
+      .eq('rule_key', running.proposedRule.ruleKey)
+      .eq('trial', true)
   }
 
   await supabase.from('insights').insert({
@@ -265,6 +321,9 @@ export async function loadPersonalRules(profileId: string): Promise<LearnedRule[
     .select('*')
     .eq('profile_id', profileId)
     .eq('active', true)
+    // A rule under test is not something the person has learned about
+    // themselves yet. The running experiment is shown as an experiment.
+    .eq('trial', false)
     .gte('confidence', MIN_RULE_CONFIDENCE)
     .order('created_at', { ascending: false })
 

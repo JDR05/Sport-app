@@ -7,6 +7,42 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-042: Die Regel eines laufenden Experiments verändert den Plan sofort
+
+**Entscheidung:** Sobald der Nutzer ein Experiment annimmt, wird die getestete Regel als
+`trial`-Regel in `personal_rules` geschrieben und vom Planer angewendet. Sie ist nicht Teil
+des persönlichen Modells: das Playbook zeigt sie nicht, und bei `discard` wird sie gelöscht,
+bei `keep` durch die echte Regel mit ihrer echten Konfidenz ersetzt. Kollidiert ihr Schlüssel
+mit einer bereits gelernten Regel, gewinnt die Trial-Regel für die Dauer des Tests.
+
+**Begründung:** Vorher entstand eine Regel erst, *nachdem* das Experiment abgeschlossen war.
+Damit produzierten die vierzehn Tage dazwischen exakt den Plan, den die Person vorher hatte —
+das Experiment testete nichts, und das Ergebnis war garantiert Rauschen. Genau dieses Rauschen
+wäre anschließend als Regel dauerhaft ins persönliche Modell geschrieben worden. Das ist der
+Kern des Produkts (`docs/ADAPTIVE_ENGINE.md`), also darf er nicht nur auf dem Papier stehen.
+
+Die Reihenfolge beim Anwenden ist explizit festgelegt, nicht der Zeilenreihenfolge der
+Datenbank überlassen: sonst hätte dasselbe Experiment je nach Abfrage zwei verschiedene
+Antworten gegeben.
+
+---
+
+## 2026-08-20 — ADR-043: Ein offenes Experiment ist eine Datenbankinvariante
+
+**Entscheidung:** Ein partieller Unique-Index über `experiments (profile_id)` für die
+Status `proposed`, `running` und `extended` erzwingt, dass höchstens ein Experiment offen
+ist. `extended` gilt als offen und wird auch wieder gelesen; sein Enddatum wandert mit.
+Ein Zielwechsel setzt offene Experimente auf `aborted` und löscht die Trial-Regeln.
+
+**Begründung:** Die Regel „eines zur Zeit" existierte nur als Lesen-dann-Schreiben im Code
+und war damit rennbar. Zwei gleichzeitige Experimente machen beide Ergebnisse unlesbar, und
+der Leser benutzte `maybeSingle()` — ein Duplikat hätte bei jedem weiteren Laden geworfen und
+die Lernschleife dauerhaft getötet. Umgekehrt hätte ein Experiment, das nach einem Zielwechsel
+offen bleibt, unter dem neuen Index jedes künftige Experiment blockiert, und seine Trial-Regel
+hätte weiter Pläne für ein Ziel geformt, das niemand mehr verfolgt.
+
+---
+
 ## 2026-08-20 — ADR-041: Die KI entscheidet **was**, die Engine entscheidet **wann und ob**
 
 **Ausloeser:** Der Product Owner hat den Kernmangel benannt: *die KI hat keine Hebel, die sie
