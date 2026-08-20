@@ -10,6 +10,8 @@ import { loadPlanInput } from '@/lib/db/plan-input'
 import { loadMeasurements } from '@/lib/db/tracking'
 import { weeklyReview } from '@/lib/db/analysis'
 import { isResolved } from '@/lib/adaptive/detect'
+import { weekScores } from '@/lib/adaptive/scores'
+import { startOfWeek } from '@/lib/engine/dates'
 import { ProgressView, type ProgressData } from './ProgressView'
 import type { MetricSpec } from '@/components/MetricEntry'
 
@@ -55,6 +57,12 @@ export default async function ProgressPage() {
     completionThisWeek: review?.completionThisWeek ?? null,
     weeksWithData: review?.weeksWithData ?? 0,
     resolvedCount: review?.observations.filter(isResolved).length ?? 0,
+    // Rings describe *this* week. The six-week window behind them is for
+    // pattern detection, and a ring covering six weeks would answer a question
+    // nobody asked.
+    scores: weekScores(
+      (review?.observations ?? []).filter((o) => o.scheduledOn >= startOfWeek(today)),
+    ),
   }
 
   return <ProgressView data={data} />

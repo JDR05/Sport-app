@@ -1,10 +1,13 @@
 'use client'
 
+import Link from 'next/link'
 import { RequirePlan } from '@/components/RequirePlan'
 import { MetricEntry, type MetricSpec } from '@/components/MetricEntry'
-import { Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
+import { ScoreRing } from '@/components/ScoreRing'
+import { DOMAIN_LABEL, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
 import { formatGermanDate } from '@/lib/engine/dates'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
+import type { WeekScores } from '@/lib/adaptive/scores'
 
 export type ProgressData = {
   spec: MetricSpec | null
@@ -13,6 +16,7 @@ export type ProgressData = {
   completionThisWeek: number | null
   weeksWithData: number
   resolvedCount: number
+  scores: WeekScores
 }
 
 export function ProgressView({ data }: { data: ProgressData }) {
@@ -67,6 +71,50 @@ export function ProgressView({ data }: { data: ProgressData }) {
               </>
             )}
 
+            <SectionHeading>Diese Woche</SectionHeading>
+            {data.scores.overall.planned === 0 ? (
+              <EmptyState
+                title="Diese Woche ist noch nichts geplant"
+                body="Sobald dein Wochenplan steht, zeigt der Ring, wie viel davon tatsächlich passiert ist."
+              />
+            ) : (
+              <Card>
+                <div className="flex items-center gap-5">
+                  <ScoreRing
+                    rate={data.scores.overall.rate}
+                    size={96}
+                    label="Gesamt"
+                    detail={
+                      data.scores.overall.resolved === 0
+                        ? 'noch nichts bewertet'
+                        : `${data.scores.overall.done} von ${data.scores.overall.resolved} bewertet`
+                    }
+                  />
+                  <p className="text-sm leading-relaxed text-muted">
+                    {data.scores.overall.rate === null
+                      ? 'Hak auf „Heute“ Aktionen ab, dann füllt sich der Ring. Ein Tag ohne Eintrag zählt nie dagegen.'
+                      : data.scores.overall.untouched > 0
+                        ? `${data.scores.overall.untouched} Aktionen hast du nicht bewertet. Die zählen nicht mit — weder dafür noch dagegen.`
+                        : 'Alles bewertet. Der Ring zeigt genau das, was passiert ist.'}
+                  </p>
+                </div>
+
+                {data.scores.domains.length > 1 && (
+                  <div className="mt-5 flex flex-wrap justify-around gap-4 border-t border-line pt-4">
+                    {data.scores.domains.map((d) => (
+                      <ScoreRing
+                        key={d.domain}
+                        rate={d.rate}
+                        domain={d.domain}
+                        label={DOMAIN_LABEL[d.domain]}
+                        detail={d.resolved === 0 ? 'offen' : `${d.done}/${d.resolved}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
+
             <SectionHeading>Konsistenz</SectionHeading>
             {data.completion === null ? (
               <EmptyState
@@ -95,8 +143,24 @@ export function ProgressView({ data }: { data: ProgressData }) {
 
             <Note>
               Gezählt wird nur, was du selbst bewertet hast. Ein Tag ohne Eintrag ist fehlende
-              Information, kein Versäumnis — er senkt diese Quote nicht.
+              Information, kein Versäumnis — er senkt keine dieser Zahlen.
             </Note>
+
+            <SectionHeading>Alles Weitere</SectionHeading>
+            <Link href="/profile" className="block">
+              <Card>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">Deine Angaben</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">
+                      Alles, was du erzählt hast — auch die Werte, die für dieses Ziel gerade
+                      keine Rolle spielen. Nichts davon ist weg, es steht nur nicht im Weg.
+                    </p>
+                  </div>
+                  <span aria-hidden className="text-xl text-faint">›</span>
+                </div>
+              </Card>
+            </Link>
           </Screen>
         )
       }}
