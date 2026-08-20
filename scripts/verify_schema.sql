@@ -23,9 +23,9 @@ begin
   insert into public.profiles (id, birth_year, height_cm, sex_at_birth) values
     (user_a, 2000, 180.0, 'male'), (user_b, 1995, 165.0, 'female');
 
-  insert into public.goals (profile_id, title, target_date)
+  insert into public.goals (profile_id, raw_text, target_date)
     values (user_a, 'Lose 5 kg', current_date + 84) returning id into goal_a;
-  insert into public.goals (profile_id, title, target_date)
+  insert into public.goals (profile_id, raw_text, target_date)
     values (user_b, 'Lose 5 kg', current_date + 84) returning id into goal_b;
 
   insert into public.plans (profile_id, goal_id, week_start, strategy)
@@ -64,7 +64,7 @@ begin
 
   -- --------------------------------------- 3. one active goal per profile ---
   begin
-    insert into public.goals (profile_id, title) values (user_a, 'Second active goal');
+    insert into public.goals (profile_id, raw_text) values (user_a, 'Second active goal');
     raise exception 'FAIL 3: a second active goal was accepted';
   exception when unique_violation then
     null;
@@ -146,7 +146,7 @@ insert into auth.users (id, email) values
 insert into public.profiles (id) values
   ('00000000-0000-4000-a000-00000000000a'),
   ('00000000-0000-4000-b000-00000000000b');
-insert into public.goals (profile_id, title) values
+insert into public.goals (profile_id, raw_text) values
   ('00000000-0000-4000-a000-00000000000a', 'Goal of A'),
   ('00000000-0000-4000-b000-00000000000b', 'Goal of B');
 
@@ -161,7 +161,7 @@ begin
   select count(*) into n from public.goals;
   if n <> 1 then raise exception 'FAIL 9: user A sees % goals, expected 1', n; end if;
 
-  select title into t from public.goals;
+  select raw_text into t from public.goals;
   if t <> 'Goal of A' then raise exception 'FAIL 9: user A sees "%"', t; end if;
 
   -- A cannot read B's profile.
@@ -178,7 +178,7 @@ begin
   end;
 
   -- A cannot update B's goal (update matches no row rather than erroring).
-  update public.goals set title = 'hijacked'
+  update public.goals set raw_text = 'hijacked'
    where profile_id = '00000000-0000-4000-b000-00000000000b';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL 12: user A updated % of B''s rows', n; end if;
@@ -196,5 +196,48 @@ commit;
 
 reset role;
 delete from auth.users where email in ('a@verify.local', 'b@verify.local');
+
+-- ---------------------------------------------------------------------------
+-- 14-17: the corrected architecture actually reached the schema.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  -- The fossil is gone. A column called goal_type sitting next to archetype
+  -- would sooner or later be written to instead of it.
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'goals' and column_name = 'goal_type'
+  ) then
+    raise exception 'FAIL 14: goals.goal_type still exists';
+  end if;
+
+  -- No default anywhere may reintroduce the weight-loss framing (ADR-021).
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and column_default ilike '%weight_loss%'
+  ) then
+    raise exception 'FAIL 15: a column still defaults to weight_loss';
+  end if;
+
+  -- The full intake has somewhere to go (ADR-024).
+  if (
+    select count(*) from information_schema.columns
+     where table_schema = 'public' and table_name = 'profiles'
+       and column_name in ('weight_kg', 'sport', 'nutrition', 'sleep', 'mind')
+  ) <> 5 then
+    raise exception 'FAIL 16: profiles is missing intake columns';
+  end if;
+
+  -- Both tracks stay distinguishable once stored (ADR-022).
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'plan_items' and column_name = 'track'
+  ) then
+    raise exception 'FAIL 17: plan_items.track is missing';
+  end if;
+
+  raise notice 'architecture checks 14-17 passed';
+end;
+$$;
 
 select 'all schema checks passed' as result;

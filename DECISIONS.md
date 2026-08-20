@@ -7,6 +7,27 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-037: Der Plan wird berechnet, nicht gespeichert
+
+**Entscheidung:** Persistiert werden die **Eingaben** — Profil, Ziel, Zielmetriken, Tagesstruktur,
+Constraints, Personal Rules. Der Wochenplan selbst wird bei jedem Aufruf neu erzeugt.
+
+**Begruendung:** `generatePlan` ist rein: keine Uhr, kein Zufall, kein Netzwerk. Dieselbe
+Eingabe ergibt denselben Plan, und 745 Tests haengen an dieser Zusage. Neu berechnen ist
+deshalb praktisch kostenlos und kann dem Gespeicherten nicht widersprechen. Wuerde man den
+Plan zusaetzlich ablegen, gaebe es zwei Wahrheiten ueber dieselbe Sache — und die eine, die
+niemand nachrechnet, wird irgendwann die falsche.
+
+**Wann sich das aendert:** Sobald Aktionen abgehakt werden. Dann braucht ein `plan_item` eine
+stabile Identitaet, an die ein Status haengt, und Experimente vergleichen Plaene vor und nach
+einer Aenderung. Die Tabellen `plans` und `plan_items` existieren dafuer bereits und bleiben
+bis dahin bewusst leer.
+
+**Das Datum bleibt beim Client.** Der Server laeuft in UTC. Wer um halb eins nachts in Berlin
+die App oeffnet, bekaeme sonst die Woche von gestern.
+
+---
+
 ## 2026-08-20 — ADR-036: Custom SMTP wird bewusst aufgeschoben (OFFENER PUNKT)
 
 **Status: offen.** Dieser Eintrag beschreibt eine Entscheidung, die noch nachzuholen ist.

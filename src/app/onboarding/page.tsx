@@ -12,8 +12,7 @@
 // AI layer classifies instead and this stays as the fallback.
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { usePlan, type Answers } from '@/components/PlanProvider'
+import { completeOnboarding } from './actions'
 import { Button, Card, Note, Screen, ScreenTitle } from '@/components/ui'
 import {
   ChoiceGroup, DateInput, Field, MultiChoice, NumberInput, StepProgress, TextArea, TimeInput,
@@ -109,11 +108,14 @@ const METRIC_FOR: Partial<Record<GoalArchetype, { key: string; unit: string; lab
   strength: { key: 'load_kg', unit: 'kg', label: 'Last', startLabel: 'Womit trainierst du aktuell?', targetLabel: 'Was ist dein Ziel?' },
 }
 
+/** The payload the server action validates again before writing anything. */
+type OnboardingPayload = Parameters<typeof completeOnboarding>[0]
+
 function buildAnswers(
   d: Draft,
   archetype: GoalArchetype,
   classifiedBy: 'ai' | 'keywords' | 'user',
-): Answers {
+) {
   const metricSpec = METRIC_FOR[archetype]
   const metrics: GoalMetric[] =
     metricSpec && (d.metricStart !== null || d.metricTarget !== null)
@@ -179,9 +181,9 @@ function buildAnswers(
 }
 
 export default function OnboardingPage() {
-  const router = useRouter()
-  const { saveAnswers } = usePlan()
   const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [d, setD] = useState<Draft>(EMPTY)
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
@@ -202,9 +204,20 @@ export default function OnboardingPage() {
   const isLast = step === visibleSteps.length - 1
   const canContinue = stepName !== 'Ziel' || d.goalText.trim().length >= 3
 
-  const finish = () => {
-    saveAnswers(buildAnswers(d, archetype, d.archetype !== null ? 'user' : aiArchetype ? 'ai' : 'keywords'))
-    router.push('/today')
+  const finish = async () => {
+    setSaving(true)
+    setSaveError(null)
+    const payload: OnboardingPayload = buildAnswers(
+      d,
+      archetype,
+      d.archetype !== null ? 'user' : aiArchetype ? 'ai' : 'keywords',
+    )
+    // On success the action redirects, so nothing after this runs. A returned
+    // value means it refused, and the person stays on the last step with their
+    // answers intact rather than losing ten minutes of typing.
+    const result = await completeOnboarding(payload)
+    setSaving(false)
+    if (result && 'error' in result) setSaveError(result.error)
   }
 
   /** Asks the server to classify. Never blocks progress: a failure just keeps
@@ -450,12 +463,24 @@ export default function OnboardingPage() {
         </>
       )}
 
+      {saveError && (
+        <p role="alert" className="mt-6 rounded-xl bg-warn-soft px-3 py-2.5 text-sm text-ink">
+          {saveError}
+        </p>
+      )}
+
       <div className="mt-8 flex flex-col gap-2">
         <Button
           onClick={isLast ? finish : stepName === 'Ziel' ? advanceFromGoal : () => setStep(step + 1)}
-          disabled={!canContinue || classifying}
+          disabled={!canContinue || classifying || saving}
         >
-          {classifying ? 'Ziel wird eingeordnet …' : isLast ? 'Plan erstellen' : 'Weiter'}
+          {saving
+            ? 'Plan wird gebaut …'
+            : classifying
+              ? 'Ziel wird eingeordnet …'
+              : isLast
+                ? 'Plan erstellen'
+                : 'Weiter'}
         </Button>
         {step > 0 && <Button variant="quiet" onClick={() => setStep(step - 1)}>Zurück</Button>}
         {step > 0 && !isLast && (

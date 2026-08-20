@@ -1,17 +1,15 @@
-'use client'
+// The front door.
+//
+// A server redirect rather than a client one: it decides before anything
+// renders, so nobody sees an empty screen flash while JavaScript works out
+// where they should have gone.
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { usePlan } from '@/components/PlanProvider'
+import { redirect } from 'next/navigation'
+import { requireUser } from '@/lib/auth/session'
+import { loadPlanInput } from '@/lib/db/plan-input'
 
-export default function RootPage() {
-  const router = useRouter()
-  const { ready, answers } = usePlan()
-
-  useEffect(() => {
-    if (!ready) return
-    router.replace(answers ? '/today' : '/onboarding')
-  }, [ready, answers, router])
-
-  return null
+export default async function RootPage(): Promise<never> {
+  const user = await requireUser()
+  const answers = await loadPlanInput(user.id)
+  redirect(answers ? '/today' : '/onboarding')
 }

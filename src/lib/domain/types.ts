@@ -7,6 +7,7 @@
 import type { Enums } from '@/lib/db/database.types'
 
 export type PlanDomain = Enums<'plan_domain'>
+export type PlanTrack = Enums<'plan_track'>
 export type PlanItemStatus = Enums<'plan_item_status'>
 export type MetricClass = Enums<'metric_class'>
 export type ConstraintKind = Enums<'constraint_kind'>
@@ -46,15 +47,14 @@ export type FocusStruggle = 'low' | 'medium' | 'high'
  * of these. `general_health` is the fallback — an unrecognised goal gets the
  * health baseline plus AI suggestions, never a refusal. See
  * docs/GOAL_ARCHETYPES.md.
+ *
+ * Taken from the database enum rather than declared here, so that adding an
+ * archetype in a migration without teaching the engine about it is a
+ * compilation error instead of a runtime surprise.
  */
-export type GoalArchetype =
-  | 'body_composition'
-  | 'strength'
-  | 'endurance'
-  | 'sleep_recovery'
-  | 'nutrition_quality'
-  | 'habit_routine'
-  | 'general_health'
+export type GoalArchetype = Enums<'goal_archetype'>
+
+export type ClassifiedBy = Enums<'goal_classified_by'>
 
 export const GOAL_ARCHETYPES: readonly GoalArchetype[] = [
   'body_composition', 'strength', 'endurance',
@@ -67,7 +67,7 @@ export type Goal = {
   archetype: GoalArchetype
   targetDate: string | null
   /** Where the classification came from, so the UI can be honest about it. */
-  classifiedBy: 'ai' | 'keywords' | 'user'
+  classifiedBy: ClassifiedBy
 }
 
 /**

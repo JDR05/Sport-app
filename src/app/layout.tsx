@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { PlanProvider } from '@/components/PlanProvider'
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'] })
 
@@ -21,9 +20,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="de" className={`${inter.variable} h-full`}>
-      <body className="min-h-full">
-        <PlanProvider>{children}</PlanProvider>
-      </body>
+      {/* No plan provider here: the login and sign-up screens have no plan,
+          and the onboarding is what creates one. It wraps the app group only. */}
+      <body className="min-h-full">{children}</body>
     </html>
   )
 }

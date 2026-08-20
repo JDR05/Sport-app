@@ -1,25 +1,30 @@
 'use client'
 
-// Client-side state for step four.
+// Client-side plan state.
 //
-// The onboarding answers live in localStorage and the plan is derived from them
-// on the fly. That is deliberate scaffolding: it lets the screens be built and
-// reviewed against the real engine before auth and persistence exist. Step five
-// replaces the storage layer with Supabase; nothing in the screens should need
-// to change, because they only ever see PlanInput and PlanResult.
+// The answers now arrive from the database, loaded by the server component that
+// renders this provider. The promise the scaffolding version made is kept: the
+// screens see PlanInput and PlanResult and nothing else, so none of them
+// changed when the storage moved.
 //
-// localStorage and the clock are external stores, so they are read through
-// useSyncExternalStore rather than an effect. That is what keeps server markup
-// and first client render in agreement without a cascading re-render.
+// The plan itself is still derived here rather than stored. `generatePlan` is
+// pure, so recomputing cannot disagree with what a row says — and there is no
+// second copy to keep in step.
+//
+// The clock stays on the client. The server runs in UTC, and someone opening
+// the app at half past midnight in Berlin would otherwise be shown yesterday.
+// It is read through useSyncExternalStore rather than an effect, which is what
+// keeps server markup and first client render in agreement.
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { generatePlan } from '@/lib/engine'
 import type { PlanInput, PlanItemStatus, PlanResult } from '@/lib/domain/types'
 
-export type Answers = Omit<PlanInput, 'today' | 'personalRules'>
+export type Answers = Omit<PlanInput, 'today'>
 
-const STORAGE_KEY = 'plis.answers.v1'
+// Item statuses are still local. They become rows in the check-in step, where a
+// plan item gets a stable id to attach a status to.
 const STATUS_KEY = 'plis.statuses.v1'
 
 /** A localStorage key exposed as an external store of raw JSON strings. */
@@ -53,7 +58,6 @@ function createStore(key: string) {
   }
 }
 
-const answersStore = createStore(STORAGE_KEY)
 const statusStore = createStore(STATUS_KEY)
 
 // Strings compare by value, so returning a fresh one each call is stable enough
@@ -82,8 +86,6 @@ function parse<T>(raw: string | null): T | null {
 type PlanContextValue = {
   ready: boolean
   answers: Answers | null
-  saveAnswers: (answers: Answers) => void
-  reset: () => void
   plan: PlanResult | null
   planError: string | null
   today: string
@@ -93,12 +95,13 @@ type PlanContextValue = {
 
 const PlanContext = createContext<PlanContextValue | null>(null)
 
-export function PlanProvider({ children }: { children: ReactNode }) {
-  const rawAnswers = useSyncExternalStore(
-    answersStore.subscribe,
-    answersStore.getSnapshot,
-    answersStore.getServerSnapshot,
-  )
+export function PlanProvider({
+  answers,
+  children,
+}: {
+  answers: Answers
+  children: ReactNode
+}) {
   const rawStatuses = useSyncExternalStore(
     statusStore.subscribe,
     statusStore.getSnapshot,
@@ -110,20 +113,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     clockStore.getServerSnapshot,
   )
 
-  const answers = useMemo(() => parse<Answers>(rawAnswers), [rawAnswers])
   const statuses = useMemo(
     () => parse<Record<string, PlanItemStatus>>(rawStatuses) ?? {},
     [rawStatuses],
   )
-
-  const saveAnswers = useCallback((next: Answers) => {
-    answersStore.write(JSON.stringify(next))
-  }, [])
-
-  const reset = useCallback(() => {
-    answersStore.write(null)
-    statusStore.write(null)
-  }, [])
 
   const setStatus = useCallback(
     (key: string, status: PlanItemStatus) => {
@@ -133,10 +126,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   )
 
   const { plan, planError } = useMemo(() => {
-    if (!answers || clock === null) return { plan: null, planError: null }
+    if (clock === null) return { plan: null, planError: null }
     try {
       return {
-        plan: generatePlan({ ...answers, today: clock, personalRules: [] }),
+        plan: generatePlan({ ...answers, today: clock }),
         planError: null,
       }
     } catch (error) {
@@ -152,8 +145,6 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const value: PlanContextValue = {
     ready: clock !== null,
     answers,
-    saveAnswers,
-    reset,
     plan,
     planError,
     today: clock ?? '1970-01-01',

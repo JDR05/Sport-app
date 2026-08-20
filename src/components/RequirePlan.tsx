@@ -1,23 +1,20 @@
 'use client'
 
-// Guard for every screen that needs a plan. Sends a user with no answers back to
-// the onboarding, and surfaces a refused plan instead of rendering a broken one.
+// Guard for every screen that needs a plan.
+//
+// Whether answers exist is settled on the server now: the app layout redirects
+// to the onboarding before any of these screens render. What is left here is
+// the case the server cannot decide — a plan the safety invariants refused —
+// plus the first paint, before the client clock is known.
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { usePlan } from '@/components/PlanProvider'
 import { Card, Screen, ScreenTitle } from '@/components/ui'
 import type { PlanResult } from '@/lib/domain/types'
 
 export function RequirePlan({ children }: { children: (plan: PlanResult) => React.ReactNode }) {
-  const router = useRouter()
-  const { ready, answers, plan, planError } = usePlan()
+  const { ready, plan, planError } = usePlan()
 
-  useEffect(() => {
-    if (ready && !answers) router.replace('/onboarding')
-  }, [ready, answers, router])
-
-  if (!ready || !answers) return null
+  if (!ready) return null
 
   if (planError) {
     return (

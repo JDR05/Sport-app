@@ -25,7 +25,7 @@ const WORK_PATTERN: Record<string, string> = {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { answers, reset } = usePlan()
+  const { answers } = usePlan()
 
   return (
     <RequirePlan>
@@ -86,22 +86,17 @@ export default function ProfilePage() {
               </>
             )}
 
-            <SectionHeading>Von vorn beginnen</SectionHeading>
-            <Button
-              variant="quiet"
-              onClick={() => {
-                reset()
-                router.replace('/onboarding')
-              }}
-            >
-              Antworten löschen und neu starten
+            <SectionHeading>Ziel wechseln</SectionHeading>
+            <Button variant="quiet" onClick={() => router.push('/onboarding')}>
+              Neues Ziel setzen
             </Button>
+            <Note>
+              Dein bisheriges Ziel wird pausiert, nicht gelöscht. Was du bis jetzt getan hast,
+              bleibt Teil deiner Geschichte — und das persönliche Modell lernt weiter daraus.
+            </Note>
+
             <SectionHeading>Konto</SectionHeading>
             <SignOutButton />
-            <Note>
-              Deine Antworten liegen aktuell nur in diesem Browser. Die Übertragung in dein
-              Konto kommt im nächsten Entwicklungsschritt.
-            </Note>
           </Screen>
         )
       }}

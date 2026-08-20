@@ -194,36 +194,39 @@ export type Database = {
       }
       goals: {
         Row: {
+          archetype: Database["public"]["Enums"]["goal_archetype"]
+          classified_by: Database["public"]["Enums"]["goal_classified_by"]
           created_at: string
-          goal_type: string
           id: string
           priority: number
           profile_id: string
+          raw_text: string
           status: Database["public"]["Enums"]["goal_status"]
           target_date: string | null
-          title: string
           updated_at: string
         }
         Insert: {
+          archetype?: Database["public"]["Enums"]["goal_archetype"]
+          classified_by?: Database["public"]["Enums"]["goal_classified_by"]
           created_at?: string
-          goal_type?: string
           id?: string
           priority?: number
           profile_id: string
+          raw_text: string
           status?: Database["public"]["Enums"]["goal_status"]
           target_date?: string | null
-          title: string
           updated_at?: string
         }
         Update: {
+          archetype?: Database["public"]["Enums"]["goal_archetype"]
+          classified_by?: Database["public"]["Enums"]["goal_classified_by"]
           created_at?: string
-          goal_type?: string
           id?: string
           priority?: number
           profile_id?: string
+          raw_text?: string
           status?: Database["public"]["Enums"]["goal_status"]
           target_date?: string | null
-          title?: string
           updated_at?: string
         }
       }
@@ -330,11 +333,13 @@ export type Database = {
           planned_duration_min: number | null
           profile_id: string
           rationale: string | null
+          rationale_based_on: Json
           scheduled_on: string
           status: Database["public"]["Enums"]["plan_item_status"]
           status_changed_at: string | null
           time_slot: string | null
           title: string
+          track: Database["public"]["Enums"]["plan_track"]
         }
         Insert: {
           created_at?: string
@@ -345,11 +350,13 @@ export type Database = {
           planned_duration_min?: number | null
           profile_id: string
           rationale?: string | null
+          rationale_based_on?: Json
           scheduled_on: string
           status?: Database["public"]["Enums"]["plan_item_status"]
           status_changed_at?: string | null
           time_slot?: string | null
           title: string
+          track?: Database["public"]["Enums"]["plan_track"]
         }
         Update: {
           created_at?: string
@@ -360,11 +367,13 @@ export type Database = {
           planned_duration_min?: number | null
           profile_id?: string
           rationale?: string | null
+          rationale_based_on?: Json
           scheduled_on?: string
           status?: Database["public"]["Enums"]["plan_item_status"]
           status_changed_at?: string | null
           time_slot?: string | null
           title?: string
+          track?: Database["public"]["Enums"]["plan_track"]
         }
       }
       plans: {
@@ -412,9 +421,14 @@ export type Database = {
           height_cm: number | null
           id: string
           life_situation: string | null
+          mind: Json
+          nutrition: Json
           onboarding_stage: number
           sex_at_birth: string | null
+          sleep: Json
+          sport: Json
           updated_at: string
+          weight_kg: number | null
         }
         Insert: {
           birth_year?: number | null
@@ -422,9 +436,14 @@ export type Database = {
           height_cm?: number | null
           id: string
           life_situation?: string | null
+          mind?: Json
+          nutrition?: Json
           onboarding_stage?: number
           sex_at_birth?: string | null
+          sleep?: Json
+          sport?: Json
           updated_at?: string
+          weight_kg?: number | null
         }
         Update: {
           birth_year?: number | null
@@ -432,9 +451,14 @@ export type Database = {
           height_cm?: number | null
           id?: string
           life_situation?: string | null
+          mind?: Json
+          nutrition?: Json
           onboarding_stage?: number
           sex_at_birth?: string | null
+          sleep?: Json
+          sport?: Json
           updated_at?: string
+          weight_kg?: number | null
         }
       }
       schedules: {
@@ -491,6 +515,15 @@ export type Database = {
         | "rejected"
         | "extended"
         | "aborted"
+      goal_archetype:
+        | "body_composition"
+        | "strength"
+        | "endurance"
+        | "sleep_recovery"
+        | "nutrition_quality"
+        | "habit_routine"
+        | "general_health"
+      goal_classified_by: "ai" | "keywords" | "user"
       goal_status: "active" | "paused" | "reached" | "abandoned"
       insight_kind: "pattern" | "progress" | "experiment_result" | "warning"
       metric_class: "behavior" | "outcome"
@@ -509,6 +542,7 @@ export type Database = {
         | "not_relevant"
         | "unknown"
       plan_source: "engine" | "engine_ai"
+      plan_track: "goal" | "baseline"
     }
     CompositeTypes: Record<never, never>
   }
@@ -548,6 +582,16 @@ export const Constants = {
         "extended",
         "aborted",
       ],
+      goal_archetype: [
+        "body_composition",
+        "strength",
+        "endurance",
+        "sleep_recovery",
+        "nutrition_quality",
+        "habit_routine",
+        "general_health",
+      ],
+      goal_classified_by: ["ai", "keywords", "user"],
       goal_status: ["active", "paused", "reached", "abandoned"],
       insight_kind: ["pattern", "progress", "experiment_result", "warning"],
       metric_class: ["behavior", "outcome"],
@@ -568,6 +612,7 @@ export const Constants = {
         "unknown",
       ],
       plan_source: ["engine", "engine_ai"],
+      plan_track: ["goal", "baseline"],
     },
   },
 } as const
