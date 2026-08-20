@@ -7,6 +7,40 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-039: Eine Woche wird beim ersten Oeffnen festgeschrieben
+
+**Entscheidung:** ADR-037 haelt fest, dass Plaene berechnet und nicht gespeichert werden, und
+nennt den Moment, in dem sich das aendert: sobald Aktionen abgehakt werden koennen. Der ist
+jetzt da. Beim ersten Oeffnen einer Woche entstehen eine `plans`-Zeile und die zugehoerigen
+`plan_items`. Ab da ist diese Woche fest.
+
+**Begruendung, erstens:** Ein Status braucht etwas, woran er haengen kann. „Der dritte Eintrag
+am Dienstag" ist keine Identitaet — er ist ein anderer, sobald die Engine ihre Meinung ueber
+den Dienstag aendert.
+
+**Begruendung, zweitens, und die ist wichtiger:** Ein Plan, den jemand gerade abarbeitet, darf
+sich nicht unter ihm veraendern, nur weil am Donnerstag eine Regel gelernt wurde. Neues Wissen
+gilt ab der naechsten Woche. Die laufende ist ein bereits gegebenes Versprechen.
+
+**Ein aktueller Plan je Woche und Ziel**, als partieller Unique-Index. Zwei gleichzeitige
+Anfragen — eine wiederhergestellte Handy-Ansicht plus ein Tippen — faenden sonst beide nichts
+und schrieben beide. Danach haekelte die Person eine Aktion auf der einen Kopie ab, waehrend
+der Bildschirm die andere zeigte. Erst pruefen und dann einfuegen loest das nicht; nur die
+Datenbank kann das.
+
+**Das Ziel gehoert in den Index.** Ohne es waere ein Zielwechsel mitten in der Woche nicht
+darstellbar: Der neue Plan liesse sich nicht einfuegen, bevor der alte abgeloest ist, und ein
+Plan abloesen heisst, die Id seines Nachfolgers einzutragen — die es noch nicht gibt. Mit dem
+Ziel im Index bleibt der alte Plan einfach stehen. Die Aktionen darunter sind Geschichte, und
+die Adaptive Engine lernt weiter daraus.
+
+**Damit ist der Kreis geschlossen.** `toObservations` verbindet gespeicherte Aktionen mit der
+Adaptive Engine, die seit ADR-029 auf handgemachten Daten getestet war. Ein Test fuehrt jetzt
+denselben Zyklus auf Daten in Datenbankform: vier Wochen mit ausgefallenen Mittwochen ergeben
+ein Muster, eine Hypothese und genau ein sicheres Experiment.
+
+---
+
 ## 2026-08-20 — ADR-038: Diese App wird ausschliesslich dynamisch gerendert
 
 **Ausloeser:** Ein Fehler, den der Product Owner gefunden hat und der genau so aussah wie

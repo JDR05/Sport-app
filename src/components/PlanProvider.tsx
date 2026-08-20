@@ -2,66 +2,31 @@
 
 // Client-side plan state.
 //
-// The answers now arrive from the database, loaded by the server component that
-// renders this provider. The promise the scaffolding version made is kept: the
-// screens see PlanInput and PlanResult and nothing else, so none of them
-// changed when the storage moved.
+// The week now comes from the server as rows, not from a computation done here.
+// That is what gives every action a stable identity, which is the precondition
+// for ticking it off — "the third item on Tuesday" stops being the same thing
+// the moment the engine changes its mind about Tuesday.
 //
-// The plan itself is still derived here rather than stored. `generatePlan` is
-// pure, so recomputing cannot disagree with what a row says — and there is no
-// second copy to keep in step.
+// The clock stays on the client and is the reason this is a fetch rather than
+// server-rendered props: the server runs in UTC, and someone opening the app at
+// half past midnight in Berlin would otherwise be handed yesterday's week. So
+// the client tells the server which day it is, once, and the server materialises
+// that week.
 //
-// The clock stays on the client. The server runs in UTC, and someone opening
-// the app at half past midnight in Berlin would otherwise be shown yesterday.
-// It is read through useSyncExternalStore rather than an effect, which is what
+// The clock is read through useSyncExternalStore rather than an effect, which
 // keeps server markup and first client render in agreement.
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react'
+import {
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
+  useSyncExternalStore,
+} from 'react'
 import type { ReactNode } from 'react'
-import { generatePlan } from '@/lib/engine'
-import type { PlanInput, PlanItemStatus, PlanResult } from '@/lib/domain/types'
+import { loadWeek, setItemStatus } from '@/app/(app)/actions'
+import type { StoredItem, StoredWeek } from '@/lib/db/week-plan'
+import type { PlanItemStatus } from '@/lib/domain/types'
 
-export type Answers = Omit<PlanInput, 'today'>
-
-// Item statuses are still local. They become rows in the check-in step, where a
-// plan item gets a stable id to attach a status to.
-const STATUS_KEY = 'plis.statuses.v1'
-
-/** A localStorage key exposed as an external store of raw JSON strings. */
-function createStore(key: string) {
-  const listeners = new Set<() => void>()
-  let snapshot: string | null = null
-  let loaded = false
-
-  return {
-    subscribe(listener: () => void) {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    getSnapshot(): string | null {
-      if (!loaded) {
-        snapshot = window.localStorage.getItem(key)
-        loaded = true
-      }
-      return snapshot
-    },
-    getServerSnapshot(): string | null {
-      return null
-    },
-    write(value: string | null) {
-      if (value === null) window.localStorage.removeItem(key)
-      else window.localStorage.setItem(key, value)
-      snapshot = value
-      loaded = true
-      for (const listener of listeners) listener()
-    },
-  }
-}
-
-const statusStore = createStore(STATUS_KEY)
-
-// Strings compare by value, so returning a fresh one each call is stable enough
-// for useSyncExternalStore. Null on the server marks "clock not known yet".
+// Strings compare by value, so a fresh one per call is stable enough for
+// useSyncExternalStore. Null on the server marks "clock not known yet".
 const clockStore = {
   subscribe() {
     return () => {}
@@ -74,83 +39,98 @@ const clockStore = {
   },
 }
 
-function parse<T>(raw: string | null): T | null {
-  if (raw === null) return null
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return null
-  }
-}
-
 type PlanContextValue = {
+  /** False while the clock is unknown or the week is still being fetched. */
   ready: boolean
-  answers: Answers | null
-  plan: PlanResult | null
+  week: StoredWeek | null
+  /** Set when a safety invariant refused the plan. Shown, never swallowed. */
   planError: string | null
   today: string
-  statuses: Record<string, PlanItemStatus>
-  setStatus: (itemKey: string, status: PlanItemStatus) => void
+  setStatus: (itemId: string, status: PlanItemStatus) => void
 }
 
 const PlanContext = createContext<PlanContextValue | null>(null)
 
-export function PlanProvider({
-  answers,
-  children,
-}: {
-  answers: Answers
-  children: ReactNode
-}) {
-  const rawStatuses = useSyncExternalStore(
-    statusStore.subscribe,
-    statusStore.getSnapshot,
-    statusStore.getServerSnapshot,
-  )
-  const clock = useSyncExternalStore(
+export function PlanProvider({ children }: { children: ReactNode }) {
+  const today = useSyncExternalStore(
     clockStore.subscribe,
     clockStore.getSnapshot,
     clockStore.getServerSnapshot,
   )
 
-  const statuses = useMemo(
-    () => parse<Record<string, PlanItemStatus>>(rawStatuses) ?? {},
-    [rawStatuses],
-  )
+  const [week, setWeek] = useState<StoredWeek | null>(null)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
 
-  const setStatus = useCallback(
-    (key: string, status: PlanItemStatus) => {
-      statusStore.write(JSON.stringify({ ...statuses, [key]: status }))
-    },
-    [statuses],
-  )
+  useEffect(() => {
+    if (today === null) return
+    let current = true
 
-  const { plan, planError } = useMemo(() => {
-    if (clock === null) return { plan: null, planError: null }
-    try {
-      return {
-        plan: generatePlan({ ...answers, today: clock }),
-        planError: null,
+    // Not setState-in-an-effect: this resolves after a round trip, and the
+    // guard drops the answer if the day changed underneath it.
+    void loadWeek(today).then((result) => {
+      if (!current) return
+      if (result.ok) {
+        setWeek(result.week)
+        setPlanError(null)
+      } else if (result.reason === 'unsafe') {
+        setPlanError(result.message)
       }
-    } catch (error) {
-      // A safety invariant refused the plan. Surfacing the reason beats showing
-      // a broken screen, and it must never be swallowed.
-      return {
-        plan: null,
-        planError: error instanceof Error ? error.message : 'Unbekannter Fehler',
-      }
+      setLoaded(true)
+    })
+
+    return () => {
+      current = false
     }
-  }, [answers, clock])
+  }, [today])
 
-  const value: PlanContextValue = {
-    ready: clock !== null,
-    answers,
-    plan,
-    planError,
-    today: clock ?? '1970-01-01',
-    statuses,
-    setStatus,
-  }
+  /**
+   * Optimistic, and deliberately so: tapping "done" must feel instant. If the
+   * write fails the value is put back, so the screen never claims something was
+   * recorded that was not.
+   */
+  const setStatus = useCallback(
+    (itemId: string, status: PlanItemStatus) => {
+      let previous: PlanItemStatus | undefined
+      setWeek((current) => {
+        if (!current) return current
+        return {
+          ...current,
+          items: current.items.map((item) => {
+            if (item.id !== itemId) return item
+            previous = item.status
+            return { ...item, status }
+          }),
+        }
+      })
+
+      void setItemStatus(itemId, status).then((result) => {
+        if (result.ok || previous === undefined) return
+        setWeek((current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((item) =>
+                  item.id === itemId ? { ...item, status: previous as PlanItemStatus } : item,
+                ),
+              }
+            : current,
+        )
+      })
+    },
+    [],
+  )
+
+  const value: PlanContextValue = useMemo(
+    () => ({
+      ready: today !== null && loaded,
+      week,
+      planError,
+      today: today ?? '1970-01-01',
+      setStatus,
+    }),
+    [today, loaded, week, planError, setStatus],
+  )
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>
 }
@@ -161,7 +141,4 @@ export function usePlan(): PlanContextValue {
   return ctx
 }
 
-/** Stable key for an item, since items are derived rather than stored. */
-export function itemKey(scheduledOn: string, title: string): string {
-  return `${scheduledOn}|${title}`
-}
+export type { StoredItem, StoredWeek }

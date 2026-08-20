@@ -1,6 +1,6 @@
 'use client'
 
-import { usePlan, itemKey } from '@/components/PlanProvider'
+import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
@@ -12,12 +12,12 @@ const WEEKDAY_LONG: Record<string, string> = {
 }
 
 export default function TodayPage() {
-  const { today, statuses, setStatus } = usePlan()
+  const { today, setStatus } = usePlan()
 
   return (
     <RequirePlan>
-      {(plan) => {
-        const items = plan.items.filter((i) => i.scheduledOn === today)
+      {(week) => {
+        const items = week.items.filter((i) => i.scheduledOn === today)
         const restToday = !items.some((i) => i.domain === 'training')
 
         return (
@@ -30,15 +30,15 @@ export default function TodayPage() {
             {/* What matters today, and why — the one thing every screen must answer. */}
             <Card tone="accent">
               <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                {plan.strategy.goalTrack.archetype === 'general_health'
+                {week.strategy.goalTrack.archetype === 'general_health'
                   ? 'Deine Basis'
                   : 'Dein Ziel'}
               </p>
               <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
-                {plan.strategy.goalTrack.headline}
+                {week.strategy.goalTrack.headline}
               </p>
               <p className="mt-1 text-sm leading-relaxed text-muted">
-                {plan.rationale[0]?.text}
+                {week.rationale[0]?.text}
               </p>
             </Card>
 
@@ -55,17 +55,14 @@ export default function TodayPage() {
               </Card>
             ) : (
               <div className="flex flex-col gap-3">
-                {items.map((item) => {
-                  const key = itemKey(item.scheduledOn, item.title)
-                  return (
-                    <ActionItem
-                      key={key}
-                      item={item}
-                      status={statuses[key] ?? 'unknown'}
-                      onStatus={(status) => setStatus(key, status)}
-                    />
-                  )
-                })}
+                {items.map((item) => (
+                  <ActionItem
+                    key={item.id}
+                    item={item}
+                    status={item.status}
+                    onStatus={(status) => setStatus(item.id, status)}
+                  />
+                ))}
               </div>
             )}
 

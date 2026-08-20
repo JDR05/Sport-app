@@ -2,19 +2,16 @@
 
 // Guard for every screen that needs a plan.
 //
-// Whether answers exist is settled on the server now: the app layout redirects
-// to the onboarding before any of these screens render. What is left here is
-// the case the server cannot decide — a plan the safety invariants refused —
-// plus the first paint, before the client clock is known.
+// Whether a goal exists is settled on the server: the app layout redirects to
+// the onboarding before any of these screens render. What is left here is the
+// wait for the week to arrive, and the one case the server cannot decide away —
+// a plan the safety invariants refused.
 
-import { usePlan } from '@/components/PlanProvider'
+import { usePlan, type StoredWeek } from '@/components/PlanProvider'
 import { Card, Screen, ScreenTitle } from '@/components/ui'
-import type { PlanResult } from '@/lib/domain/types'
 
-export function RequirePlan({ children }: { children: (plan: PlanResult) => React.ReactNode }) {
-  const { ready, plan, planError } = usePlan()
-
-  if (!ready) return null
+export function RequirePlan({ children }: { children: (week: StoredWeek) => React.ReactNode }) {
+  const { ready, week, planError } = usePlan()
 
   if (planError) {
     return (
@@ -31,6 +28,6 @@ export function RequirePlan({ children }: { children: (plan: PlanResult) => Reac
     )
   }
 
-  if (!plan) return null
-  return <>{children(plan)}</>
+  if (!ready || !week) return null
+  return <>{children(week)}</>
 }

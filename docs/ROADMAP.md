@@ -22,7 +22,7 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | 3b | **Umbau auf Zielarchetypen**: offene Zielform, sechs Archetypen, Sicherheitsgrenzen je Zielart, Zielorientierungstest | **erledigt** |
 | 4 | UX/UI: Designsystem, Onboarding, Today, Plan, Progress, Insights, Playbook, Profile | **erledigt** |
 | 4b | **Onboarding neu**: freies Ziel zuerst, danach vollständige Erhebung in einem Durchlauf | **erledigt** |
-| 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | offen |
+| 5 | Check-ins und Plan-vs-Actual, Wochenauswertung | **teilweise** — Auth, Persistenz und Abhaken erledigt; Check-in und Wochenauswertung offen |
 | 6 | Adaptive Engine: Planpflege, Erkennung, Hypothesen, Experimente, Personal Rules — **vorgezogen**, siehe unten | **erledigt** |
 | 7 | AI-Layer: Adapter, Schemas, Validierung, Fallback, versionierte Prompts — **vorgezogen**, weil ein freies Ziel ohne KI nicht sinnvoll interpretierbar ist | **erledigt** |
 | 8 | End-to-End-QA: drei Personas, Edge Cases, Regressionslauf | offen |

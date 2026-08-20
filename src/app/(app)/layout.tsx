@@ -13,12 +13,13 @@ import { BottomNav } from '@/components/BottomNav'
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const user = await requireUser()
-  const answers = await loadPlanInput(user.id)
 
-  if (!answers) redirect('/onboarding')
+  // Only the question "is there a goal at all" is answered here. The week
+  // itself needs the client's date, so the provider fetches it.
+  if (!(await loadPlanInput(user.id))) redirect('/onboarding')
 
   return (
-    <PlanProvider answers={answers}>
+    <PlanProvider>
       <main>{children}</main>
       <BottomNav />
     </PlanProvider>
