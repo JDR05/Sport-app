@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server'
 import { fromRow, type ItemRow } from './item-mapping'
 import { analysisWindowStart, toObservations } from './observations'
 import { loadPlanInput } from './plan-input'
+import { loadCheckIns } from './tracking'
 import { startOfWeek } from '@/lib/engine/dates'
 import { analyze, completionRate, type Analysis, type Observation } from '@/lib/adaptive'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
@@ -63,9 +64,20 @@ export async function weeklyReview(
   const weekStart = startOfWeek(today)
   const thisWeek = observations.filter((o) => o.scheduledOn >= weekStart)
 
+  // The check-ins over the same window. Without them a pattern can only be
+  // stated bare — "Dienstags läuft es schlechter" — and a shortfall with no
+  // circumstance beside it reads as a verdict on the person.
+  const days = (await loadCheckIns(profileId, analysisWindowStart(today))).map((c) => ({
+    date: c.checkedInOn,
+    energy: c.energy,
+    mood: c.mood,
+    stress: c.stress,
+    sleepHours: c.sleepHours,
+  }))
+
   return {
     observations,
-    analysis: analyze({ ...input, today }, observations),
+    analysis: analyze({ ...input, today }, observations, { days }),
     completion: completionRate(observations),
     completionThisWeek: completionRate(thisWeek),
     weeksWithData: new Set(observations.map((o) => startOfWeek(o.scheduledOn))).size,

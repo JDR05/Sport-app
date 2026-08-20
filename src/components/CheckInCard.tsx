@@ -23,10 +23,24 @@ const ENERGY_LABEL: Record<number, string> = {
 const MOOD_LABEL: Record<number, string> = {
   1: 'mies', 2: 'gedrückt', 3: 'neutral', 4: 'gut', 5: 'richtig gut',
 }
+// The one scale that reads upwards, so it is labelled unmistakably.
+const STRESS_LABEL: Record<number, string> = {
+  1: 'ruhig', 2: 'wenig', 3: 'mittel', 4: 'viel', 5: 'zu viel',
+}
+
+/**
+ * Half-hour steps from four to ten hours, plus the open ends.
+ *
+ * A number field would ask for a precision nobody has about their own night,
+ * and it would put a keyboard in the way of a two-second gesture.
+ */
+const SLEEP_STEPS = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10] as const
 
 export function CheckInCard({ today }: { today: string }) {
   const [energy, setEnergy] = useState<number | null>(null)
   const [mood, setMood] = useState<number | null>(null)
+  const [stress, setStress] = useState<number | null>(null)
+  const [sleepHours, setSleepHours] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -39,6 +53,8 @@ export function CheckInCard({ today }: { today: string }) {
       if (todays) {
         setEnergy(todays.energy)
         setMood(todays.mood)
+        setStress(todays.stress)
+        setSleepHours(todays.sleepHours)
         setNote(todays.note ?? '')
         setSaved(true)
       }
@@ -50,16 +66,24 @@ export function CheckInCard({ today }: { today: string }) {
   }, [today])
 
   const save = useCallback(
-    (next: { energy?: number | null; mood?: number | null; note?: string }) => {
+    (next: {
+      energy?: number | null
+      mood?: number | null
+      stress?: number | null
+      sleepHours?: number | null
+      note?: string
+    }) => {
       const payload = {
         checkedInOn: today,
         energy: next.energy !== undefined ? next.energy : energy,
         mood: next.mood !== undefined ? next.mood : mood,
+        stress: next.stress !== undefined ? next.stress : stress,
+        sleepHours: next.sleepHours !== undefined ? next.sleepHours : sleepHours,
         note: (next.note !== undefined ? next.note : note).trim() || null,
       }
       void submitCheckIn(payload).then((result) => setSaved(result.ok))
     },
-    [today, energy, mood, note],
+    [today, energy, mood, stress, sleepHours, note],
   )
 
   if (!loaded) return null
@@ -89,6 +113,28 @@ export function CheckInCard({ today }: { today: string }) {
           />
         </div>
 
+        <div className="mt-4">
+          <Scale
+            label="Stress"
+            labels={STRESS_LABEL}
+            value={stress}
+            onChange={(value) => {
+              setStress(value)
+              save({ stress: value })
+            }}
+          />
+        </div>
+
+        <div className="mt-4">
+          <Sleep
+            value={sleepHours}
+            onChange={(value) => {
+              setSleepHours(value)
+              save({ sleepHours: value })
+            }}
+          />
+        </div>
+
         <label htmlFor="checkin-note" className="mt-4 block text-sm font-semibold text-ink">
           Notiz
           <span className="ml-1 font-normal text-faint">optional</span>
@@ -110,6 +156,52 @@ export function CheckInCard({ today }: { today: string }) {
         </p>
       </Card>
     </>
+  )
+}
+
+/**
+ * Last night's sleep, as a row of taps.
+ *
+ * This is the field that lets the app say "Dienstags schläfst du zwei Stunden
+ * weniger" instead of "Dienstags läuft es schlechter" — the difference between
+ * naming a circumstance and implying a verdict about the person.
+ */
+function Sleep({
+  value,
+  onChange,
+}: {
+  value: number | null
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-ink">
+        Schlaf letzte Nacht
+        {value !== null && (
+          <span className="ml-2 font-normal text-muted">
+            {value.toFixed(1).replace('.', ',')} h
+          </span>
+        )}
+      </p>
+      <div className="-mx-1 mt-2 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1">
+        {SLEEP_STEPS.map((h) => (
+          <button
+            key={h}
+            type="button"
+            aria-pressed={value === h}
+            aria-label={`${h.toFixed(1).replace('.', ',')} Stunden`}
+            onClick={() => onChange(value === h ? null : h)}
+            className={`shrink-0 snap-start rounded-pill border px-3 py-2 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
+              value === h
+                ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
+                : 'border-line bg-surface text-muted'
+            }`}
+          >
+            {h % 1 === 0 ? h : h.toFixed(1).replace('.', ',')}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

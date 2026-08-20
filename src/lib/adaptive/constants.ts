@@ -78,3 +78,35 @@ export const CONFIDENCE_STEP = 0.15
 
 /** Below this a rule stops influencing the plan — the person has changed. */
 export const MIN_RULE_CONFIDENCE = 0.3
+
+// ------------------------------------------------------- context factors --
+//
+// Fixed here, before the code that uses them exists, for the same reason as
+// every other threshold in this file: a number chosen after seeing the result
+// is not a threshold, it is a justification.
+
+/**
+ * Rated days needed on each side of a comparison. Three is the point at which
+ * one unusual day stops deciding the answer, and it is reachable inside two
+ * weeks for a weekday pattern.
+ */
+export const MIN_CONTEXT_DAYS = 3
+
+/**
+ * How much less sleep counts as a real difference: 45 minutes. Below that it is
+ * within the error of someone estimating their own night.
+ */
+export const SLEEP_GAP_HOURS = 0.75
+
+/**
+ * How far apart two averages on the 1..5 scales have to be. 0.6 is a bit over
+ * half a step — smaller gaps are how people happen to tap on a given day.
+ */
+export const SCALE_GAP = 0.6
+
+/**
+ * When a commitment counts as running late: it ends at 20:30 or after. Past
+ * that, getting home, eating and winding down runs into the night for anyone
+ * who has to be up early, which is the case the product owner described.
+ */
+export const LATE_END_MINUTES = 20 * 60 + 30

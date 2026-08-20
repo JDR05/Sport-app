@@ -15,6 +15,7 @@ import { detectDeviations } from './detect'
 import { formHypothesis } from './hypothesis'
 import { proposeExperiment } from './experiment'
 import { refinePlan } from './refine'
+import { attribute, type Attribution, type DayContext } from './attribution'
 import type { Deviation, Experiment, Hypothesis, Insight, Observation, PlanPatch } from './types'
 import { DOMAIN_LABELS } from './labels'
 import type { PlanInput } from '@/lib/domain/types'
@@ -36,6 +37,11 @@ export type AnalyzeOptions = {
    * whole point; two concurrent experiments make both results unreadable.
    */
   experimentInFlight?: boolean
+  /**
+   * What the person said about their days. Optional, and absent means the
+   * analysis simply says less — never that it guesses.
+   */
+  days?: DayContext[]
 }
 
 export function analyze(
@@ -45,6 +51,13 @@ export function analyze(
 ): Analysis {
   const patch = refinePlan(observations, input.today)
   const deviations = detectDeviations(observations)
+
+  // A pattern is stated together with what was different about those days.
+  // Detection alone reports that Tuesdays go badly, and a shortfall with no
+  // circumstance attached reads as a verdict on the person — which is the one
+  // thing this product must never do.
+  const context = (d: Deviation) =>
+    attribute(d, options.days ?? [], input.schedule.commitments)
 
   const empty: Analysis = {
     deviations,
@@ -56,7 +69,10 @@ export function analyze(
 
   if (deviations.length === 0) return empty
   if (options.experimentInFlight) {
-    return { ...empty, insights: deviations.slice(0, 1).map(patternInsight) }
+    return {
+      ...empty,
+      insights: deviations.slice(0, 1).flatMap((d) => [patternInsight(d), ...contextInsights(d, context(d))]),
+    }
   }
 
   // Strongest contrast first, and the first one that yields both a changeable
@@ -74,14 +90,34 @@ export function analyze(
       hypothesis,
       experiment,
       patch,
-      insights: [patternInsight(deviation), hypothesisInsight(hypothesis)],
+      insights: [
+        patternInsight(deviation),
+        ...contextInsights(deviation, context(deviation)),
+        hypothesisInsight(hypothesis),
+      ],
     }
   }
 
   // A pattern that produced no safe experiment is still worth naming. Saying
   // "this is what I see" without a proposal is better than silence and much
   // better than an unsafe suggestion.
-  return { ...empty, insights: [patternInsight(deviations[0])] }
+  return {
+    ...empty,
+    insights: [patternInsight(deviations[0]), ...contextInsights(deviations[0], context(deviations[0]))],
+  }
+}
+
+/**
+ * The circumstances, as insights. They carry the deviation's own evidence: the
+ * days being talked about are the days the pattern was measured on, so there is
+ * nothing separate to point at.
+ */
+function contextInsights(deviation: Deviation, found: Attribution[]): Insight[] {
+  return found.map((a) => ({
+    kind: 'pattern' as const,
+    statement: a.statement,
+    evidence: deviation.evidence,
+  }))
 }
 
 function patternInsight(deviation: Deviation): Insight {
@@ -114,6 +150,7 @@ export { proposeExperiment, trialRuleOf, domainOfMetricKey, decline, start } fro
 export { evaluateExperiment, applyDecision } from './evaluate'
 export { derivePersonalRule, reinforce, activeRules, mergeRule } from './rules'
 export { refinePlan } from './refine'
+export { attribute, type Attribution, type DayContext } from './attribution'
 export type {
   BehaviorMetric,
   Deviation,

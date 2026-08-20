@@ -34,6 +34,10 @@ const checkInSchema = z.object({
   // One to five, or nothing at all. A day nobody rated is not a bad day.
   energy: z.number().int().min(1).max(5).nullable(),
   mood: z.number().int().min(1).max(5).nullable(),
+  stress: z.number().int().min(1).max(5).nullable(),
+  // Half-hour resolution is as precise as anyone's estimate of their own
+  // night. The upper bound is a sanity check, not a judgement.
+  sleepHours: z.number().min(0).max(24).nullable(),
   note: z.string().trim().max(2000).nullable(),
 })
 

@@ -16,6 +16,10 @@ export type CheckIn = {
   checkedInOn: string
   energy: number | null
   mood: number | null
+  /** 1..5, and the one scale that reads upwards: 5 is a lot of stress. */
+  stress: number | null
+  /** Hours, to one decimal. What the person thinks they slept, not a sensor. */
+  sleepHours: number | null
   note: string | null
 }
 
@@ -38,6 +42,8 @@ export async function saveCheckIn(
       checked_in_on: checkIn.checkedInOn,
       energy: checkIn.energy,
       mood: checkIn.mood,
+      stress: checkIn.stress,
+      sleep_hours: checkIn.sleepHours,
       note: checkIn.note,
     },
     { onConflict: 'profile_id,checked_in_on' },
@@ -58,6 +64,8 @@ export async function loadCheckIns(profileId: string, since: string): Promise<Ch
     checkedInOn: row.checked_in_on,
     energy: row.energy,
     mood: row.mood,
+    stress: row.stress,
+    sleepHours: row.sleep_hours === null ? null : Number(row.sleep_hours),
     note: row.note,
   }))
 }

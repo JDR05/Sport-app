@@ -32,6 +32,8 @@ export type Database = {
           mood: number | null
           note: string | null
           profile_id: string
+          sleep_hours: number | null
+          stress: number | null
         }
         Insert: {
           checked_in_on: string
@@ -41,6 +43,8 @@ export type Database = {
           mood?: number | null
           note?: string | null
           profile_id: string
+          sleep_hours?: number | null
+          stress?: number | null
         }
         Update: {
           checked_in_on?: string
@@ -50,6 +54,8 @@ export type Database = {
           mood?: number | null
           note?: string | null
           profile_id?: string
+          sleep_hours?: number | null
+          stress?: number | null
         }
       }
       constraints: {

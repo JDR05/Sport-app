@@ -7,6 +7,31 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-050: Ein Muster wird nie ohne seinen Umstand genannt
+
+**Entscheidung:** Der Check-in erfasst zusätzlich **Schlaf** (Stunden) und **Stress** (1–5,
+aufwärts gelesen). Ein neues reines Modul `src/lib/adaptive/attribution.ts` vergleicht die
+betroffenen Tage mit den übrigen und nennt, was anders war — ein spät endender Termin, weniger
+Schlaf, weniger Energie, mehr Stress. Diese Sätze erscheinen zusammen mit dem Muster.
+
+Schwellen vorab fixiert: mindestens 3 bewertete Tage je Seite, 45 min Schlafunterschied,
+0,6 Punkte auf den 1–5-Skalen, „spät" ab 20:30 Ende.
+
+**Begründung:** „Dienstags läuft es schlechter" ist eine Feststellung mit einer
+mitgelieferten Ursache, und die mitgelieferte Ursache ist immer die Person. Genau das
+schließt das Playbook aus. Wer bis 21:00 Fußball hat und um 5 aufsteht, hat kein
+Disziplinproblem, sondern zu wenig Nacht — und die App muss das sagen können.
+
+Bewusste Grenze der Behauptung: die Formulierung nennt einen **Unterschied**, nie einen Grund.
+Korrelation über eine Handvoll Tage ist keine Kausalität; ein Test sperrt sowohl
+Schuldvokabular als auch „der Grund ist". Fehlende Werte werden übersprungen, nie als Null
+gezählt — sonst würden zwei erfasste Nächte als vier schlaflose gelesen.
+
+Nur Wochentagsmuster werden attribuiert. Ein Check-in gehört dem Tag, nicht der Stunde, und
+kann deshalb nichts darüber sagen, warum Abende anders laufen als Morgen.
+
+---
+
 ## 2026-08-20 — ADR-047: Ein Zeichen, das die App selbst zeigt
 
 **Entscheidung:** Die Marke ist ein offener Ring mit einem abgesetzten Beat. Der Ring ist die
