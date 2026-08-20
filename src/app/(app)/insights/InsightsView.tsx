@@ -10,12 +10,17 @@
 // When it does speak, every statement carries the actions it was derived from.
 // A recommendation that cannot point at its evidence must not exist.
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { useRouter } from 'next/navigation'
+import { respondToExperiment } from '@/app/(app)/actions'
+import { Button, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
+import { formatGermanDate } from '@/lib/engine/dates'
 import type { Insight } from '@/lib/adaptive'
 
 export type InsightsData = {
+  today: string
   insights: Insight[]
   experiment: {
     hypothesis: string
@@ -23,6 +28,14 @@ export type InsightsData = {
     endDate: string
     evidenceCount: number
   } | null
+  /** An experiment the user already accepted, still within its period. */
+  running: {
+    hypothesis: string
+    changeDescription: string
+    endDate: string
+  } | null
+  /** The verdict of an experiment that just finished. */
+  concluded: { hypothesis: string; reason: string; ruleWritten: boolean } | null
   patchNotes: string[]
   moveCount: number
   removalCount: number
@@ -30,6 +43,16 @@ export type InsightsData = {
 }
 
 export function InsightsView({ data }: { data: InsightsData }) {
+  const router = useRouter()
+  const [responding, setResponding] = useState(false)
+
+  const respond = async (accept: boolean) => {
+    setResponding(true)
+    await respondToExperiment(data.today, accept)
+    setResponding(false)
+    router.refresh()
+  }
+
   return (
     <Screen>
       <ScreenTitle title="Insights" subtitle="Was funktioniert bei dir – und was nicht?" />
@@ -55,8 +78,39 @@ export function InsightsView({ data }: { data: InsightsData }) {
         </div>
       )}
 
+      {data.concluded && (
+        <>
+          <SectionHeading>Ergebnis</SectionHeading>
+          <Card tone={data.concluded.ruleWritten ? 'accent' : 'default'}>
+            <p className="text-[15px] font-semibold leading-snug text-ink">
+              {data.concluded.hypothesis}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{data.concluded.reason}</p>
+            {data.concluded.ruleWritten && (
+              <p className="mt-2 text-xs text-faint">
+                Als persönliche Regel übernommen. Sie gilt ab der nächsten Woche.
+              </p>
+            )}
+          </Card>
+        </>
+      )}
+
       <SectionHeading>Laufende Experimente</SectionHeading>
-      {data.experiment === null ? (
+      {data.running !== null ? (
+        <Card tone="accent">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Läuft</p>
+          <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
+            {data.running.hypothesis}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            {data.running.changeDescription}
+          </p>
+          <p className="mt-2 text-xs text-faint">
+            Ergebnis am {formatGermanDate(data.running.endDate)}. Bis dahin ändert sich nichts —
+            eine Zwischenbewertung wäre nur Rauschen.
+          </p>
+        </Card>
+      ) : data.experiment === null ? (
         <EmptyState
           title="Kein Experiment aktiv"
           body="Sobald ein Muster belegt ist, schlägt die App genau eine kleine Änderung vor, misst sie über einen festen Zeitraum und behält sie nur, wenn sie wirkt."
@@ -73,6 +127,17 @@ export function InsightsView({ data }: { data: InsightsData }) {
           <p className="mt-2 text-xs text-faint">
             Ausgewertet wird an deiner Umsetzungsquote, nie an einem Zielwert. Belegt durch{' '}
             {data.experiment.evidenceCount} Aktionen.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            <Button type="button" onClick={() => respond(true)} disabled={responding}>
+              {responding ? 'Einen Moment …' : 'Ausprobieren'}
+            </Button>
+            <Button type="button" variant="quiet" onClick={() => respond(false)} disabled={responding}>
+              Passt nicht zu mir
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-faint">
+            Ablehnen ist kein Nein zum Plan. Es ist selbst eine Information und wird gespeichert.
           </p>
         </Card>
       )}

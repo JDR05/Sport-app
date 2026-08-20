@@ -1,52 +1,13 @@
-'use client'
-
-// The playbook.
+// The personal model, read from the database.
 //
-// Deliberately visible from day one, and deliberately empty at the start with a
-// progress bar towards the first rule. The difference between this product and a
-// chat is persistence plus feedback — invisible by nature. A visibly growing
-// artefact is what makes that difference believable. See critique K3.
+// Only confirmed experiments write here (ADR-013), so whatever this screen
+// shows has been earned rather than guessed.
 
-import Link from 'next/link'
-import { RequirePlan } from '@/components/RequirePlan'
-import { Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { requireUser } from '@/lib/auth/session'
+import { loadPersonalRules } from '@/lib/db/experiments'
+import { PlaybookView } from './PlaybookView'
 
-export default function PlaybookPage() {
-  return (
-    <RequirePlan>
-      {() => (
-        <Screen>
-          <Link href="/insights" className="mb-3 inline-block text-sm font-medium text-muted">
-            ‹ Insights
-          </Link>
-          <ScreenTitle
-            title="Dein Playbook"
-            subtitle="Bestätigte Regeln darüber, was bei dir funktioniert"
-          />
-
-          <EmptyState
-            title="Noch keine Regel bestätigt"
-            body="Eine Regel entsteht erst, wenn ein Experiment sie belegt hat – nicht aus einer Vermutung und nicht aus einer einzelnen guten Woche. Jede Regel hier trägt später ihren Beleg."
-            progress={{ done: 0, needed: 21, unit: 'Tagen mit Daten' }}
-          />
-
-          <SectionHeading>So sieht eine Regel später aus</SectionHeading>
-          <Card>
-            <p className="text-sm font-semibold text-ink">
-              Donnerstag ist für dich zuverlässiger als Mittwoch
-            </p>
-            <p className="mt-1 text-sm leading-relaxed text-muted">
-              Erfüllungsquote von 20 % auf 80 %, bestätigt über drei Wochen.
-            </p>
-            <p className="mt-2 text-xs font-medium uppercase tracking-wide text-faint">Beispiel</p>
-          </Card>
-
-          <Note>
-            Nach zwölf Wochen steht hier nicht nur eine Zahl auf der Waage, sondern eine Sammlung
-            von Strategien, die für dich belegt funktionieren.
-          </Note>
-        </Screen>
-      )}
-    </RequirePlan>
-  )
+export default async function PlaybookPage() {
+  const user = await requireUser()
+  return <PlaybookView rules={await loadPersonalRules(user.id)} />
 }

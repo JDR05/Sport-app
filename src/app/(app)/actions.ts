@@ -12,6 +12,8 @@ import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { ensureWeekPlan, type WeekResult } from '@/lib/db/week-plan'
 import { loadCheckIns, saveCheckIn, saveMeasurement, type CheckIn } from '@/lib/db/tracking'
+import { acceptExperiment, declineExperiment } from '@/lib/db/experiments'
+import { weeklyReview } from '@/lib/db/analysis'
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -65,6 +67,34 @@ export async function submitMeasurement(payload: unknown): Promise<{ ok: boolean
   const parsed = measurementSchema.safeParse(payload)
   if (!parsed.success) return { ok: false }
   return saveMeasurement(user.id, parsed.data.metricKey, parsed.data.value, parsed.data.unit)
+}
+
+// -------------------------------------------------------------- experiment ---
+
+/**
+ * Accepting or declining does not take the proposal from the client. The
+ * analysis is re-run on the server and the current proposal is what gets
+ * stored — otherwise a crafted payload could write any rule it liked into
+ * somebody's personal model, and the model is the one thing here that outlives
+ * a single week.
+ */
+export async function respondToExperiment(
+  today: unknown,
+  accept: unknown,
+): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+
+  const day = isoDate.safeParse(today)
+  const yes = z.boolean().safeParse(accept)
+  if (!day.success || !yes.success) return { ok: false }
+
+  const review = await weeklyReview(user.id, day.data)
+  const proposal = review?.analysis.experiment
+  if (!proposal) return { ok: false }
+
+  return yes.data
+    ? acceptExperiment(user.id, proposal)
+    : declineExperiment(user.id, proposal)
 }
 
 // ------------------------------------------------------------------ status ---
