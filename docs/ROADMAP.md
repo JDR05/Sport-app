@@ -27,6 +27,12 @@ Nach jedem Schritt: committen, pushen, Stopp für das Review des Product Owners.
 | 7 | AI-Layer: Adapter, Schemas, Validierung, Fallback, versionierte Prompts — **vorgezogen**, weil ein freies Ziel ohne KI nicht sinnvoll interpretierbar ist | **erledigt** |
 | 8 | End-to-End-QA: drei Personas, Edge Cases, Regressionslauf | offen |
 
+## Offene Punkte, die nicht vergessen werden duerfen
+
+| Punkt | Warum offen | Folge, solange offen |
+| --- | --- | --- |
+| **Custom SMTP + E-Mail-Vorlage** (ADR-036) | Vorlagen sind erst mit eigenem SMTP editierbar, dafuer fehlt eine Absenderadresse | Nach der Bestaetigung muss man sich **einmal manuell anmelden**. Versand laeuft ueber den Supabase-Testdienst mit Stundenlimit und ohne Zustellgarantie. |
+
 ## Reihenfolgelogik
 
 Schritt 5 braucht Pläne aus Schritt 3 und Screens aus Schritt 4. Schritt 3 braucht das

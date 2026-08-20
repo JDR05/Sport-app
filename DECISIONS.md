@@ -7,6 +7,40 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-036: Custom SMTP wird bewusst aufgeschoben (OFFENER PUNKT)
+
+**Status: offen.** Dieser Eintrag beschreibt eine Entscheidung, die noch nachzuholen ist.
+
+**Entscheidung:** Die E-Mail-Vorlage „Confirm signup" bleibt vorerst auf dem Supabase-Standard.
+Der Grund ist kein technischer Zweifel, sondern eine Voraussetzung: Vorlagen lassen sich im
+Dashboard erst bearbeiten, wenn ein **eigener SMTP-Server** hinterlegt ist, und dafür braucht
+es eine eigene Absenderadresse. Die gibt es noch nicht.
+
+**Was das heute bedeutet.** Mit der Standardvorlage laeuft der **implizite Flow**: Supabase
+bestaetigt die Adresse auf der eigenen Domain und haengt die Session an den URL-**Fragment**-
+Teil. Ein Fragment erreicht per Definition nie den Server, also kann `/auth/confirm` daraus
+keine Session herstellen. Das Konto ist bestaetigt, es liegt nur keine Anmeldung vor.
+
+**Ablauf in der Zwischenzeit:** Registrieren → Mail bestaetigen → **einmal manuell anmelden**.
+Danach bleibt die Session bestehen. Ein Schritt mehr, kein Defekt.
+
+**Der Code ist auf beide Faelle vorbereitet.** `/auth/confirm` behandelt `token_hash` (den
+Zielzustand) und dessen Abwesenheit (heute) getrennt. Der zweite Fall meldet ausdruecklich
+**nicht** „Link ungueltig" — das waere die schlimmste moegliche Antwort: Sie behauptet ein
+Scheitern genau in dem Moment, in dem die Bestaetigung geglueckt ist.
+
+**Nachzuholen, sobald eine Absenderadresse existiert:**
+1. Custom SMTP in Supabase hinterlegen (Authentication → SMTP Settings).
+2. Vorlage „Confirm signup" auf
+   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email` umstellen.
+3. Rate Limit anheben (nach dem Einrichten steht es auf 30 Mails/Stunde).
+4. Danach greift der PKCE-Pfad, und die manuelle Anmeldung nach der Bestaetigung entfaellt.
+
+**Bis dahin gilt** das Stundenlimit des Supabase-Testversands, und die Zustellung ist
+ausdruecklich „best effort". Fuer eine Handvoll Tester reicht das; fuer echte Nutzer nicht.
+
+---
+
 ## 2026-08-20 — ADR-035: Authentifizierung in drei Schichten, jede fuer sich ausreichend
 
 **Entscheidung:** Der Zugriffsschutz liegt an drei Stellen, absichtlich mehrfach:

@@ -13,8 +13,8 @@ export default async function SignupPage({ searchParams }: PageProps<'/signup'>)
           subtitle="Wir haben dir eine E-Mail geschickt."
         />
         <p className="text-sm text-muted">
-          Klick auf den Link darin, dann geht es los. Falls nichts ankommt: auch im Spam-Ordner
-          nachsehen.
+          Klick auf den Link darin und melde dich danach einmal an. Falls nichts ankommt: auch
+          im Spam-Ordner nachsehen.
         </p>
       </Screen>
     )
