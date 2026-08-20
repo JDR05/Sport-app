@@ -2,13 +2,14 @@
 
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/auth/session'
+import { serverToday } from '@/lib/db/today'
 import { weeklyReview } from '@/lib/db/analysis'
 import { concludeIfDue, loadRunningExperiment } from '@/lib/db/experiments'
 import { InsightsView, type InsightsData } from './InsightsView'
 
 export default async function InsightsPage() {
   const user = await requireUser()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await serverToday()
 
   // Settling a finished experiment before reading the analysis matters: its
   // rule has to be in place before the next plan is built, or the change the

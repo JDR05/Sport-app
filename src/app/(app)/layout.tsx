@@ -10,6 +10,7 @@ import { requireUser } from '@/lib/auth/session'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { PlanProvider } from '@/components/PlanProvider'
 import { BottomNav } from '@/components/BottomNav'
+import { TimeZoneSync } from '@/components/TimeZoneSync'
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const user = await requireUser()
@@ -20,6 +21,7 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
 
   return (
     <PlanProvider>
+      <TimeZoneSync />
       <main>{children}</main>
       <BottomNav />
     </PlanProvider>

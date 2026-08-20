@@ -7,8 +7,9 @@
 // wait for the week to arrive, and the one case the server cannot decide away —
 // a plan the safety invariants refused.
 
+import Link from 'next/link'
 import { usePlan, type StoredWeek } from '@/components/PlanProvider'
-import { Card, Screen, ScreenTitle } from '@/components/ui'
+import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
 
 export function RequirePlan({ children }: { children: (week: StoredWeek) => React.ReactNode }) {
   const { ready, week, planError } = usePlan()
@@ -24,6 +25,15 @@ export function RequirePlan({ children }: { children: (week: StoredWeek) => Reac
           </p>
           <p className="mt-2 font-mono text-xs text-muted">{planError}</p>
         </Card>
+
+        {/* Every screen behind this guard shows the same thing, so without a way
+            out from here the person is stuck: the only route back to the
+            onboarding used to sit inside this very guard. */}
+        <div className="mt-4">
+          <Link href="/onboarding">
+            <Button variant="quiet">Angaben ändern</Button>
+          </Link>
+        </div>
       </Screen>
     )
   }

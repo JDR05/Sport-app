@@ -23,6 +23,7 @@ import {
 import type { ReactNode } from 'react'
 import { loadWeek, setItemStatus } from '@/app/(app)/actions'
 import type { StoredItem, StoredWeek } from '@/lib/db/week-plan'
+import { localToday } from '@/lib/engine/localDate'
 import type { PlanItemStatus } from '@/lib/domain/types'
 
 // Strings compare by value, so a fresh one per call is stable enough for
@@ -32,7 +33,7 @@ const clockStore = {
     return () => {}
   },
   getSnapshot(): string | null {
-    return new Date().toISOString().slice(0, 10)
+    return localToday()
   },
   getServerSnapshot(): string | null {
     return null

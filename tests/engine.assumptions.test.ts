@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 import { generatePlan } from '@/lib/engine'
 import { intakeFloor } from '@/lib/engine/energy'
 import { INTAKE_FLOOR_KCAL } from '@/lib/engine/constants'
+import { WEEKDAYS } from '@/lib/domain/types'
+import { weekdayOf } from '@/lib/engine/dates'
 import { GOALS, PROFILES, incompleteInput, makeInput } from './fixtures/profiles'
 
 describe('incomplete profile', () => {
@@ -53,5 +55,54 @@ describe('determinism', () => {
   it('produces byte identical plans for the same input', () => {
     const input = makeInput(PROFILES[0], GOALS[0])
     expect(JSON.stringify(generatePlan(input))).toBe(JSON.stringify(generatePlan(input)))
+  })
+})
+
+
+describe('nobody named a free slot', () => {
+  // The onboarding offers "Rest überspringen – die App nimmt vorsichtige
+  // Annahmen" and this is what that produces. Two archetypes used to throw on
+  // it, which put the person on a screen blaming a safety limit for what was
+  // really "you gave me no time" — with no route back to the onboarding.
+  //
+  // The existing loop below missed it because `incompleteInput` carries two
+  // free slots, so the empty case never ran.
+  const noSlots = { ...incompleteInput, schedule: { workPattern: null, freeSlots: [] } }
+
+  it('still produces a plan with goal actions, for every archetype', () => {
+    for (const goal of GOALS) {
+      const input = { ...noSlots, goal: goal.goal, metrics: goal.metrics(noSlots.profile) }
+      const plan = generatePlan(input)
+      expect(
+        plan.items.filter((i) => i.track === 'goal').length,
+        goal.archetype,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  it('says out loud that it assumed the days', () => {
+    const plan = generatePlan(noSlots)
+    const assumed = plan.assumptions.find((a) => a.field === 'schedule.freeSlots')
+    expect(assumed).toBeDefined()
+    expect(assumed?.reason).toContain('Keine freien Zeitfenster')
+  })
+
+  it('never assumes a day the user excluded', () => {
+    // An assumption may fill a gap. It may not overrule an answer.
+    const blocked = {
+      ...noSlots,
+      constraints: [
+        {
+          kind: 'time' as const,
+          hard: true,
+          value: { type: 'no_training_on' as const, weekdays: WEEKDAYS.filter((d) => d !== 'sun') },
+        },
+      ],
+    }
+    const plan = generatePlan(blocked)
+    const trainingDays = plan.items
+      .filter((i) => i.domain === 'training')
+      .map((i) => weekdayOf(i.scheduledOn))
+    for (const day of trainingDays) expect(day).toBe('sun')
   })
 })

@@ -63,10 +63,32 @@ export function buildContext(input: PlanInput): PlanContext {
     (day) => !excluded.includes(day) && longestSlotOn(input, day) >= MIN_VIABLE_SESSION_MINUTES,
   )
 
+  // Nobody named a free slot. That is the state the onboarding's own
+  // "Rest überspringen" button produces, so it is a normal input, not a broken
+  // one — and two archetypes used to throw on it, leaving the person on a
+  // screen that blamed a safety limit for what was really "you gave me no
+  // time", with no route back to the onboarding.
+  //
+  // Days the user hard-excluded stay excluded: an assumption may fill a gap,
+  // never override an answer.
+  const assumedDays = openDays.length === 0 ? assumeDays(excluded) : []
+  if (assumedDays.length > 0) {
+    assumptions.push({
+      field: 'schedule.freeSlots',
+      assumed: assumedDays.map((d) => WEEKDAY_LABEL[d]).join(', '),
+      reason:
+        'Keine freien Zeitfenster angegeben. Die App nimmt wenige, kurze Termine an — ' +
+        'trag deine echten Zeiten nach, dann wird der Plan genauer.',
+    })
+  }
+
   // The personal model is applied here, once, so every archetype inherits it
   // without having to remember to ask.
   const rules = readRules(input.personalRules)
-  const { days: availableDays, rationale } = applyDayRules(openDays, rules)
+  const { days: availableDays, rationale } = applyDayRules(
+    openDays.length > 0 ? openDays : assumedDays,
+    rules,
+  )
 
   const hardCap = hardSessionMinutesCap(input)
   const sessionMinutesCap =
@@ -97,6 +119,24 @@ export function buildContext(input: PlanInput): PlanContext {
     assumptions,
     rationale,
   }
+}
+
+/**
+ * The fallback week when no free time was given at all.
+ *
+ * Three spread days rather than the whole week: the rule for a missing answer
+ * is to assume whatever leads to *less* load, and a plan someone can actually
+ * keep beats a full one they cannot. Sessions land at the minimum viable
+ * length, because no slot length is known either.
+ */
+function assumeDays(excluded: Weekday[]): Weekday[] {
+  const usable = WEEKDAYS.filter((d) => !excluded.includes(d))
+  return spreadAcrossWeek(usable, Math.min(3, usable.length))
+}
+
+const WEEKDAY_LABEL: Record<Weekday, string> = {
+  mon: 'Montag', tue: 'Dienstag', wed: 'Mittwoch', thu: 'Donnerstag',
+  fri: 'Freitag', sat: 'Samstag', sun: 'Sonntag',
 }
 
 export function hardExcludedWeekdays(input: PlanInput): Weekday[] {

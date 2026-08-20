@@ -5,6 +5,7 @@
 
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/auth/session'
+import { serverToday } from '@/lib/db/today'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { loadMeasurements } from '@/lib/db/tracking'
 import { weeklyReview } from '@/lib/db/analysis'
@@ -23,8 +24,7 @@ export default async function ProgressPage() {
   const input = await loadPlanInput(user.id)
   if (!input) redirect('/onboarding')
 
-  // The server's date is fine here: this screen shows history, not "today".
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await serverToday()
   const review = await weeklyReview(user.id, today)
 
   const metric = input.metrics[0]
