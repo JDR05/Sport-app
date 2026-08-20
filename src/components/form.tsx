@@ -142,6 +142,29 @@ export function DateInput({
   )
 }
 
+export function TextInput({
+  value,
+  onChange,
+  placeholder,
+  maxLength,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  maxLength?: number
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      placeholder={placeholder}
+      maxLength={maxLength}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
+    />
+  )
+}
+
 export function TextArea({
   value,
   onChange,

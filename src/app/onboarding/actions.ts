@@ -17,8 +17,8 @@ import { z } from 'zod'
 import { requireUser } from '@/lib/auth/session'
 import { saveOnboarding } from '@/lib/db/save-onboarding'
 import {
-  constraintValueSchema, freeSlotSchema, mindSchema, nutritionSchema,
-  sleepSchema, sportSchema,
+  commitmentSchema, constraintValueSchema, freeSlotSchema, mindSchema,
+  nutritionSchema, sleepSchema, sportSchema,
 } from '@/lib/db/schemas'
 import { GOAL_ARCHETYPES } from '@/lib/domain/types'
 
@@ -54,6 +54,7 @@ const onboardingSchema = z.object({
   schedule: z.object({
     workPattern: z.enum(['student', 'office', 'remote', 'shift', 'irregular']).nullable(),
     freeSlots: z.array(freeSlotSchema).max(50),
+    commitments: z.array(commitmentSchema).max(30),
   }),
   constraints: z
     .array(

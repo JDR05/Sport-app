@@ -14,7 +14,8 @@ import {
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import {
-  bestSlotOn, dateOf, formatDecimal, longestSlotOn, restDays, round1, slotOf, spreadAcrossWeek,
+  bestSlotOn, dateOf, formatDecimal, longestSlotOn, planTrainingDays, restDays, round1,
+  slotOf,
   type PlanContext,
 } from '../context'
 import { bucketSessions, bucketMinutes } from './bodyComposition'
@@ -97,9 +98,9 @@ export const endurance: ArchetypeStrategy = {
     const thisWeekKm = round1(start * (1 + MAX_WEEKLY_VOLUME_GROWTH))
 
     const desired = input.profile.sport.sessionsPerWeekTarget ?? 3
-    const maxByRest = 7 - ENDURANCE_MIN_REST_DAYS
-    const sessions = Math.max(1, Math.min(desired, Math.max(1, ctx.availableDays.length), maxByRest))
-    const weekdays = spreadAcrossWeek(ctx.availableDays, sessions)
+    const { weekdays, planned: sessions } = planTrainingDays(
+      ctx, desired, 1, ENDURANCE_MIN_REST_DAYS,
+    )
 
     const clamped = this.clampGoal(ctx)
     ctx.rationale.push({ text: clamped.reason, basedOn: ['goal.targetDate', 'metrics.distance_km'] })
@@ -117,6 +118,15 @@ export const endurance: ArchetypeStrategy = {
     })
     const longKm = round1(thisWeekKm * 0.45)
     const easyKm = weekdays.length > 1 ? round1((thisWeekKm - longKm) / (weekdays.length - 1)) : 0
+
+    // What the week actually contains, rather than what the progression would
+    // have allowed. The two came apart as soon as the week could hold fewer
+    // runs than planned — a person with club training on three evenings got one
+    // run of 5.9 km under a headline promising 13.2. Cramming the whole volume
+    // into the single remaining session would have been the other way to make
+    // the numbers agree, and the wrong one: that is exactly the step increase
+    // the volume cap exists to prevent.
+    const plannedKm = round1(longKm + easyKm * Math.max(0, weekdays.length - 1))
 
     const items: PlannedItem[] = weekdays.map((day, index) => {
       const isLong = index === longIndex
@@ -142,15 +152,15 @@ export const endurance: ArchetypeStrategy = {
               `Die leichten Einheiten bauen die Grundlage, nicht die harten.`,
           basedOn: [`schedule.freeSlots.${day}`, 'profile.sport.sessionsPerWeekTarget'],
         },
-        details: { km, intensity: isLong ? 'long' : 'easy', weeklyKm: thisWeekKm },
+        details: { km, intensity: isLong ? 'long' : 'easy', weeklyKm: plannedKm },
       }
     })
 
     return {
       archetype: 'endurance',
-      headline: `${formatDecimal(thisWeekKm)} km · ${sessions}× diese Woche`,
+      headline: `${formatDecimal(plannedKm)} km · ${sessions}× diese Woche`,
       summary: [
-        `${sessions}× laufen, zusammen ${formatDecimal(thisWeekKm)} km`,
+        `${sessions}× laufen, zusammen ${formatDecimal(plannedKm)} km`,
         `Längste Einheit ${formatDecimal(longKm)} km`,
         `${restDays(weekdays).length} Ruhetage`,
       ],
@@ -158,8 +168,8 @@ export const endurance: ArchetypeStrategy = {
       signature: {
         sessionsBucket: bucketSessions(sessions),
         weekdayPattern: weekdays.join('-') || 'none',
-        volumeBucket: String(Math.floor(thisWeekKm / 5) * 5),
-        longRunShare: longKm > 0 ? String(Math.round((longKm / thisWeekKm) * 10)) : '0',
+        volumeBucket: String(Math.floor(plannedKm / 5) * 5),
+        longRunShare: plannedKm > 0 ? String(Math.round((longKm / plannedKm) * 10)) : '0',
         longDay: weekdays[longIndex] ?? 'none',
         sessionLength: bucketMinutes(items[0]?.plannedDurationMin ?? 0),
         longSessionLength: bucketMinutes(items[longIndex]?.plannedDurationMin ?? 0),

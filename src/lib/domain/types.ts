@@ -149,9 +149,37 @@ export type FreeSlot = {
   minutes: number
 }
 
+/**
+ * Something that is already in the week and is not up for negotiation:
+ * football training on Tuesday, a late shift, a course, picking up a child.
+ *
+ * The distinction from a free slot matters. A free slot is time the person
+ * *offered*; a commitment is time already spent. Without them the planner sees
+ * a Tuesday evening that looks empty, plans a session into it, and the person
+ * gets a plan that was never possible — or, worse, a second training session on
+ * the day they already train.
+ */
+export type CommitmentKind = 'sport' | 'work' | 'study' | 'care' | 'other'
+
+export type Commitment = {
+  /** What the person calls it: "Fußballtraining", "Spätschicht". Shown back. */
+  label: string
+  weekday: Weekday
+  /** 'HH:MM', 24 hour. */
+  start: string
+  minutes: number
+  kind: CommitmentKind
+  /**
+   * For sport, what it actually is. The plan reasons about load with it: a
+   * football session is training, so the week does not need another one on top.
+   */
+  activity: Activity | null
+}
+
 export type Schedule = {
   workPattern: WorkPattern | null
   freeSlots: FreeSlot[]
+  commitments: Commitment[]
 }
 
 export type PersonalRule = {

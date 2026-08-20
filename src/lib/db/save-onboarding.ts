@@ -48,6 +48,7 @@ export async function saveOnboarding(
       profile_id: profileId,
       work_pattern: data.schedule.workPattern,
       free_slots: data.schedule.freeSlots,
+      commitments: data.schedule.commitments,
     },
     { onConflict: 'profile_id' },
   )

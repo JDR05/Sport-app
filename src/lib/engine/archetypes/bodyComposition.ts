@@ -14,7 +14,6 @@ import {
   DEFAULT_SESSIONS_PER_WEEK,
   DEFAULT_SESSION_MINUTES,
   MIN_VIABLE_SESSION_MINUTES,
-  MIN_REST_DAYS,
   FALLBACK,
 } from '../constants'
 import { addDays, daysBetween, formatGermanDate } from '../dates'
@@ -26,10 +25,10 @@ import {
   excludedActivities,
   formatDecimal,
   longestSlotOn,
+  planTrainingDays,
   restDays,
   round1,
   slotOf,
-  spreadAcrossWeek,
   type PlanContext,
 } from '../context'
 import type { ArchetypeStrategy, ClampedGoal } from './types'
@@ -136,9 +135,12 @@ export const bodyComposition: ArchetypeStrategy = {
 
     // ------------------------------------------------------- training ----
     const desired = input.profile.sport.sessionsPerWeekTarget ?? DEFAULT_SESSIONS_PER_WEEK[experience]
-    const maxByRest = 7 - MIN_REST_DAYS[experience]
-    const sessions = Math.max(0, Math.min(desired, ctx.availableDays.length, maxByRest))
-    const weekdays = spreadAcrossWeek(ctx.availableDays, sessions)
+    // At least one session of the plan's own kind, even for someone who
+    // already trains three times at a club: football is training, but a deficit
+    // without resistance work costs muscle, and that is the one thing losing
+    // weight must not do.
+    const { weekdays, planned: sessions, total: trainingDaysThisWeek } =
+      planTrainingDays(ctx, desired, 1)
 
     const modality = pickModality(input)
     const sessionMinutes = pickSessionMinutes(ctx, weekdays)
@@ -148,7 +150,11 @@ export const bodyComposition: ArchetypeStrategy = {
       profile: input.profile,
       schedule: input.schedule,
       today: input.today,
-      sessionsPerWeek: sessions,
+      // The week's real training load, not just the part this app planned.
+      // Someone playing football twice a week burns that energy whether or not
+      // the plan put it there, and eating for a lighter week than they actually
+      // have is the wrong direction to be wrong in.
+      sessionsPerWeek: trainingDaysThisWeek,
     })
     ctx.assumptions.push(...energy.assumptions)
 

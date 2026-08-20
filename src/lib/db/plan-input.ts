@@ -17,8 +17,8 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import {
-  readAiProposal, readConstraintValue, readFreeSlots, readMind, readNutrition,
-  readSexAtBirth, readSleep, readSport, readWorkPattern,
+  readAiProposal, readCommitments, readConstraintValue, readFreeSlots, readMind,
+  readNutrition, readSexAtBirth, readSleep, readSport, readWorkPattern,
 } from './schemas'
 import type {
   Constraint, Goal, GoalMetric, PersonalRule, PlanInput, Profile, Schedule,
@@ -120,6 +120,7 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
   const schedule: Schedule = {
     workPattern: readWorkPattern(scheduleRow.data?.work_pattern),
     freeSlots: readFreeSlots(scheduleRow.data?.free_slots),
+    commitments: readCommitments(scheduleRow.data?.commitments),
   }
 
   const constraints: Constraint[] = []

@@ -17,11 +17,12 @@ import { Button, Card, Note, Screen, ScreenTitle } from '@/components/ui'
 import {
   ChoiceGroup, DateInput, Field, MultiChoice, NumberInput, StepProgress, TextArea, TimeInput,
 } from '@/components/form'
+import { CommitmentsStep } from './CommitmentsStep'
 import { classifyGoalText } from '@/lib/engine'
 import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
 import type {
-  Activity, CookingFrequency, DietaryPattern, Equipment, Experience, FocusStruggle,
-  GoalMetric, SexAtBirth, SleepQuality, Weekday, WorkPattern,
+  Activity, Commitment, CookingFrequency, DietaryPattern, Equipment, Experience,
+  FocusStruggle, GoalMetric, SexAtBirth, SleepQuality, Weekday, WorkPattern,
 } from '@/lib/domain/types'
 
 const WEEKDAY_SHORT: Record<Weekday, string> = {
@@ -82,6 +83,8 @@ type Draft = {
   focusStruggle: FocusStruggle | null
   existingRoutines: string
 
+  commitments: Commitment[]
+
   dislikedActivities: Activity[]
   blockedDays: Weekday[]
 }
@@ -96,10 +99,11 @@ const EMPTY: Draft = {
   dietaryPattern: null, mealsPerDay: null, vegetablePortionsPerDay: null, sugaryDrinksPerDay: null,
   usualBedtime: null, usualWakeTime: null, sleepQuality: null, wakesAtNight: null, screenBeforeBed: null,
   screenTimeHoursPerDay: null, focusStruggle: null, existingRoutines: '',
+  commitments: [],
   dislikedActivities: [], blockedDays: [],
 }
 
-const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
+const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Fest', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
 
 /**
  * Which archetypes carry a numeric target, and what that number is.
@@ -188,6 +192,7 @@ function buildAnswers(
         start: SLOT_START[d.slotTime ?? 'evening'],
         minutes: d.slotMinutes ?? 45,
       })),
+      commitments: d.commitments,
     },
   }
 }
@@ -367,6 +372,10 @@ export function OnboardingForm() {
             <ChoiceGroup options={[30, 45, 60, 90].map((n) => ({ value: n, label: `${n} Min` }))} value={d.slotMinutes} onChange={(v) => set('slotMinutes', v)} columns={4} />
           </Field>
         </>
+      )}
+
+      {stepName === 'Fest' && (
+        <CommitmentsStep value={d.commitments} onChange={(v) => set('commitments', v)} />
       )}
 
       {stepName === 'Sport' && (

@@ -472,6 +472,7 @@ export type Database = {
       }
       schedules: {
         Row: {
+          commitments: Json
           created_at: string
           free_slots: Json
           id: string
@@ -483,6 +484,7 @@ export type Database = {
           work_pattern: string | null
         }
         Insert: {
+          commitments?: Json
           created_at?: string
           free_slots?: Json
           id?: string
@@ -494,6 +496,7 @@ export type Database = {
           work_pattern?: string | null
         }
         Update: {
+          commitments?: Json
           created_at?: string
           free_slots?: Json
           id?: string

@@ -4,7 +4,7 @@ import { INTAKE_FLOOR_KCAL, MAX_DEFICIT_SHARE } from '@/lib/engine/constants'
 import { PROFILES } from './fixtures/profiles'
 import type { Profile, Schedule } from '@/lib/domain/types'
 
-const emptySchedule: Schedule = { workPattern: null, freeSlots: [] }
+const emptySchedule: Schedule = { workPattern: null, freeSlots: [], commitments: [] }
 
 function profileWith(over: Partial<Profile>): Profile {
   return { ...PROFILES[0].profile, ...over }

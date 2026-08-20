@@ -7,13 +7,16 @@
 import {
   FALLBACK,
   MAX_CONSECUTIVE_TRAINING_DAYS,
+  MIN_REST_DAYS,
   MIN_VIABLE_SESSION_MINUTES,
 } from './constants'
+import { commitmentsOn, freeSlotsMinusCommitments, sportDays } from './commitments'
 import { addDays, startOfWeek, timeSlotOf } from './dates'
 import { applyDayRules, readRules, type ActiveRules } from './rules'
 import {
   WEEKDAYS,
   type Assumption,
+  type Commitment,
   type Experience,
   type FreeSlot,
   type PlanInput,
@@ -30,6 +33,21 @@ export type PlanContext = {
   /** Days with a usable free slot, already minus any hard exclusion. */
   availableDays: Weekday[]
   /**
+   * Where a training session may be placed: the available days minus the days
+   * that already carry sport. Someone with football on Tuesday does not need a
+   * second session that evening — they need the rest of the week planned
+   * around the one they already have.
+   */
+  trainingDays: Weekday[]
+  /** Fixed appointments, as given. Strategies quote them back to the user. */
+  commitments: Commitment[]
+  /**
+   * Training the week already contains before the app plans anything. Counts
+   * against the weekly session budget and against the rest-day rules, because
+   * a football match is training whether or not this app suggested it.
+   */
+  committedSessions: number
+  /**
    * Hard constraints only. The invariant checks read the constraints
    * themselves, so this stays exactly what the user declared.
    */
@@ -45,8 +63,23 @@ export type PlanContext = {
   rationale: Rationale[]
 }
 
-export function buildContext(input: PlanInput): PlanContext {
+export function buildContext(raw: PlanInput): PlanContext {
   const assumptions: Assumption[] = []
+
+  // Committed time is removed once, here, rather than at each of the places
+  // that read a slot. Every downstream helper — longestSlotOn, bestSlotOn,
+  // slotOf — then works on time that is genuinely free, and none of them can
+  // forget to ask. What is left is the real week, not the offered one.
+  const commitments = raw.schedule.commitments
+  const input: PlanInput = {
+    ...raw,
+    schedule: {
+      ...raw.schedule,
+      freeSlots: freeSlotsMinusCommitments(raw.schedule.freeSlots, commitments),
+    },
+  }
+
+  const alreadySporting = sportDays(commitments)
 
   const experience = input.profile.sport.experience ?? FALLBACK.experience
   if (input.profile.sport.experience === null) {
@@ -90,6 +123,25 @@ export function buildContext(input: PlanInput): PlanContext {
     rules,
   )
 
+  // Sport that is already in the week is not a slot to fill — it is a session
+  // that exists. Planning another one onto the same day is the "twice on
+  // Tuesday" problem, and it is also how a rest-day rule gets broken without
+  // anything noticing.
+  const trainingDays = availableDays.filter((d) => !alreadySporting.includes(d))
+  if (alreadySporting.length > 0) {
+    const named = alreadySporting
+      .map((d) => `${WEEKDAY_LABEL[d]} ${commitmentsOn(commitments, d).map((c) => c.label).join(' und ')}`)
+      .join(', ')
+    rationale.push({
+      text:
+        `Du trainierst schon fest: ${named}. Das ist Training — der Plan legt an diesen Tagen ` +
+        `nichts obendrauf, zählt es als Belastung mit und plant nur noch das dazu, was auf ` +
+        `dein Ziel einzahlt. Wenn du zusätzlich zu diesen Terminen trainieren willst, trag ` +
+        `dein Wochenziel höher ein.`,
+      basedOn: ['schedule.commitments'],
+    })
+  }
+
   const hardCap = hardSessionMinutesCap(input)
   const sessionMinutesCap =
     hardCap === null
@@ -113,6 +165,9 @@ export function buildContext(input: PlanInput): PlanContext {
     weekStart: startOfWeek(input.today),
     experience,
     availableDays,
+    trainingDays,
+    commitments,
+    committedSessions: alreadySporting.length,
     hardSessionMinutesCap: hardCap,
     sessionMinutesCap,
     rules,
@@ -210,6 +265,63 @@ export function excludedActivities(input: PlanInput) {
 }
 
 /**
+ * How many sessions to plan, and where, given what the week already holds.
+ *
+ * One place rather than three. All three training archetypes had the same four
+ * lines, and each of them had to be taught about commitments separately — which
+ * is exactly the kind of duplication that ends with two of them right and one
+ * quietly wrong.
+ *
+ * Committed sport counts twice over, and both readings are deliberate:
+ *
+ *   * Against the **rest** budget. You are not recovering on the evening you
+ *     play football, whatever your goal is.
+ *   * Against the **session target**. "Three times a week" is a statement about
+ *     a person's whole week, not about this app's share of it, so three club
+ *     sessions largely satisfy it.
+ *
+ * `minSessions` is what stops the second reading from going too far. Football
+ * is training, but it is not gym work — so a strength goal, or a deficit that
+ * needs muscle kept, still gets at least one session of its own kind. A plan
+ * that answers "get stronger" with no strength in it is not a plan.
+ */
+export function planTrainingDays(
+  ctx: PlanContext,
+  desired: number,
+  minSessions = 0,
+  /** Endurance carries its own floor; everything else uses the experience one. */
+  minRestDays: number = MIN_REST_DAYS[ctx.experience],
+): { weekdays: Weekday[]; planned: number; total: number } {
+  const alreadySporting = sportDays(ctx.commitments)
+
+  const maxByRest = 7 - minRestDays
+  const restRoom = Math.max(0, maxByRest - ctx.committedSessions)
+  const stillWanted = Math.max(0, desired - ctx.committedSessions)
+
+  const wanted = Math.max(
+    Math.min(minSessions, ctx.trainingDays.length, restRoom),
+    Math.min(stillWanted, ctx.trainingDays.length, restRoom),
+  )
+
+  // The count comes back out of the placement, never out of the request.
+  // spreadAcrossWeek returns fewer days than asked whenever placing another one
+  // would break the run limit, and reporting the request instead produced
+  // headlines like "3x Kraft" above a week containing two.
+  const weekdays = spreadAcrossWeek(
+    ctx.trainingDays,
+    wanted,
+    MAX_CONSECUTIVE_TRAINING_DAYS,
+    alreadySporting,
+  )
+
+  return {
+    weekdays,
+    planned: weekdays.length,
+    total: weekdays.length + ctx.committedSessions,
+  }
+}
+
+/**
  * Picks up to `count` weekdays out of the available ones, spread as evenly as
  * availability allows: each pick maximises the circular distance to the days
  * already chosen.
@@ -224,9 +336,14 @@ export function spreadAcrossWeek(
   available: Weekday[],
   count: number,
   maxRun: number = MAX_CONSECUTIVE_TRAINING_DAYS,
+  occupied: Weekday[] = [],
 ): Weekday[] {
   if (count <= 0 || available.length === 0) return []
 
+  // Days that already carry training count towards a run but are never picked.
+  // Without this, football on Tuesday and Friday plus planned sessions on
+  // Wednesday and Thursday reads as two short runs when it is really four
+  // training days in a row.
   const picked: Weekday[] = []
   while (picked.length < count) {
     let best: Weekday | null = null
@@ -234,7 +351,7 @@ export function spreadAcrossWeek(
 
     for (const day of available) {
       if (picked.includes(day)) continue
-      if (longestRun([...picked, day]) > maxRun) continue
+      if (longestRun([...occupied, ...picked, day]) > maxRun) continue
 
       const distance =
         picked.length === 0 ? 0 : Math.min(...picked.map((p) => circularDistance(p, day)))

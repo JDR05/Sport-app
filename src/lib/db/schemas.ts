@@ -12,7 +12,7 @@
 
 import { z } from 'zod'
 import type {
-  AiProposal, Constraint, FreeSlot, MindProfile, NutritionProfile, Profile, Schedule,
+  AiProposal, Commitment, Constraint, FreeSlot, MindProfile, NutritionProfile, Profile, Schedule,
   SleepProfile, SportProfile,
 } from '@/lib/domain/types'
 
@@ -66,6 +66,15 @@ export const freeSlotSchema = z.object({
   minutes: z.number().int().min(5).max(1440),
 })
 
+export const commitmentSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  weekday,
+  start: timeOfDay,
+  minutes: z.number().int().min(5).max(1440),
+  kind: z.enum(['sport', 'work', 'study', 'care', 'other']),
+  activity: activity.nullable(),
+})
+
 export const constraintValueSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('no_training_on'), weekdays: z.array(weekday) }),
   z.object({ type: z.literal('max_session_minutes'), minutes: z.number().int().min(5).max(300) }),
@@ -96,6 +105,17 @@ export function readFreeSlots(value: unknown): FreeSlot[] {
   const out: FreeSlot[] = []
   for (const raw of value) {
     const parsed = freeSlotSchema.safeParse(raw)
+    if (parsed.success) out.push(parsed.data)
+  }
+  return out
+}
+
+/** Commitments that do not parse are dropped, not guessed at. */
+export function readCommitments(value: unknown): Commitment[] {
+  if (!Array.isArray(value)) return []
+  const out: Commitment[] = []
+  for (const raw of value) {
+    const parsed = commitmentSchema.safeParse(raw)
     if (parsed.success) out.push(parsed.data)
   }
   return out

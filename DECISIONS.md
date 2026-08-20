@@ -7,6 +7,46 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-20 — ADR-045: Der Plan kennt die Termine, die es schon gibt
+
+**Entscheidung:** `Schedule` hat neben `freeSlots` jetzt `commitments` — feste, wöchentlich
+wiederkehrende Termine mit Wochentag, Uhrzeit, Dauer, Art und (bei Sport) Sportart. Die Engine
+zieht sie **einmal am Rand** von den freien Zeitfenstern ab, plant an einem Tag mit Sport kein
+zweites Training, rechnet Sport als Belastung gegen die Ruhetage und gegen das Wochenziel, und
+plant trotzdem mindestens **eine** Einheit der eigenen Art dazu.
+
+**Begründung:** Die Engine kannte nur Zeit, die jemand *angeboten* hat. Alles andere sah aus wie
+eine leere Woche — also wurde in Stunden geplant, die nie frei waren, und am Dienstagabend ein
+Training vorgeschlagen, an dem der Product Owner bereits Fußball hat.
+
+Der Abzug passiert bewusst ganz vorne in `buildContext`: danach arbeitet jeder Helfer
+(`longestSlotOn`, `bestSlotOn`, `slotOf`) auf echter freier Zeit, und keiner kann vergessen zu
+fragen.
+
+Die Mindestens-eine-Einheit ist die Gegenkraft zur Verrechnung. Fußball ist Training, aber kein
+Krafttraining — ein Ziel „stärker werden", das mit Fußball beantwortet wird, ist keine Antwort,
+und ein Kaloriendefizit ohne Widerstandstraining kostet Muskeln.
+
+---
+
+## 2026-08-20 — ADR-046: Die Überschrift muss stimmen
+
+**Entscheidung:** Die Anzahl der Einheiten kommt aus der **Platzierung**, nicht aus der
+Anforderung, und der Wochenumfang beim Laufen ist die Summe der geplanten Läufe, nicht das, was
+die Steigerungsregel erlaubt hätte. Ein Test über alle Profile × alle Ziele, mit und ohne
+Vereinswoche, vergleicht jede Zahl in der Überschrift mit dem, was darunter steht.
+
+**Begründung:** Beim Durchsehen echter Pläne standen zwei Widersprüche nebeneinander:
+„3× Kraft" über einer Woche mit zwei Einheiten (die Ruhetagsregel hatte korrekt gekürzt, die
+Überschrift nicht), und „13,2 km" über einem einzigen Lauf von 5,9 km. Beide fielen erst auf,
+als die Woche schon etwas enthielt — und der zweite existierte auch ohne feste Termine.
+
+Den Umfang stattdessen in den einen verbliebenen Lauf zu packen, wäre die andere Art gewesen,
+die Zahlen zusammenzubringen, und die falsche: genau diesen Sprung verhindert die
+10-%-Grenze.
+
+---
+
 ## 2026-08-20 — ADR-044: Das Onboarding ist zerstörend und wird deshalb bewacht
 
 **Entscheidung:** `/onboarding` zeigt einem Menschen mit aktivem Ziel nicht mehr das leere

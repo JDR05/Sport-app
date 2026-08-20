@@ -13,7 +13,7 @@ import {
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import {
-  bestSlotOn, dateOf, longestRun, restDays, slotOf, spreadAcrossWeek,
+  bestSlotOn, dateOf, longestRun, planTrainingDays, restDays, slotOf,
   type PlanContext,
 } from '../context'
 import { bucketSessions, bucketMinutes, pickModality, pickSessionMinutes } from './bodyComposition'
@@ -70,9 +70,9 @@ export const strength: ArchetypeStrategy = {
   planGoalTrack(ctx: PlanContext): GoalTrack {
     const { input, experience } = ctx
     const desired = input.profile.sport.sessionsPerWeekTarget ?? (experience === 'beginner' ? 2 : 3)
-    const maxByRest = 7 - MIN_REST_DAYS[experience]
-    const sessions = Math.max(1, Math.min(desired, Math.max(1, ctx.availableDays.length), maxByRest))
-    const weekdays = spreadAcrossWeek(ctx.availableDays, sessions)
+    // At least one session, unless the week genuinely has no room: a strength
+    // plan with no strength in it is not a strength plan.
+    const { weekdays, planned: sessions } = planTrainingDays(ctx, desired, 1)
 
     const modality = pickModality(input)
     const sessionMinutes = pickSessionMinutes(ctx, weekdays)

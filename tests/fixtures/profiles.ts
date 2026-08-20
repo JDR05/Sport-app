@@ -54,7 +54,7 @@ function mind(over: Partial<MindProfile> = {}): MindProfile {
 }
 
 function schedule(over: Partial<Schedule> = {}): Schedule {
-  return { workPattern: null, freeSlots: [], ...over }
+  return { workPattern: null, freeSlots: [], commitments: [], ...over }
 }
 
 export type NamedProfile = {
