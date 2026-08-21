@@ -7,6 +7,34 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-062: Dauerregeln sind Dauerregeln, keine Wochentagstermine
+
+**Entscheidung:** `PlannedItem` bekommt `cadence: 'daily' | 'weekly'`. Die Engine liefert
+weiterhin **einen Eintrag je Regel** — die Archetyp-Invarianten zählen Regeln, nicht Tage —,
+und `materialise()` in `src/lib/db/item-mapping.ts` fächert Dauerregeln beim Speichern auf
+sieben Tage auf. „Heute" fasst sie in **einer** Karte zusammen, damit die 3–5-Aktionen-Regel
+hält; jede Regel bleibt darin einzeln beantwortbar.
+
+**Begründung:** Kalorienkorridor, Eiweiß zu jeder Hauptmahlzeit, Schlafenszeit — alles wahr an
+sieben Tagen, geplant an genau einem. Das brach zwei Dinge gleichzeitig:
+
+Der Plan war schlicht unlogisch zu lesen — „Eiweiß zu jeder Hauptmahlzeit", mittwochs.
+Und die gesamte Ernährungsseite eines Abnehmziels wurde an **einem Häkchen pro Woche**
+gemessen. Genau diese Verhaltensmetrik ist die einzige, an der Experimente ausgewertet werden
+dürfen.
+
+Gemessen über alle 70 Kombinationen: vorher **19 % der Tage ganz leer** und 41 % mit genau
+einer Aktion — gegen eine Vorgabe von drei bis fünf. Danach: 0 % leer, 97 % mit zwei oder mehr.
+
+Aufgefächert wird an der Speichergrenze, nicht in der Engine. So bleiben beide Wahrheiten:
+die Grenzen der Engine zählen, was entschieden wurde, und alles danach — Heute, die Ringe,
+die Mustererkennung — sieht die Tage, die der Mensch tatsächlich hat.
+
+Termine bleiben Termine: Meal-Prep und der Wocheneinkauf sind einzelne Ereignisse, und sie
+über die Woche zu verteilen wäre derselbe Fehler in die andere Richtung.
+
+---
+
 ## 2026-08-21 — ADR-060: Ein Experiment muss den Plan nachweislich verändern
 
 **Entscheidung:** `proposeExperiment` baut den Plan mit der Regel **und** vergleicht ihn mit dem

@@ -72,6 +72,8 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
       title: habit.title,
       plannedDurationMin: null,
       timeSlot: null,
+      // An additive eating habit is a standing rule, not a Monday errand.
+      cadence: 'daily',
       rationale: { text: habit.reason, basedOn: [habit.basedOn] },
       details: { baseline: true, additive: true, focus: habit.focus },
     })
@@ -87,6 +89,9 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
     // does start collecting what a later sleep goal would need.
     const poor = quality === 'poor'
     items.push({
+      // Every day: holding a bedtime on Sundays only is not holding a bedtime,
+      // and a week of observation is a week, not a Wednesday.
+      cadence: 'daily',
       scheduledOn: dateOf(ctx, poor ? 'wed' : 'sun'),
       domain: 'sleep',
       track: 'baseline',

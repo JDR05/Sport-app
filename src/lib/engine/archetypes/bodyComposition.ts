@@ -352,7 +352,23 @@ function nutritionItems(
     : cooks === 'never' ? 'simple_swaps'
     : 'structured'
 
-  const make = (day: Weekday, title: string, text: string, basedOn: string[]): PlannedItem => ({
+  /**
+   * `every` marks a standing rule rather than an appointment.
+   *
+   * The distinction matters more than it looks. A calorie corridor and protein
+   * at every meal are true on all seven days; planning them on one weekday made
+   * the plan read as nonsense — "Eiweiß zu jeder Hauptmahlzeit, mittwochs" —
+   * and reduced the entire nutrition side of the goal to one tick a week, which
+   * is what the adaptive engine was then drawing conclusions from. Meal prep
+   * and the weekly shop really are appointments, and stay on their day.
+   */
+  const make = (
+    day: Weekday,
+    title: string,
+    text: string,
+    basedOn: string[],
+    every: boolean = false,
+  ): PlannedItem => ({
     scheduledOn: dateOf(ctx, day),
     domain: 'nutrition',
     track: 'goal',
@@ -360,6 +376,7 @@ function nutritionItems(
     plannedDurationMin: null,
     timeSlot: null,
     rationale: { text, basedOn },
+    cadence: every ? 'daily' : 'weekly',
     details: { approach, targetIntakeKcal: kcal },
   })
 
@@ -376,16 +393,16 @@ function nutritionItems(
           ['profile.nutrition.cooksAtHome']),
         make('mon', `${meals} Mahlzeiten, Ziel ${kcal} kcal`,
           `${meals} Mahlzeiten am Tag, wie von dir angegeben, verteilt auf rund ${kcal} kcal.`,
-          ['profile.nutrition.mealsPerDay']),
+          ['profile.nutrition.mealsPerDay'], true),
       ]
     case 'structured':
       return [
         make('mon', `${meals} feste Mahlzeiten, Ziel ${kcal} kcal`,
           `${meals} Mahlzeiten am Tag bei rund ${kcal} kcal — feste Zeiten, damit du abends nicht nachholen musst.`,
-          ['profile.nutrition.mealsPerDay']),
-        make('wed', 'Eiweiß zu jeder Hauptmahlzeit',
+          ['profile.nutrition.mealsPerDay'], true),
+        make('mon', 'Eiweiß zu jeder Hauptmahlzeit',
           `Bei ${deltaKcal} kcal ${direction} hält Eiweiß dich satt und schützt die Muskulatur.`,
-          ['profile.nutrition.cooksAtHome']),
+          ['profile.nutrition.cooksAtHome'], true),
         make('sat', 'Einkauf für die kommende Woche',
           `Du kochst ${cooks === 'often' ? 'oft' : 'gelegentlich'} und hast dafür ${cookingTime} Min — ein geplanter Einkauf macht genau das einfacher.`,
           ['profile.nutrition.cooksAtHome', 'profile.nutrition.timeForCookingMin']),
@@ -394,10 +411,10 @@ function nutritionItems(
       return [
         make('mon', 'Zwei feste Tauschgriffe',
           'Du kochst nicht — statt Rezepten also zwei feste Tauschgriffe bei dem, was du ohnehin kaufst.',
-          ['profile.nutrition.cooksAtHome']),
-        make('thu', 'Getränke auf kalorienfrei umstellen',
+          ['profile.nutrition.cooksAtHome'], true),
+        make('mon', 'Getränke auf kalorienfrei umstellen',
           `Der einfachste Hebel ohne Kochen: Getränke. Zielkorridor bleibt ${kcal} kcal.`,
-          ['profile.nutrition.cooksAtHome']),
+          ['profile.nutrition.cooksAtHome'], true),
       ]
     case 'eating_out_aware':
     default:
@@ -405,9 +422,9 @@ function nutritionItems(
         make('mon', `Auswärts bewusst wählen (${eatsOut}× diese Woche)`,
           `Du isst ${eatsOut}× pro Woche auswärts — der Plan arbeitet damit, statt es zu verbieten.`,
           ['profile.nutrition.eatsOutPerWeek']),
-        make('wed', `Zu Hause einfach halten, Ziel ${kcal} kcal`,
+        make('mon', `Zu Hause einfach halten, Ziel ${kcal} kcal`,
           'An den Tagen zu Hause bleibt es simpel, damit die Auswärts-Tage nicht kompensiert werden müssen.',
-          ['profile.nutrition.eatsOutPerWeek']),
+          ['profile.nutrition.eatsOutPerWeek'], true),
         make('sat', 'Vorher entscheiden, nicht vor Ort',
           'Die Wahl vorab zu treffen ist wirksamer als am Tisch zu widerstehen.',
           ['profile.nutrition.eatsOutPerWeek']),

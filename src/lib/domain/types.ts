@@ -265,6 +265,22 @@ export type Assumption = {
   reason: string
 }
 
+/**
+ * How often an action recurs inside the week.
+ *
+ * A calorie corridor, protein at every meal, a bedtime — these are standing
+ * rules, true every day. They were being planned as one-off items on a
+ * hardcoded weekday, which produced two problems at once: "Eiweiß zu jeder
+ * Hauptmahlzeit" appeared on a Wednesday and nowhere else, which is simply
+ * illogical to read; and the whole nutrition side of a weight goal was
+ * measured by a single tick per week, so the behaviour metric the adaptive
+ * engine may draw conclusions from was measuring almost nothing.
+ *
+ * The engine still emits one item per rule — the invariants count rules, not
+ * days — and the week is materialised into real daily rows when it is stored.
+ */
+export type Cadence = 'daily' | 'weekly'
+
 export type PlannedItem = {
   scheduledOn: string
   domain: PlanDomain
@@ -274,6 +290,8 @@ export type PlannedItem = {
   plannedDurationMin: number | null
   timeSlot: TimeSlot | null
   rationale: Rationale
+  /** Absent means 'weekly': a thing that happens once, on that day. */
+  cadence?: Cadence
   details: Record<string, unknown>
 }
 

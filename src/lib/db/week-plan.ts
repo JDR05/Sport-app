@@ -22,7 +22,7 @@ import { withProposal } from './propose'
 import { generatePlan } from '@/lib/engine'
 import { startOfWeek } from '@/lib/engine/dates'
 import { PlanInvariantError } from '@/lib/engine/errors'
-import { fromRow, toInsert, type ItemRow } from './item-mapping'
+import { fromRow, materialise, toInsert, type ItemRow } from './item-mapping'
 import type {
   Assumption, PlanItemStatus, PlannedItem, Rationale, WeekStrategy,
 } from '@/lib/domain/types'
@@ -161,10 +161,12 @@ async function writeWeek(
   // and losing is fine: the winner's plan is the one that counts.
   if (planRow.error) return null
 
-  if (plan.items.length > 0) {
+  const rows = materialise(plan.items, weekStart)
+
+  if (rows.length > 0) {
     const inserted = await supabase
       .from('plan_items')
-      .insert(plan.items.map((item) => toInsert(item, planRow.data.id, profileId)))
+      .insert(rows.map((item) => toInsert(item, planRow.data.id, profileId)))
 
     // Take the plan row back out. Leaving it was the whole bug: the caller
     // re-reads after a null, finds the row this function just wrote, and hands
@@ -179,3 +181,4 @@ async function writeWeek(
 
   return readWeek(profileId, weekStart, goalId)
 }
+

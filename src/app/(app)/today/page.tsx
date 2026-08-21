@@ -4,6 +4,7 @@ import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
 import { CheckInCard } from '@/components/CheckInCard'
+import { DailyRules } from '@/components/DailyRules'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { formatGermanDate, weekdayOf } from '@/lib/engine/dates'
 
@@ -18,7 +19,11 @@ export default function TodayPage() {
   return (
     <RequirePlan>
       {(week) => {
-        const items = week.items.filter((i) => i.scheduledOn === today)
+        const all = week.items.filter((i) => i.scheduledOn === today)
+        // Standing rules are collapsed into one card, so the two or three
+        // things specific to today are not buried under them.
+        const rules = all.filter((i) => i.cadence === 'daily')
+        const items = all.filter((i) => i.cadence !== 'daily')
         const restToday = !items.some((i) => i.domain === 'training')
 
         return (
@@ -42,16 +47,22 @@ export default function TodayPage() {
                 : ' · dein Ziel'}
             </p>
 
-            {items.length > 0 && (
+            {all.length > 0 && (
               <div className="mb-2.5 flex items-baseline justify-between">
                 <SectionHeading>Heute</SectionHeading>
                 <span className="text-[11px] font-medium tabular-nums text-faint">
-                  {items.filter((i) => i.status === 'done').length}/{items.length}
+                  {all.filter((i) => i.status === 'done').length}/{all.length}
                 </span>
               </div>
             )}
 
-            {items.length === 0 ? (
+            {rules.length > 0 && (
+              <div className="mb-3">
+                <DailyRules items={rules} onStatus={setStatus} />
+              </div>
+            )}
+
+            {items.length === 0 && rules.length === 0 ? (
               <Card>
                 <p className="text-sm font-semibold text-ink">Heute steht nichts an.</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted">
