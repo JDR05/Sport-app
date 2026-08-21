@@ -7,6 +7,62 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-057: Ein halb geschriebener Plan wird zurückgenommen
+
+**Entscheidung:** Scheitert in `writeWeek` der Items-Insert, wird die zuvor geschriebene
+`plans`-Zeile wieder gelöscht.
+
+**Begründung:** Vorher blieb sie stehen. Der Aufrufer liest nach einem `null` erneut, findet
+**genau diese Zeile** und liefert eine Woche mit null Aktionen zurück — während der partielle
+Unique-Index es unmöglich macht, diese Woche je wieder aufzubauen. Eine dauerhaft leere Woche
+ohne Ausweg. Ein echtes Wettrennen verliert weiterhin am Index und hat gar keine eigene Zeile
+zum Löschen; beide Fälle enden damit korrekt.
+
+---
+
+## 2026-08-21 — ADR-058: Der Abschluss eines Experiments ist eine Bedingung, keine Annahme
+
+**Entscheidung:** `concludeIfDue` aktualisiert den Status mit `.in('status', ['running',
+'extended'])` als Vorbedingung und bricht ab, wenn keine Zeile getroffen wurde. `ruleWritten`
+kommt aus dem Schreibergebnis. Ein `continue` misst die neue Periode **ab heute**. Zusätzlich
+wird beim Öffnen der App abgeschlossen, nicht nur auf Insights.
+
+**Begründung:** Fünf ungeprüfte Schreibvorgänge. Scheiterte der Status-Update, wurden Ergebnis
+und Regel trotzdem geschrieben und das Experiment blieb `running` — jeder weitere Seitenaufruf
+schloss es erneut ab und hängte ein weiteres Ergebnis an, endlos; `experiment_results` hat
+keine Unique-Bedingung dagegen. Zwei gleichzeitige Aufrufe hätten dasselbe getan.
+
+`ruleWritten` stammte aus der reinen Funktion, nicht aus dem Upsert: „deine Regel wurde
+übernommen" konnte gemeldet werden, obwohl nichts gespeichert wurde — und das Experiment ist
+danach `adopted`, also nicht wiederholbar.
+
+Das Enddatum wanderte um 14 Tage ab dem **alten** Enddatum. Wer zwei Monate nicht reinschaut,
+löste bei jedem Laden einen weiteren Abschluss aus, bis die Arithmetik aufholte.
+
+Und nur Insights schloss ab. Wer diesen Screen nie öffnet, hatte ein dauerhaft offenes
+Experiment — was, weil nur eines offen sein darf, **jedes künftige blockiert** und dessen
+Trial-Regel unbegrenzt weiterwirken lässt.
+
+---
+
+## 2026-08-21 — ADR-059: `style-src` erlaubt Inline-Attribute, `script-src` nicht
+
+**Entscheidung:** `style-src 'self' 'unsafe-inline'`. Skripte bleiben bei
+`'nonce-…' 'strict-dynamic'`.
+
+**Begründung:** Eine Nonce deckt kein `style=""`-Attribut ab — CSP prüft die unter
+`style-src-attr`, das auf `style-src` zurückfällt. Die strikte Fassung blockierte damit das
+eigene Layout. Im Browser nachgemessen: der Fortschrittsbalken im Playbook rendert mit voller
+Breite statt seines echten Prozentwerts — eine **falsche Aussage auf dem Screen**, ausgerechnet
+auf dem Screen, den Kritikpunkt K3 tragend gemacht hat. Ring und Chart verloren ihre Maße.
+
+Aufgegeben wird wenig, behalten wird das Entscheidende: Skripte bleiben streng, `connect-src`
+nennt weiterhin die eine Gegenstelle, und die App rendert kein nutzergeneriertes HTML — es gibt
+also keinen Weg, über den fremdes Markup auf diese Seite gelangt, um die Lockerung auszunutzen.
+Gegengeprüft: Layout korrekt, null Style-Verstöße, Skript ohne Nonce weiterhin blockiert.
+
+---
+
 ## 2026-08-21 — ADR-055: Erst bauen, dann abreissen
 
 **Entscheidung:** `saveOnboarding` legt das neue Ziel zuerst an — als `paused`, damit es nicht

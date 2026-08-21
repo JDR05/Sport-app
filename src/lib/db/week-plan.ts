@@ -77,8 +77,11 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   const written = await writeWeek(profileId, weekStart, goalId, plan)
   if (written) return { ok: true, week: written }
 
-  // The insert lost a race with another request. The winner's plan is the one
-  // that counts — re-reading is the correct answer, not retrying the write.
+  // Either the insert lost a race with another request, in which case the
+  // winner's plan is the one that counts and re-reading is the correct answer,
+  // or the write failed and removed its own half-built row — in which case
+  // there is nothing to read and the honest reply is that it did not work.
+  // Retrying here would only repeat whatever just failed.
   const raced = await readWeek(profileId, weekStart, goalId)
   return raced
     ? { ok: true, week: raced }
@@ -154,13 +157,24 @@ async function writeWeek(
     .select('id')
     .single()
 
+  // A real race loses here, at the partial unique index over the current week,
+  // and losing is fine: the winner's plan is the one that counts.
   if (planRow.error) return null
 
   if (plan.items.length > 0) {
     const inserted = await supabase
       .from('plan_items')
       .insert(plan.items.map((item) => toInsert(item, planRow.data.id, profileId)))
-    if (inserted.error) return null
+
+    // Take the plan row back out. Leaving it was the whole bug: the caller
+    // re-reads after a null, finds the row this function just wrote, and hands
+    // back a week with no actions in it — while the unique index makes it
+    // impossible to ever build that week again. A permanently empty week, and
+    // no path out of it.
+    if (inserted.error) {
+      await supabase.from('plans').delete().eq('id', planRow.data.id).eq('profile_id', profileId)
+      return null
+    }
   }
 
   return readWeek(profileId, weekStart, goalId)

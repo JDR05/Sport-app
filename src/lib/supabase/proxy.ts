@@ -26,7 +26,22 @@ function contentSecurityPolicy(nonce: string): string {
     // hash has to be listed here. In development React uses eval to rebuild
     // server stacks; production does not.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    // Stylesheets stay locked to this origin. Inline *attributes* are allowed,
+    // and that is a considered trade rather than a gap.
+    //
+    // A nonce does not cover a `style=""` attribute — CSP checks those under
+    // style-src-attr, which falls back to style-src — so the strict version
+    // silently blocked the app's own layout. Verified in a browser: the
+    // Playbook progress bar rendered at full width instead of its real
+    // percentage, which is a false statement on screen, and the ring and chart
+    // lost their dimensions.
+    //
+    // What is given up is small and what is kept is the part that matters:
+    // scripts remain nonce-plus-strict-dynamic, connect-src still names the one
+    // origin data could be sent to, and the app renders no user-supplied HTML,
+    // so there is no path by which someone else's markup reaches this page to
+    // exploit the relaxation.
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data:",
     "font-src 'self'",
     // The one external origin this app talks to. Anything else — an injected

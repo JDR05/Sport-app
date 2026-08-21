@@ -12,7 +12,7 @@ import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { ensureWeekPlan, type WeekResult } from '@/lib/db/week-plan'
 import { loadCheckIns, saveCheckIn, saveMeasurement, type CheckIn } from '@/lib/db/tracking'
-import { acceptExperiment, declineExperiment } from '@/lib/db/experiments'
+import { acceptExperiment, concludeIfDue, declineExperiment } from '@/lib/db/experiments'
 import { weeklyReview } from '@/lib/db/analysis'
 
 // Shared with the onboarding: a shape check is not a value check.
@@ -24,6 +24,19 @@ export async function loadWeek(today: unknown): Promise<WeekResult> {
 
   const parsed = isoDate.safeParse(today)
   if (!parsed.success) return { ok: false, reason: 'no_goal' }
+
+  // Opening the app is what concludes a finished experiment.
+  //
+  // Until now only the Insights screen did, and someone who never opens it had
+  // an experiment left running for ever — which, because only one may be open
+  // at a time, silently blocked every future one and kept its trial rule
+  // shaping plans indefinitely. This is the screen people actually open, and
+  // the conclusion is idempotent, so running it here costs nothing when there
+  // is nothing to conclude.
+  //
+  // Deliberately not awaited for its result: a conclusion that fails must not
+  // stop someone seeing their week.
+  await concludeIfDue(user.id, parsed.data).catch(() => null)
 
   return ensureWeekPlan(user.id, parsed.data)
 }

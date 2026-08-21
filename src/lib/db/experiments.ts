@@ -245,15 +245,36 @@ export async function concludeIfDue(
   // gets another period rather than a verdict. The end date has to move with
   // the status: leaving it in the past would re-conclude the same experiment on
   // every page load and fill the record with duplicate results.
-  await supabase
+  // The status moves first, and nothing else happens unless it did.
+  //
+  // Five writes here used to run unchecked. If the status update failed, the
+  // result row and the rule were still written and the experiment stayed
+  // `running` — so every later page load concluded it again, appending another
+  // result and another insight, for ever. `experiment_results` has no unique
+  // constraint to stop that.
+  //
+  // The `.eq('status', ...)` is the other half: two page loads arriving
+  // together both read the same running experiment, and without a precondition
+  // both would conclude it. Now the first one wins and the second matches no
+  // row.
+  //
+  // A `continue` gets its period measured from today rather than from an end
+  // date that may be months behind. Extending by fourteen days from a stale
+  // date meant someone returning after two months re-concluded on every load
+  // until the arithmetic caught up.
+  const moved = await supabase
     .from('experiments')
     .update(
       evaluation.decision === 'continue'
-        ? { status: concluded.status, end_date: addDays(running.endDate, EXPERIMENT_DAYS) }
+        ? { status: concluded.status, end_date: addDays(today, EXPERIMENT_DAYS) }
         : { status: concluded.status },
     )
     .eq('id', running.id)
     .eq('profile_id', profileId)
+    .in('status', ['running', 'extended'])
+    .select('id')
+
+  if (moved.error || (moved.data ?? []).length === 0) return null
 
   await supabase.from('experiment_results').insert({
     experiment_id: running.id,
@@ -266,8 +287,9 @@ export async function concludeIfDue(
   })
 
   const rule = derivePersonalRule(concluded, evaluation)
+  let ruleWritten = false
   if (rule) {
-    await supabase.from('personal_rules').upsert(
+    const upserted = await supabase.from('personal_rules').upsert(
       {
         profile_id: profileId,
         rule_key: rule.ruleKey,
@@ -279,6 +301,11 @@ export async function concludeIfDue(
       },
       { onConflict: 'profile_id,rule_key,trial' },
     )
+    // Reported from the write, not from the pure function that proposed it.
+    // Saying "deine Regel wurde übernommen" when nothing was stored is a lie
+    // the user cannot check, and the experiment is `adopted` now, so it can
+    // never be run again to correct it.
+    ruleWritten = upserted.error === null
   }
 
   // The trial rule goes as soon as the experiment stops running — adopted, it
@@ -303,7 +330,7 @@ export async function concludeIfDue(
     evidence: [{ experimentId: running.id, decision: evaluation.decision }],
   })
 
-  return { hypothesis: running.hypothesis, evaluation, ruleWritten: rule !== null }
+  return { hypothesis: running.hypothesis, evaluation, ruleWritten }
 }
 
 export type LearnedRule = {
