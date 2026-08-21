@@ -131,7 +131,20 @@ export const bodyComposition: ArchetypeStrategy = {
     const weeks = clamped.targetDate
       ? Math.max(1, daysBetween(input.today, clamped.targetDate) / 7)
       : DEFAULT_HORIZON_WEEKS
-    const ratePerWeekKg = round1(Math.abs(start - target) / weeks)
+    // Full precision, deliberately unrounded.
+    //
+    // This number drives the daily calorie deficit, and round1() moved it by
+    // up to ±50 kcal a day against what the person actually asked for — 5 kg
+    // in 9 weeks is 0.5556 kg/week, which rounds up to 0.6 and plans a deficit
+    // 49 kcal larger than requested. Sometimes it rounded the other way and
+    // planned a slower loss than the person had agreed to.
+    //
+    // Neither drift was ever unsafe: targetIntake() caps the deficit at
+    // MAX_DEFICIT_SHARE, and the invariant below recomputes the rate from the
+    // raw values rather than from this one. But a safety-relevant calculation
+    // must not be driven by a rounding that exists for display. Rounding
+    // happens where the number is shown, not where it is used.
+    const ratePerWeekKg = Math.abs(start - target) / weeks
 
     // ------------------------------------------------------- training ----
     const desired = input.profile.sport.sessionsPerWeekTarget ?? DEFAULT_SESSIONS_PER_WEEK[experience]

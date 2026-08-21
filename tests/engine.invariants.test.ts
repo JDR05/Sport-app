@@ -76,3 +76,53 @@ describe.each(CASES)('$name', ({ input }) => {
     expect(plan.items.length).toBeGreaterThanOrEqual(plan.strategy.goalTrack.items.length > 0 ? 1 : 0)
   })
 })
+
+describe('the deficit follows the goal, not a rounded version of it', () => {
+  // A deep-dive review flagged `round1()` on the weekly rate before the daily
+  // calorie deficit is derived from it. Its predicted consequence — the
+  // invariant rejecting the plan — was wrong: the invariant recomputes the
+  // rate from the raw values, and targetIntake() caps the deficit anyway.
+  //
+  // The underlying point was right, though. 5 kg in 9 weeks is 0.5556 kg/week;
+  // rounded to 0.6 it planned a deficit 49 kcal a day larger than the person
+  // agreed to, and other inputs rounded the other way and planned a slower
+  // loss than they asked for. A safety-relevant number must not be moved by a
+  // rounding that exists for display.
+
+  const KCAL_PER_KG = 7700
+
+  /** What the deficit should be for a goal the cap does not bind. */
+  function expectedDeficit(start: number, target: number, weeks: number): number {
+    return (Math.abs(start - target) / weeks) * KCAL_PER_KG / 7
+  }
+
+  it.each([
+    [75, 70, 9],
+    [80, 74, 11],
+    [85, 78, 12],
+  ])('plans %s->%s kg over %s weeks from the exact rate', (start, target, weeks) => {
+    const base = ALL_COMBINATIONS.find((c) => c.input.goal.archetype === 'body_composition')!.input
+    const input = {
+      ...base,
+      profile: { ...base.profile, weightKg: start },
+      goal: { ...base.goal, targetDate: addDays(base.today, weeks * 7) },
+      metrics: [
+        { metricKey: 'weight_kg', startValue: start, targetValue: target, unit: 'kg' },
+      ],
+    }
+
+    const plan = generatePlan(input)
+    const deficit = Number(plan.strategy.goalTrack.summary[1]?.match(/−(\d+)/)?.[1] ?? 0)
+
+    // Either the safety cap bound — which is its job — or the deficit follows
+    // the exact rate. What must never happen is a deficit that matches the
+    // *rounded* rate while the cap left room for the true one.
+    const exact = expectedDeficit(start, target, weeks)
+    const rounded = (Math.round((Math.abs(start - target) / weeks) * 10) / 10) * KCAL_PER_KG / 7
+
+    if (Math.abs(exact - rounded) > 5) {
+      expect(Math.abs(deficit - rounded)).toBeGreaterThan(Math.abs(deficit - exact) - 1)
+    }
+    expect(deficit).toBeLessThanOrEqual(Math.ceil(exact) + 1)
+  })
+})

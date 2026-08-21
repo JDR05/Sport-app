@@ -7,6 +7,49 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-064: Rundung gehört an die Anzeige, nicht in die Rechnung
+
+**Entscheidung:** `ratePerWeekKg` in `bodyComposition.ts` wird nicht mehr gerundet. Die
+Wochenrate geht mit voller Präzision in die Defizitberechnung; gerundet wird nur dort, wo eine
+Zahl angezeigt wird.
+
+**Begründung:** Ein externer Deep-Dive-Review hat `round1()` an dieser Stelle markiert. Die
+vorhergesagte Wirkung — die Invariante lehnt den Plan ab — stimmte **nicht**: die Invariante
+rechnet die Rate aus den Rohwerten neu, und `targetIntake()` deckelt das Defizit ohnehin bei
+`MAX_DEFICIT_SHARE`. Der zugrunde liegende Punkt war trotzdem richtig.
+
+Nachgerechnet: 5 kg in 9 Wochen sind 0,5556 kg/Woche. Gerundet auf 0,6 plant die App ein
+Tagesdefizit von 660 statt 611 kcal — 49 kcal mehr, als die Person vereinbart hat. Andere
+Eingaben rundeten in die Gegenrichtung und planten einen langsameren Verlust als gewünscht
+(80→74 kg in 11 Wochen: −50 kcal). Gemessene Spanne über sechs realistische Ziele: ±50 kcal/Tag.
+
+Nie unsicher, aber immer falsch: eine sicherheitsrelevante Größe darf sich nicht danach richten,
+wie viele Nachkommastellen eine Anzeige zeigt.
+
+---
+
+## 2026-08-21 — ADR-065: Die Zielübergabe ist umkehrbar
+
+**Entscheidung:** `saveOnboarding` merkt sich die Id des pausierten Ziels und reaktiviert es,
+wenn die Aktivierung des neuen Ziels fehlschlägt. Der Startgewicht-Insert wandert **vor** die
+Übergabe, in den durch `rollback` geschützten Bereich.
+
+**Begründung:** Ergänzt ADR-055. Dort wurde die Reihenfolge umgedreht, damit nichts zerstört
+wird, bevor der Ersatz existiert — aber die letzten beiden Statements blieben ungeschützt, und
+mein eigener Kommentar an der Stelle behauptete „Nothing to roll back to here". Das war falsch:
+das alte Ziel ist pausiert, nicht gelöscht, und lässt sich reaktivieren. Scheiterte die
+Aktivierung, stand der Nutzer mit **null aktiven Zielen** da — und „kein Ziel" liest die App als
+„nicht onboarded" und schickt zurück ins Onboarding. Gegen eine echte Datenbank durchgespielt:
+vorher 0 aktive Ziele, jetzt 1 mit erhaltenen Constraints und Historie.
+
+Das Startgewicht stand ganz am Ende, nach der bereits erfolgten Aktivierung. Ein Fehler dort
+meldete „Speichern hat nicht geklappt" über einen Zielwechsel, der tatsächlich funktioniert
+hatte — und ein erneuter Versuch war dann kein Retry desselben Vorgangs. Eine Messung der
+Person ist unabhängig davon gültig, ob der Wechsel durchläuft, also kostet es nichts, sie früh
+zu schreiben und jeden Fehler im rücknehmbaren Teil zu halten.
+
+---
+
 ## 2026-08-21 — ADR-063: Eine gefloorte Dauer darf nie in Distanz zurückgerechnet werden
 
 **Entscheidung:** In `endurance.ts` wird die Distanz einer Einheit auf `wanted` gedeckelt

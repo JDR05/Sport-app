@@ -153,31 +153,17 @@ export async function saveOnboarding(
     .eq('trial', true)
   if (clearedTrials.error) return rollback(clearedTrials.error.message)
 
-  // The handover, and the only genuinely destructive pair. Retired, never
-  // deleted: an old goal is part of this person's history, and the plans and
-  // experiments that reference it must stay readable.
-  const retired = await supabase
-    .from('goals')
-    .update({ status: 'paused' })
-    .eq('profile_id', profileId)
-    .eq('status', 'active')
-  if (retired.error) return rollback(retired.error.message)
-
-  const activated = await supabase
-    .from('goals')
-    .update({ status: 'active' })
-    .eq('id', goal.data.id)
-    .eq('profile_id', profileId)
-  // Nothing to roll back to here — the old goal is already paused — so the
-  // new one stays as the only candidate and the error is reported honestly.
-  if (activated.error) return { ok: false, error: activated.error.message }
-
   // Weight is an outcome metric, so its history belongs in measurements. The
   // profile keeps only the starting point.
+  //
+  // Written before the handover on purpose. It used to sit at the very end,
+  // after the new goal was already live, so a failed insert returned
+  // "Speichern hat nicht geklappt" about a goal change that had in fact
+  // succeeded — and the retry was then not a retry of the same operation.
+  // A measurement of the person is valid whether or not the switch completes,
+  // so taking it early costs nothing and keeps every failure inside the part
+  // that can still be rolled back.
   if (data.profile.weightKg !== null) {
-    // Checked like everything else. It was the one write in this function whose
-    // error was discarded, which is how a starting weight disappears without
-    // anyone finding out until the first chart looks wrong.
     const measured = await supabase.from('measurements').insert({
       profile_id: profileId,
       metric_key: 'weight_kg',
@@ -185,7 +171,46 @@ export async function saveOnboarding(
       value: data.profile.weightKg,
       unit: 'kg',
     })
-    if (measured.error) return { ok: false, error: measured.error.message }
+    if (measured.error) return rollback(measured.error.message)
+  }
+
+  // The handover, and the only genuinely destructive pair. Retired, never
+  // deleted: an old goal is part of this person's history, and the plans and
+  // experiments that reference it must stay readable.
+  //
+  // The id is captured so the pause can be undone. Without it, a failure
+  // between these two statements left the person with no active goal at all —
+  // and the app reads "no goal" as "not onboarded" and sends them back through
+  // the onboarding, which is the exact failure this whole ordering exists to
+  // prevent.
+  const retired = await supabase
+    .from('goals')
+    .update({ status: 'paused' })
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+    .select('id')
+  if (retired.error) return rollback(retired.error.message)
+
+  const previousIds = (retired.data ?? []).map((row) => row.id)
+
+  const activated = await supabase
+    .from('goals')
+    .update({ status: 'active' })
+    .eq('id', goal.data.id)
+    .eq('profile_id', profileId)
+
+  if (activated.error) {
+    // Put the person back where they started: their old goal active, the
+    // half-built new one gone. Leaving them with nothing active is the one
+    // outcome worse than the switch simply not happening.
+    if (previousIds.length > 0) {
+      await supabase
+        .from('goals')
+        .update({ status: 'active' })
+        .eq('profile_id', profileId)
+        .in('id', previousIds)
+    }
+    return rollback(activated.error.message)
   }
 
   return { ok: true }
