@@ -7,6 +7,38 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-063: Eine gefloorte Dauer darf nie in Distanz zurückgerechnet werden
+
+**Entscheidung:** In `endurance.ts` wird die Distanz einer Einheit auf `wanted` gedeckelt
+(`km = min(wanted, minutes / MIN_PER_KM)`), nie darüber angehoben. Die Anzahl der Läufe folgt
+wieder direkt `sessionsPerWeekTarget` — die zwischenzeitliche „weniger, aber sichere Läufe"-Logik
+ist entfernt, weil sie nicht mehr nötig ist. Zusätzlich trägt eine einzelne Einheit pro Woche das
+volle Wochenbudget statt nur den 45-%-Anteil des langen Laufs.
+
+**Begründung:** Der QA-Agent hat reproduziert, dass „10 km pro Woche" — die naheliegendste
+Antwort bei einem 10-km-Ziel — die App komplett unbenutzbar machte: Sicherheitsgrenze verletzt,
+Fehlerbildschirm, kein Ausweg außer erneutem Onboarding. Das war meine eigene Regression vom
+selben Tag (ADR-060/062-Umbau).
+
+Ursache: eine Dauer kann aus zwei verschiedenen Gründen verändert werden, und nur einer davon
+darf die Distanz mitziehen. Reicht das Zeitfenster nicht, muss die Distanz schrumpfen — das ist
+legitim. Wird die Dauer nur angehoben, weil eine Einheit sonst zu kurz wäre, um sich zu lohnen
+(`MIN_VIABLE_SESSION_MINUTES`), darf das die Distanz **nicht** erhöhen — die Einheit bekommt mehr
+Zeit, nicht mehr beanspruchte Kilometer. Genau das passierte: eine auf 3 km budgetierte Einheit
+wurde auf 20 Minuten gefloort und ihre Distanz dann aus diesen 20 Minuten zurückgerechnet, macht
+3,3 km — über der 10-%-Grenze, und die Invariante, die genau das abfangen soll, hielt die Woche
+für regelkonform.
+
+Mein erster Fix (weniger, dafür längere Läufe wählen) hätte das Problem verdeckt, statt es zu
+lösen, und enthüllte einen dritten, unabhängigen Fehler: bei genau einer Einheit lief die
+Lang-/Locker-Aufteilung weiter, sodass diese eine Einheit nur 45 % des Wochenbudgets beanspruchte
+und die übrigen 55 % kommentarlos verschwanden.
+
+Gegengeprüft: Startvolumen von 0,5 bis 10 km/Woche wird jetzt durchweg geplant, keine Ablehnung
+mehr, die angeforderte Lauf-Anzahl bleibt erhalten.
+
+---
+
 ## 2026-08-21 — ADR-062: Dauerregeln sind Dauerregeln, keine Wochentagstermine
 
 **Entscheidung:** `PlannedItem` bekommt `cadence: 'daily' | 'weekly'`. Die Engine liefert

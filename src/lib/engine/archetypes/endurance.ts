@@ -38,6 +38,12 @@ const FALLBACK_START_KM = 5
  */
 const MIN_PER_KM = 6
 
+/**
+ * The long run's share of the week. One session carrying a little under half
+ * the volume is the shape endurance plans take; the rest is easy mileage.
+ */
+const LONG_RUN_SHARE = 0.45
+
 function volumeMetric(input: PlanInput) {
   return input.metrics.find((m) => m.metricKey === 'distance_km' || m.metricKey === 'duration_min')
 }
@@ -105,21 +111,7 @@ export const endurance: ArchetypeStrategy = {
     const start = startVolume(input)
     const thisWeekKm = round1(start * (1 + MAX_WEEKLY_VOLUME_GROWTH))
 
-    // How many runs the week's volume can actually pay for.
-    //
-    // A session below MIN_VIABLE_SESSION_MINUTES is not worth leaving the house
-    // for, so every run costs at least that much distance whatever the
-    // arithmetic wanted. Someone starting at 8 km a week who asks for three
-    // runs is therefore asking for 10 km — above the ten percent cap — and the
-    // honest answer is fewer runs, not shorter ones that break the rule.
-    //
-    // This was already happening: the duration was floored to the minimum while
-    // the recorded distance stayed at the small number the division produced,
-    // so the invariant saw a compliant week and the person ran an
-    // over-the-limit one.
-    const minKmPerSession = MIN_VIABLE_SESSION_MINUTES / MIN_PER_KM
-    const affordable = Math.max(1, Math.floor(thisWeekKm / minKmPerSession))
-    const desired = Math.min(input.profile.sport.sessionsPerWeekTarget ?? 3, affordable)
+    const desired = input.profile.sport.sessionsPerWeekTarget ?? 3
 
     const { weekdays, planned: sessions } = planTrainingDays(
       ctx, desired, 1, ENDURANCE_MIN_REST_DAYS,
@@ -139,7 +131,11 @@ export const endurance: ArchetypeStrategy = {
         longIndex = index
       }
     })
-    const longKm = round1(thisWeekKm * 0.45)
+    // A single session carries the whole week's volume rather than 45 % of
+    // it — the 45/55 split only means something when there is a second
+    // session to carry the rest. Without this, one run a week silently lost
+    // more than half its distance.
+    const longKm = weekdays.length > 1 ? round1(thisWeekKm * LONG_RUN_SHARE) : thisWeekKm
     const easyKm = weekdays.length > 1 ? round1((thisWeekKm - longKm) / (weekdays.length - 1)) : 0
 
     // What the week actually contains, rather than what the progression would
@@ -149,27 +145,30 @@ export const endurance: ArchetypeStrategy = {
     // into the single remaining session would have been the other way to make
     // the numbers agree, and the wrong one: that is exactly the step increase
     // the volume cap exists to prevent.
-    // Distance follows the time that exists, not the other way round.
     //
-    // The duration was already being capped to the window, but the kilometres
-    // were not: someone with two 45-minute evenings was shown "22,0 km diese
-    // Woche" over sessions that between them held 13,3 km. The headline was a
-    // promise the plan could not keep, and the sessions each said a distance
-    // their own time did not allow. Whichever number the person believed, one
-    // of them was wrong.
-    //
-    // So each session is capped first, and the week's volume is then read back
-    // off the sessions. A short week now says so instead of quietly overstating
-    // itself — which is also the honest input for the ten percent rule next
-    // week, because a volume nobody ran is not a volume to grow from.
+    // Duration can be adjusted for two different reasons, and only one of them
+    // may change the distance. If the window is the binding constraint — an
+    // evening too short for the planned run — the session has to shrink, and
+    // its distance shrinks with it: that is `Math.min(wanted, window's reach)`.
+    // But a session below MIN_VIABLE_SESSION_MINUTES gets its *time* raised
+    // for a different reason — it is not worth leaving the house for seven
+    // minutes — and that floor must never be read back into distance. It did:
+    // a session budgeted for 3 km had its duration floored to twenty minutes
+    // and then its km recomputed from those twenty minutes, silently claiming
+    // 3.3 km. Multiplied across several sessions, "22,0 km diese Woche" was
+    // shown over sessions that between them held 13,3 km, and — the sharper
+    // failure — a beginner's week came out over the ten percent cap while the
+    // invariant that exists to catch exactly that read it as compliant.
     const planned = weekdays.map((day, index) => {
       const wanted = index === longIndex ? longKm : easyKm
       const window = longestSlotOn(input, day)
+      const naturalMinutes = Math.round(wanted * MIN_PER_KM)
       const minutes = Math.min(
-        Math.max(MIN_VIABLE_SESSION_MINUTES, Math.round(wanted * MIN_PER_KM)),
+        Math.max(MIN_VIABLE_SESSION_MINUTES, naturalMinutes),
         Math.max(MIN_VIABLE_SESSION_MINUTES, window),
       )
-      return { day, index, minutes, km: round1(minutes / MIN_PER_KM) }
+      const km = round1(Math.min(wanted, minutes / MIN_PER_KM))
+      return { day, index, minutes, km }
     })
 
     const plannedKm = round1(planned.reduce((sum, s) => sum + s.km, 0))
