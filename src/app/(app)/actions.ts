@@ -15,7 +15,8 @@ import { loadCheckIns, saveCheckIn, saveMeasurement, type CheckIn } from '@/lib/
 import { acceptExperiment, declineExperiment } from '@/lib/db/experiments'
 import { weeklyReview } from '@/lib/db/analysis'
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+// Shared with the onboarding: a shape check is not a value check.
+import { isoDate } from '@/lib/domain/isoDate'
 
 /** The date comes from the client because the server runs in UTC. */
 export async function loadWeek(today: unknown): Promise<WeekResult> {

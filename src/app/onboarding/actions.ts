@@ -14,6 +14,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { isoDate } from '@/lib/domain/isoDate'
 import { requireUser } from '@/lib/auth/session'
 import { saveOnboarding } from '@/lib/db/save-onboarding'
 import {
@@ -38,7 +39,7 @@ const onboardingSchema = z.object({
     // the AI endpoint applies.
     rawText: z.string().trim().min(3).max(500),
     archetype: z.enum(GOAL_ARCHETYPES),
-    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+    targetDate: isoDate.nullable(),
     classifiedBy: z.enum(['ai', 'keywords', 'user']),
   }),
   metrics: z

@@ -7,6 +7,45 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-055: Erst bauen, dann abreissen
+
+**Entscheidung:** `saveOnboarding` legt das neue Ziel zuerst an — als `paused`, damit es nicht
+mit dem aktiven kollidiert —, dann Metriken, dann die neuen Constraints, und erst danach wird
+Altes entfernt. Die alten Constraints werden per Id gelöscht, nachdem die neuen stehen. Jeder
+Fehler vor der Übergabe rollt das halb gebaute Ziel zurück. Jeder Schreibvorgang wird geprüft,
+auch der `measurements`-Insert.
+
+**Begründung:** Vorher lief es andersherum: Constraints löschen, altes Ziel pausieren,
+Experimente abbrechen — und erst dann das neue Ziel einfügen. Jeder Fehler dazwischen hinterließ
+einen Menschen **ohne aktives Ziel und ohne Constraints**. Und die App beantwortet „kein Ziel"
+damit, dass sie zurück ins Onboarding schickt. Genau das Symptom, das der Product Owner
+gemeldet hat — nicht aus dem Routing, sondern aus der Datenschicht.
+
+PostgREST gibt jedem Statement seine eigene Transaktion. Damit **ist** die Reihenfolge hier die
+Sicherheitsgarantie: nichts, was jemand schon hat, wird entfernt, bevor der Ersatz in der
+Datenbank steht. Gegen eine echte Datenbank geprüft — vorher 0 Ziele/0 Constraints, jetzt
+1/1 nach demselben Fehler.
+
+Harte Constraints sind der Unterschied zwischen einem sicheren und einem verletzenden Plan.
+Dass sie kurzzeitig ganz fehlen können, ist kein akzeptabler Zwischenzustand.
+
+---
+
+## 2026-08-21 — ADR-056: Ein Formatcheck ist kein Wertecheck
+
+**Entscheidung:** Datumsangaben werden über `src/lib/domain/isoDate.ts` geprüft, das den Wert
+durch `Date` zurückspielt. `2026-02-31` wird abgelehnt.
+
+**Begründung:** `/^\d{4}-\d{2}-\d{2}$/` akzeptiert den 31. Februar. Die Form stimmt, der Tag
+existiert nicht — der Wert erreicht eine `date`-Spalte und scheitert dort, also **nachdem** die
+umliegenden Statements gelaufen sind. Das war der konkrete Auslöser für ADR-055.
+
+Als UTC gelesen, weil die App ausschließlich reine Kalendertage speichert: eine Prüfung, die
+mit der Zeitzone des Servers wandert, würde in verschiedenen Regionen verschiedene Daten
+akzeptieren.
+
+---
+
 ## 2026-08-20 — ADR-054: Der Ring ist die eine Form
 
 **Entscheidung:** Ring als durchgehende Gestalt: Wortmarke, Wochen-Score und ab jetzt auch das
