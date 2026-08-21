@@ -11,11 +11,18 @@ import {
 } from '@/lib/adaptive'
 import { EXPERIMENT_DAYS } from '@/lib/adaptive/constants'
 import { generatePlan } from '@/lib/engine'
+import { planSignature, signatureDistance } from '@/lib/engine/signature'
+import { weekdayOf } from '@/lib/engine/dates'
 import { daysBetween } from '@/lib/engine/dates'
 import { ALL_COMBINATIONS, GOALS, makeInput, PROFILES } from './fixtures/profiles'
 import { repeat, WEDNESDAY_PROBLEM } from './fixtures/observations'
 
-const input = makeInput(PROFILES[3], GOALS[1]) // Jonas, strength — six free days
+// Aylin: free on Monday, Wednesday, Friday and Saturday, so a Wednesday
+// session actually exists to be given up. Jonas was used here before, and his
+// plan never placed anything on a Wednesday at all — the engine was proposing
+// "14 Tage lang wird an diesem Wochentag nichts geplant" to somebody whose
+// Wednesday was already empty, and the test asserted that as correct.
+const input = makeInput(PROFILES[4], GOALS[1])
 
 function wednesdayHypothesis() {
   const deviation = detectDeviations(WEDNESDAY_PROBLEM).find((d) => d.dimension === 'weekday')!
@@ -169,5 +176,47 @@ describe('analyze', () => {
     for (const insight of analyze(input, WEDNESDAY_PROBLEM).insights) {
       expect(insight.evidence.length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('an experiment that would change nothing', () => {
+  // The gate that matters most, and the one that was missing. Three of the four
+  // rules the planner understands cannot move a plan in most weeks, and the
+  // engine proposed them anyway. Whether a rule bites depends on the person's
+  // schedule, not on the rule — so the only honest check is to build their week
+  // both ways and compare.
+
+  it('is not proposed at all', () => {
+    // Jonas has six free days and his plan places nothing on a Wednesday.
+    // "Nothing on Wednesdays for fourteen days" is not an experiment for him.
+    const jonas = makeInput(PROFILES[3], GOALS[1])
+    const before = generatePlan(jonas)
+    expect(before.items.filter((i) => weekdayOf(i.scheduledOn) === 'wed')).toEqual([])
+
+    expect(proposeExperiment(wednesdayHypothesis(), jonas, WEDNESDAY_PROBLEM)).toBeNull()
+  })
+
+  it('is still proposed for someone the same rule does affect', () => {
+    // The gate must refuse the empty case without silencing the real one.
+    const aylin = makeInput(PROFILES[4], GOALS[1])
+    expect(generatePlan(aylin).items.some((i) => weekdayOf(i.scheduledOn) === 'wed')).toBe(true)
+
+    const experiment = proposeExperiment(wednesdayHypothesis(), aylin, WEDNESDAY_PROBLEM)
+    expect(experiment).not.toBeNull()
+    expect(experiment!.proposedRule.ruleKey).toBe('avoid_weekday')
+  })
+
+  it('promises only what it delivers', () => {
+    // Whatever is proposed, the plan it produces must differ from the current
+    // one — that is the whole content of the sentence the user is shown.
+    const aylin = makeInput(PROFILES[4], GOALS[1])
+    const experiment = proposeExperiment(wednesdayHypothesis(), aylin, WEDNESDAY_PROBLEM)!
+    const after = generatePlan({
+      ...aylin,
+      personalRules: [trialRuleOf(experiment)],
+    })
+    expect(
+      signatureDistance(planSignature(generatePlan(aylin)), planSignature(after)),
+    ).toBeGreaterThan(0)
   })
 })

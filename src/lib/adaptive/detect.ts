@@ -69,7 +69,19 @@ function detectAlong(dimension: DeviationDimension, resolved: Observation[]): De
 
   const out: Deviation[] = []
   for (const [bucket, inBucket] of buckets) {
-    const rest = resolved.filter((o) => bucketOf(dimension, o) !== bucket)
+    // Only observations that *have* a value on this axis may be compared
+    // against one that does. An item with no time of day was already left out
+    // of bucket formation above; letting it into the comparison denominator
+    // meant the daily routines — which mostly succeed and carry no slot and no
+    // duration — were counted as evidence that other times of day go better.
+    //
+    // Every plan mixes timed sessions with untimed daily routines, so this was
+    // the normal case, not an edge one: it manufactured contrast out of nothing
+    // and could report two mutually contradictory findings from the same week.
+    const rest = resolved.filter((o) => {
+      const key = bucketOf(dimension, o)
+      return key !== null && key !== bucket
+    })
     const deviation = assess(dimension, bucket, inBucket, rest)
     if (deviation) out.push(deviation)
   }

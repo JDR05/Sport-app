@@ -7,6 +7,50 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-060: Ein Experiment muss den Plan nachweislich verändern
+
+**Entscheidung:** `proposeExperiment` baut den Plan mit der Regel **und** vergleicht ihn mit dem
+aktuellen. Ist die Signaturdistanz 0, wird nichts vorgeschlagen.
+
+**Begründung:** Bisher wurde nur geprüft, ob der Plan *sicher* ist. Drei der vier Regeln, die
+der Planer versteht, können in den meisten Wochen gar nichts bewegen: eine Tageszeit-Präferenz
+braucht einen Tag mit zwei Zeitfenstern, `lighter_domain` betrifft nur die Basisspur, und
+`avoid_weekday` steuert die *Platzierung von Einheiten* — an einem Tag mit Tagesroutinen tut es
+nichts.
+
+Vorgeschlagen wurde trotzdem, mit dem Satz „14 Tage lang wird an diesem Wochentag nichts
+geplant." Der Nutzer stimmt zu, öffnet Heute — und findet denselben Mittwoch. Vierzehn Tage
+später wird ein Münzwurf als etwas ins Playbook geschrieben, das er über sich gelernt habe.
+Genau das sollte ADR-042 beenden; dort wurde der **Zeitpunkt** der Trial-Regel repariert, nicht
+die Frage, ob sie überhaupt wirkt.
+
+Ob eine Regel greift, hängt vom Wochenplan der Person ab, nicht von der Regel. Deshalb ist der
+Vergleich beider Wochen die einzig ehrliche Prüfung.
+
+Nebenbefund beim Umbau: der Testfixture-Nutzer für Experimente hatte **überhaupt keine
+Mittwochsaktion**. Die Suite hat einen leeren Vorschlag als korrekt behauptet.
+
+---
+
+## 2026-08-21 — ADR-061: Verglichen wird nur, was auf derselben Achse liegt
+
+**Entscheidung:** In `detectAlong` enthält die Vergleichsgruppe ausschließlich Beobachtungen mit
+einem Wert auf dieser Achse. Zusätzlich muss `bestOtherSlot` die verlassene Tageszeit
+tatsächlich schlagen.
+
+**Begründung:** Aktionen ohne Uhrzeit oder ohne Dauer wurden korrekt aus der Gruppenbildung
+ausgeschlossen — und dann im **Vergleichsnenner** mitgezählt. Da jeder Plan getaktete Einheiten
+mit ungetakteten Tagesroutinen mischt und Routinen meist gelingen, war das der Normalfall, nicht
+der Randfall: es erzeugte Kontrast aus dem Nichts und konnte zwei einander widersprechende
+Befunde aus derselben Woche melden.
+
+`bestOtherSlot` startete mit einer Untergrenze von 0 und verglich nie gegen die Tageszeit, die
+verlassen werden sollte. Die App konnte „Mittags funktioniert bisher zuverlässiger" sagen,
+während mittags messbar schlechter lief. Jemanden auf eine schlechtere Zeit zu schieben ist
+kein Experiment, sondern ein verlorener Halbmonat.
+
+---
+
 ## 2026-08-21 — ADR-057: Ein halb geschriebener Plan wird zurückgenommen
 
 **Entscheidung:** Scheitert in `writeWeek` der Items-Insert, wird die zuvor geschriebene

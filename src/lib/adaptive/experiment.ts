@@ -10,9 +10,10 @@ import { completionRate } from './detect'
 import { proposedRuleFor } from './hypothesis'
 import type { BehaviorMetric, Experiment, Hypothesis, Observation } from './types'
 import { generatePlan } from '@/lib/engine'
+import { planSignature, signatureDistance } from '@/lib/engine/signature'
 import { PlanInvariantError } from '@/lib/engine/errors'
 import { addDays } from '@/lib/engine/dates'
-import type { PersonalRule, PlanDomain, PlanInput } from '@/lib/domain/types'
+import type { PersonalRule, PlanDomain, PlanInput, PlanResult } from '@/lib/domain/types'
 
 /**
  * Confidence a rule carries while it is only a proposal. It is high enough to
@@ -29,9 +30,27 @@ export function proposeExperiment(
   const proposed = proposedRuleFor(hypothesis.deviation, observations)
   if (!proposed) return null
 
-  // The safety check runs against the rule exactly as it will be stored, trial
-  // flag included, so what is checked is what the planner will see.
-  if (!producesASafePlan(input, trialRule(proposed))) return null
+  // Two questions, not one: is the plan this rule produces safe, and is it a
+  // different plan at all.
+  //
+  // Only the first was ever asked. Three of the four rules the planner
+  // understands could not move a plan in most weeks — a time-slot preference
+  // needs a day that offers two bands, a lighter domain only touches the
+  // baseline track, and avoiding a weekday governs where sessions are *placed*,
+  // so it does nothing when that day holds daily routines. The engine proposed
+  // them anyway, promising "14 Tage lang wird an diesem Wochentag nichts
+  // geplant". The person accepted, opened Today, and found the same Wednesday —
+  // and a fortnight later a coin flip was written into their Playbook as
+  // something they had learned about themselves.
+  //
+  // Testing the rule against this person's actual week is the only honest gate:
+  // whether a rule bites depends on their schedule, not on the rule.
+  const rule = trialRule(proposed)
+  const withRule = planWith(input, rule)
+  if (!withRule) return null
+
+  const before = planSignature(generatePlan(input))
+  if (signatureDistance(before, planSignature(withRule)) === 0) return null
 
   const scope = scopeOf(hypothesis, observations)
   const baselineRate = completionRate(scope)
@@ -61,16 +80,16 @@ export function proposeExperiment(
 }
 
 /**
- * Builds the plan the rule would produce and lets the real invariants judge it.
+ * The plan the rule would produce, or null if it would break a safety limit.
+ *
  * A thrown PlanInvariantError is the answer, not an error to report — the
  * proposal is simply dropped and the user never learns it existed.
  */
-function producesASafePlan(input: PlanInput, rule: PersonalRule): boolean {
+function planWith(input: PlanInput, rule: PersonalRule): PlanResult | null {
   try {
-    generatePlan({ ...input, personalRules: [...input.personalRules, rule] })
-    return true
+    return generatePlan({ ...input, personalRules: [...input.personalRules, rule] })
   } catch (error) {
-    if (error instanceof PlanInvariantError) return false
+    if (error instanceof PlanInvariantError) return null
     throw error
   }
 }

@@ -112,18 +112,33 @@ function domainCandidate(deviation: Deviation): Candidate {
   }
 }
 
+/**
+ * The best other time of day — but only if it beats the one being left.
+ *
+ * The bar used to be zero, so any slot with a single success qualified. The
+ * engine could therefore say "Abends bleibt bei dir häufig liegen; Mittags
+ * funktioniert bisher zuverlässiger" when middays were measurably worse than
+ * evenings. Nothing downstream caught it, because the comparison the sentence
+ * asserts was never actually made.
+ *
+ * The floor is now the abandoned slot's own rate: moving someone to a worse
+ * time is not an experiment, it is advice that costs them a fortnight.
+ */
 function bestOtherSlot(exclude: string, observations: Observation[]): TimeSlot | null {
   const slots: TimeSlot[] = ['early', 'midday', 'evening']
   let best: TimeSlot | null = null
-  let bestRate = 0
+
+  const current = completionIn(exclude, observations)
+  // No reading on the slot being left means nothing to beat, and a suggestion
+  // with nothing behind it is exactly what this module must not produce.
+  if (current === null) return null
+
+  let bestRate = current
 
   for (const slot of slots) {
     if (slot === exclude) continue
-    const inSlot = observations.filter(
-      (o) => o.timeSlot === slot && (o.status === 'done' || o.status === 'moved' || o.status === 'missed'),
-    )
-    if (inSlot.length === 0) continue
-    const rate = inSlot.filter((o) => o.status !== 'missed').length / inSlot.length
+    const rate = completionIn(slot, observations)
+    if (rate === null) continue
     if (rate > bestRate) {
       bestRate = rate
       best = slot
@@ -131,4 +146,15 @@ function bestOtherSlot(exclude: string, observations: Observation[]): TimeSlot |
   }
 
   return best
+}
+
+/** Completion in one slot, or null when nothing there was ever judged. */
+function completionIn(slot: string, observations: Observation[]): number | null {
+  const inSlot = observations.filter(
+    (o) =>
+      o.timeSlot === slot &&
+      (o.status === 'done' || o.status === 'moved' || o.status === 'missed'),
+  )
+  if (inSlot.length === 0) return null
+  return inSlot.filter((o) => o.status !== 'missed').length / inSlot.length
 }

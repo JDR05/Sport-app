@@ -30,7 +30,10 @@ import type { PersonalRule } from '@/lib/domain/types'
 import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
 import { WEDNESDAY_PROBLEM } from './fixtures/observations'
 
-const input = makeInput(PROFILES[3], GOALS[1])
+// Aylin, whose plan actually places something on a Wednesday. Jonas was used
+// here before, and the engine now refuses to propose an experiment whose rule
+// cannot change that person's week — his Wednesday was already empty.
+const input = makeInput(PROFILES[4], GOALS[1])
 
 function runningExperiment(): Experiment {
   const deviation = detectDeviations(WEDNESDAY_PROBLEM).find((d) => d.dimension === 'weekday')!
