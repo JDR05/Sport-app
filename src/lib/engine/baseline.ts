@@ -11,7 +11,7 @@
 
 import { STEP_TARGET } from './constants'
 import { dateOf, type PlanContext } from './context'
-import { WEEKDAYS, type BaselineTrack, type GoalTrack, type PlanDomain, type PlannedItem, type Weekday } from '@/lib/domain/types'
+import { WEEKDAYS, type BaselineTrack, type GoalTrack, type PlanDomain, type PlanInput, type PlannedItem, type Weekday } from '@/lib/domain/types'
 
 /** How many goal-track actions in a domain count as "already covered". */
 const SUPPRESSION_THRESHOLD = 2
@@ -64,22 +64,16 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
 
   // ----------------------------------------------------------- nutrition --
   if (!covers('nutrition')) {
-    const veg = input.profile.nutrition.vegetablePortionsPerDay
+    const habit = additiveHabit(input)
     items.push({
       scheduledOn: dateOf(ctx, 'mon'),
       domain: 'nutrition',
       track: 'baseline',
-      title: 'Zu einer Mahlzeit täglich Gemüse dazu',
+      title: habit.title,
       plannedDurationMin: null,
       timeSlot: null,
-      rationale: {
-        text:
-          veg === null
-            ? 'Gesundheitsbasis: eine additive Ernährungsgewohnheit, die neben jedem Ziel läuft.'
-            : `Du kommst auf etwa ${veg} Portionen am Tag. Eine dazu — dazulegen, nicht weglassen.`,
-        basedOn: ['profile.nutrition.vegetablePortionsPerDay'],
-      },
-      details: { baseline: true, additive: true },
+      rationale: { text: habit.reason, basedOn: [habit.basedOn] },
+      details: { baseline: true, additive: true, focus: habit.focus },
     })
   }
 
@@ -118,4 +112,90 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
   }
 
   return { items, suppressedDomains: suppressed }
+}
+
+
+/**
+ * The one thing worth adding to how this person already eats.
+ *
+ * Always additive — something put in, never something taken away. That is not a
+ * stylistic choice: the safety rules forbid compensatory logic and anything
+ * that could encourage disordered eating, and "eat less of X" as a standing
+ * background instruction is exactly the shape those rules are guarding against.
+ *
+ * Ordered most specific first, and it stops at the first match: one habit at a
+ * time is the rule everywhere else in this product, and a baseline that runs
+ * beside a real goal has even less licence to ask for three things.
+ *
+ * This used to be a single sentence for everybody. Telling someone who eats out
+ * five times a week to add vegetables to a meal they are not cooking is the
+ * generic health-app advice the product exists to avoid — it is not wrong, it
+ * is just not about them.
+ */
+function additiveHabit(input: PlanInput): {
+  title: string
+  reason: string
+  basedOn: string
+  focus: string
+} {
+  const n = input.profile.nutrition
+
+  if (n.sugaryDrinksPerDay !== null && n.sugaryDrinksPerDay >= 2) {
+    return {
+      title: 'Zu jedem süßen Getränk ein Glas Wasser',
+      reason:
+        `Du trinkst etwa ${n.sugaryDrinksPerDay} süße Getränke am Tag. Das Glas Wasser ` +
+        `kommt dazu, nichts wird gestrichen — meistens verschiebt sich das Verhältnis dann ` +
+        `von allein.`,
+      basedOn: 'profile.nutrition.sugaryDrinksPerDay',
+      focus: 'water',
+    }
+  }
+
+  if (n.eatsOutPerWeek !== null && n.eatsOutPerWeek >= 4) {
+    return {
+      title: 'Auswärts eine Beilage mitbestellen',
+      reason:
+        `Du isst ${n.eatsOutPerWeek}× die Woche auswärts. Da nützt dir kein Kochtipp — ` +
+        `eine Beilage dazu ist das, was in dieser Situation tatsächlich geht.`,
+      basedOn: 'profile.nutrition.eatsOutPerWeek',
+      focus: 'side_dish',
+    }
+  }
+
+  if (n.dietaryPattern === 'vegan' || n.dietaryPattern === 'vegetarian') {
+    return {
+      title: 'Zu jeder Hauptmahlzeit eine Eiweißquelle',
+      reason:
+        n.dietaryPattern === 'vegan'
+          ? 'Pflanzlich essen und genug Eiweiß bekommen ist Planung, kein Zufall. Hülsenfrüchte, ' +
+            'Tofu oder Seitan zu jeder Hauptmahlzeit — dazulegen, nicht weglassen.'
+          : 'Vegetarisch wird das Eiweiß leicht zur Lücke. Eine Quelle zu jeder Hauptmahlzeit ' +
+            'schließt sie, ohne dass du etwas streichen musst.',
+      basedOn: 'profile.nutrition.dietaryPattern',
+      focus: 'protein',
+    }
+  }
+
+  if (n.cooksAtHome === 'never') {
+    return {
+      title: 'Einmal die Woche selbst kochen',
+      reason:
+        'Du kochst im Moment nicht. Einmal ist kein Umbau deines Alltags, aber es ist der ' +
+        'Unterschied zwischen „kann ich nicht" und „mache ich manchmal".',
+      basedOn: 'profile.nutrition.cooksAtHome',
+      focus: 'cooking',
+    }
+  }
+
+  const veg = n.vegetablePortionsPerDay
+  return {
+    title: 'Zu einer Mahlzeit täglich Gemüse dazu',
+    reason:
+      veg === null
+        ? 'Gesundheitsbasis: eine additive Ernährungsgewohnheit, die neben jedem Ziel läuft.'
+        : `Du kommst auf etwa ${veg} Portionen am Tag. Eine dazu — dazulegen, nicht weglassen.`,
+    basedOn: 'profile.nutrition.vegetablePortionsPerDay',
+    focus: 'vegetables',
+  }
 }

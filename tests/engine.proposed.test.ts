@@ -52,8 +52,9 @@ describe('a proposal reaches the plan', () => {
   })
 
   it('takes over the goal track when no archetype fits', () => {
-    // "general_health" answers an unusual goal with a single action. This is
-    // the case the takeover mode exists for.
+    // Deterministically, "general_health" answers an unusual goal with a
+    // starting point read off the profile plus a nudge to sharpen the goal.
+    // That is deliberately thin — it is the case the takeover mode exists for.
     const input = makeInput(PROFILES[0], GOALS[6])
     const before = generatePlan(input).items.filter((i) => i.track === 'goal')
 
@@ -70,8 +71,11 @@ describe('a proposal reaches the plan', () => {
     })
     const goalItems = after.items.filter((i) => i.track === 'goal')
 
-    expect(before.length).toBe(1)
+    // Not a fixed count: what matters is that the model's week replaces the
+    // fallback's, not how many actions the fallback happened to contain.
+    expect(before.length).toBeGreaterThan(0)
     expect(goalItems.length).toBeGreaterThan(before.length)
+    expect(goalItems.every((i) => i.details.kind === 'ai_proposed')).toBe(true)
     expect(after.strategy.goalTrack.headline).toBe('Weniger aufschieben, drei Anker')
   })
 

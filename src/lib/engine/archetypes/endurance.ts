@@ -30,6 +30,14 @@ const WEEKDAY_LABEL: Record<Weekday, string> = {
 /** Assumed starting volume when the user gave none — deliberately low. */
 const FALLBACK_START_KM = 5
 
+/**
+ * The planning pace: six minutes a kilometre.
+ *
+ * Named because it converts in both directions now — distance to time when
+ * there is room, and time back to distance when there is not.
+ */
+const MIN_PER_KM = 6
+
 function volumeMetric(input: PlanInput) {
   return input.metrics.find((m) => m.metricKey === 'distance_km' || m.metricKey === 'duration_min')
 }
@@ -97,7 +105,22 @@ export const endurance: ArchetypeStrategy = {
     const start = startVolume(input)
     const thisWeekKm = round1(start * (1 + MAX_WEEKLY_VOLUME_GROWTH))
 
-    const desired = input.profile.sport.sessionsPerWeekTarget ?? 3
+    // How many runs the week's volume can actually pay for.
+    //
+    // A session below MIN_VIABLE_SESSION_MINUTES is not worth leaving the house
+    // for, so every run costs at least that much distance whatever the
+    // arithmetic wanted. Someone starting at 8 km a week who asks for three
+    // runs is therefore asking for 10 km — above the ten percent cap — and the
+    // honest answer is fewer runs, not shorter ones that break the rule.
+    //
+    // This was already happening: the duration was floored to the minimum while
+    // the recorded distance stayed at the small number the division produced,
+    // so the invariant saw a compliant week and the person ran an
+    // over-the-limit one.
+    const minKmPerSession = MIN_VIABLE_SESSION_MINUTES / MIN_PER_KM
+    const affordable = Math.max(1, Math.floor(thisWeekKm / minKmPerSession))
+    const desired = Math.min(input.profile.sport.sessionsPerWeekTarget ?? 3, affordable)
+
     const { weekdays, planned: sessions } = planTrainingDays(
       ctx, desired, 1, ENDURANCE_MIN_REST_DAYS,
     )
@@ -126,23 +149,41 @@ export const endurance: ArchetypeStrategy = {
     // into the single remaining session would have been the other way to make
     // the numbers agree, and the wrong one: that is exactly the step increase
     // the volume cap exists to prevent.
-    const plannedKm = round1(longKm + easyKm * Math.max(0, weekdays.length - 1))
+    // Distance follows the time that exists, not the other way round.
+    //
+    // The duration was already being capped to the window, but the kilometres
+    // were not: someone with two 45-minute evenings was shown "22,0 km diese
+    // Woche" over sessions that between them held 13,3 km. The headline was a
+    // promise the plan could not keep, and the sessions each said a distance
+    // their own time did not allow. Whichever number the person believed, one
+    // of them was wrong.
+    //
+    // So each session is capped first, and the week's volume is then read back
+    // off the sessions. A short week now says so instead of quietly overstating
+    // itself — which is also the honest input for the ten percent rule next
+    // week, because a volume nobody ran is not a volume to grow from.
+    const planned = weekdays.map((day, index) => {
+      const wanted = index === longIndex ? longKm : easyKm
+      const window = longestSlotOn(input, day)
+      const minutes = Math.min(
+        Math.max(MIN_VIABLE_SESSION_MINUTES, Math.round(wanted * MIN_PER_KM)),
+        Math.max(MIN_VIABLE_SESSION_MINUTES, window),
+      )
+      return { day, index, minutes, km: round1(minutes / MIN_PER_KM) }
+    })
 
-    const items: PlannedItem[] = weekdays.map((day, index) => {
+    const plannedKm = round1(planned.reduce((sum, s) => sum + s.km, 0))
+    const longestKm = planned.length > 0 ? Math.max(...planned.map((s) => s.km)) : 0
+
+    const items: PlannedItem[] = planned.map(({ day, index, minutes, km }) => {
       const isLong = index === longIndex
-      const km = isLong ? longKm : easyKm
       const slot = bestSlotOn(input, day, ctx.rules.preferredSlot)
       return {
         scheduledOn: dateOf(ctx, day),
         domain: 'training' as const,
         track: 'goal' as const,
         title: isLong ? `Langer Lauf, ${formatDecimal(km)} km` : `Lockerer Lauf, ${formatDecimal(km)} km`,
-        // Six minutes a kilometre as a planning pace, but never longer than the
-        // window the person actually has on that day.
-        plannedDurationMin: Math.min(
-          Math.max(MIN_VIABLE_SESSION_MINUTES, Math.round(km * 6)),
-          Math.max(MIN_VIABLE_SESSION_MINUTES, longestSlotOn(input, day)),
-        ),
+        plannedDurationMin: minutes,
         timeSlot: slotOf(input, day, ctx.rules.preferredSlot),
         rationale: {
           text: isLong
@@ -161,7 +202,7 @@ export const endurance: ArchetypeStrategy = {
       headline: `${formatDecimal(plannedKm)} km · ${sessions}× diese Woche`,
       summary: [
         `${sessions}× laufen, zusammen ${formatDecimal(plannedKm)} km`,
-        `Längste Einheit ${formatDecimal(longKm)} km`,
+        `Längste Einheit ${formatDecimal(longestKm)} km`,
         `${restDays(weekdays).length} Ruhetage`,
       ],
       items,
@@ -169,7 +210,7 @@ export const endurance: ArchetypeStrategy = {
         sessionsBucket: bucketSessions(sessions),
         weekdayPattern: weekdays.join('-') || 'none',
         volumeBucket: String(Math.floor(plannedKm / 5) * 5),
-        longRunShare: plannedKm > 0 ? String(Math.round((longKm / plannedKm) * 10)) : '0',
+        longRunShare: plannedKm > 0 ? String(Math.round((longestKm / plannedKm) * 10)) : '0',
         longDay: weekdays[longIndex] ?? 'none',
         sessionLength: bucketMinutes(items[0]?.plannedDurationMin ?? 0),
         longSessionLength: bucketMinutes(items[longIndex]?.plannedDurationMin ?? 0),

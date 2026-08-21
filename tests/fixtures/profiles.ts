@@ -7,6 +7,7 @@
 
 import type {
   Constraint,
+  Experience,
   FreeSlot,
   Goal,
   GoalArchetype,
@@ -197,6 +198,26 @@ export type NamedGoal = {
   metrics: (p: Profile) => GoalMetric[]
 }
 
+/**
+ * Where a person starts, by how long they have been at it.
+ *
+ * Rough but not arbitrary: a beginner's working set is around a third of their
+ * body weight, an advanced lifter's is around body weight. The point is that
+ * the number comes from the person rather than from a constant.
+ */
+const LOAD_FACTOR: Record<Experience, number> = {
+  beginner: 0.35,
+  intermediate: 0.65,
+  advanced: 1.0,
+}
+
+/** Weekly running volume in km, by experience. */
+const WEEKLY_KM: Record<Experience, number> = {
+  beginner: 8,
+  intermediate: 20,
+  advanced: 38,
+}
+
 /** One goal per archetype, phrased the way a user would type it. */
 export const GOALS: NamedGoal[] = [
   {
@@ -209,13 +230,26 @@ export const GOALS: NamedGoal[] = [
     name: 'stärker werden',
     archetype: 'strength',
     goal: { rawText: 'Ich will stärker werden und Muskeln aufbauen', archetype: 'strength', targetDate: '2026-12-15', classifiedBy: 'keywords' },
-    metrics: () => [{ metricKey: 'load_kg', startValue: 40, targetValue: 60, unit: 'kg' }],
+    // Derived from the person, the way the onboarding derives it: what someone
+    // lifts today depends on how long they have been training and on how much
+    // of them there is. A fixed 40 kg for everybody made this goal untestable —
+    // ten different people cannot get a different plan from an identical input.
+    metrics: (p) => {
+      const start = Math.round((p.weightKg ?? 75) * LOAD_FACTOR[p.sport.experience ?? 'beginner'])
+      return [{ metricKey: 'load_kg', startValue: start, targetValue: Math.round(start * 1.3), unit: 'kg' }]
+    },
   },
   {
     name: '10 km laufen',
     archetype: 'endurance',
     goal: { rawText: 'Ich will 10 km am Stück laufen können', archetype: 'endurance', targetDate: '2026-12-01', classifiedBy: 'keywords' },
-    metrics: () => [{ metricKey: 'distance_km', startValue: 12, targetValue: 30, unit: 'km' }],
+    // Same reasoning: a rank beginner and an advanced runner do not arrive at
+    // this goal running the same weekly volume, and pretending they do hid the
+    // fact that both were being handed the same 13 km week.
+    metrics: (p) => {
+      const start = WEEKLY_KM[p.sport.experience ?? 'beginner']
+      return [{ metricKey: 'distance_km', startValue: start, targetValue: start * 2.5, unit: 'km' }]
+    },
   },
   {
     name: 'besser schlafen',
