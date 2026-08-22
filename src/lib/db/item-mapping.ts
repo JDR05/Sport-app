@@ -114,12 +114,31 @@ function withoutCadence(details: Json | null): Record<string, unknown> {
  * count what was decided, and everything downstream — Today, the rings,
  * detection — sees the days the person actually has.
  */
-export function materialise(items: PlannedItem[], weekStart: string): PlannedItem[] {
-  return items.flatMap((item) => {
+export function materialise(
+  items: PlannedItem[],
+  weekStart: string,
+  /**
+   * The person's first day in this week. Days before it are dropped.
+   *
+   * A week is materialised the first time it is opened, so signing up on a
+   * Saturday wrote Monday through Friday too — five actions from before the
+   * account existed, sitting on the Plan screen asking to be rated. Left
+   * alone they age into `missed`, and detection reads that as evidence about
+   * weekdays: someone who joined on a Saturday would be told Mondays never
+   * work for them.
+   *
+   * A day before their first day is not an unrated action. It was never
+   * planned. Dropping it here rather than in the engine keeps the safety
+   * invariants reading the whole week, which is what they are about.
+   */
+  from?: string,
+): PlannedItem[] {
+  const expanded = items.flatMap((item) => {
     if (item.cadence !== 'daily') return [item]
     return Array.from({ length: 7 }, (_, day) => ({
       ...item,
       scheduledOn: addDays(weekStart, day),
     }))
   })
+  return from ? expanded.filter((item) => item.scheduledOn >= from) : expanded
 }

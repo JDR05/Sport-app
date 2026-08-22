@@ -85,3 +85,50 @@ describe('what expansion does and does not touch', () => {
     expect(plan.items.filter((i) => i.cadence === 'daily').length).toBeGreaterThan(0)
   })
 })
+
+// Signing up mid-week used to schedule actions into days that had already
+// passed. A Saturday signup got Monday through Friday written too: five
+// actions the person never saw, on the Plan screen asking to be rated. Left
+// untouched they age into `missed`, and detection reads that as evidence
+// about weekdays — someone who joined on a Saturday would be told, with a
+// straight face, that Mondays never work for them.
+describe('a week that starts on the day someone joined', () => {
+  const input = makeInput(PROFILES[0], GOALS[0])
+  const plan = generatePlan(input)
+  const weekStart = plan.strategy.weekStart
+  const days = Array.from({ length: 7 }, (_, day) => addDays(weekStart, day))
+
+  it.each(days.map((from, index) => ({ from, index })))(
+    'writes nothing before %s',
+    ({ from }) => {
+      const week = materialise(plan.items, weekStart, from)
+      expect(week.filter((i) => i.scheduledOn < from)).toEqual([])
+    },
+  )
+
+  it.each(days.map((from, index) => ({ from, index })))(
+    'still fills every remaining day from %s',
+    ({ from, index }) => {
+      const week = materialise(plan.items, weekStart, from)
+      for (const day of days.slice(index)) {
+        expect(week.filter((i) => i.scheduledOn === day).length).toBeGreaterThan(0)
+      }
+    },
+  )
+
+  it('changes nothing for someone who joins on the Monday', () => {
+    expect(materialise(plan.items, weekStart, weekStart)).toEqual(
+      materialise(plan.items, weekStart),
+    )
+  })
+
+  it('keeps the rest of the week whole', () => {
+    // Only the past is dropped. An action on the joining day itself is the
+    // person's first action, not a leftover.
+    const wednesday = days[2]
+    const full = materialise(plan.items, weekStart)
+    const partial = materialise(plan.items, weekStart, wednesday)
+    expect(partial).toEqual(full.filter((i) => i.scheduledOn >= wednesday))
+    expect(partial.length).toBeLessThan(full.length)
+  })
+})

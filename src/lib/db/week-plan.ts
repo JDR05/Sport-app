@@ -74,7 +74,7 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
     throw error
   }
 
-  const written = await writeWeek(profileId, weekStart, goalId, plan)
+  const written = await writeWeek(profileId, weekStart, goalId, plan, today)
   if (written) return { ok: true, week: written }
 
   // Either the insert lost a race with another request, in which case the
@@ -141,6 +141,8 @@ async function writeWeek(
   weekStart: string,
   goalId: string,
   plan: ReturnType<typeof generatePlan>,
+  /** The person's first day in this week — nothing before it is written. */
+  from: string,
 ): Promise<StoredWeek | null> {
   const supabase = await createClient()
 
@@ -161,7 +163,8 @@ async function writeWeek(
   // and losing is fine: the winner's plan is the one that counts.
   if (planRow.error) return null
 
-  const rows = materialise(plan.items, weekStart)
+  // Nothing before the person's first day — see materialise().
+  const rows = materialise(plan.items, weekStart, from)
 
   if (rows.length > 0) {
     const inserted = await supabase
