@@ -19,11 +19,10 @@ import {
 } from '@/components/form'
 import { CommitmentsStep } from './CommitmentsStep'
 import { classifyGoalText } from '@/lib/engine'
+import { EMPTY, SLOT_START, toDraft, type Draft } from './draft'
+import type { StoredPlanInput } from '@/lib/db/plan-input'
 import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
-import type {
-  Activity, Commitment, CookingFrequency, DietaryPattern, Equipment, Experience,
-  FocusStruggle, GoalMetric, SexAtBirth, SleepQuality, Weekday, WorkPattern,
-} from '@/lib/domain/types'
+import type { GoalMetric, Weekday } from '@/lib/domain/types'
 
 const WEEKDAY_SHORT: Record<Weekday, string> = {
   mon: 'Mo', tue: 'Di', wed: 'Mi', thu: 'Do', fri: 'Fr', sat: 'Sa', sun: 'So',
@@ -37,73 +36,6 @@ const ARCHETYPE_LABEL: Record<GoalArchetype, string> = {
   nutrition_quality: 'Ernährung',
   habit_routine: 'Gewohnheit',
   general_health: 'Allgemein',
-}
-
-const SLOT_START = { early: '07:00', midday: '12:00', evening: '18:30' } as const
-type SlotTime = keyof typeof SLOT_START
-
-type Draft = {
-  goalText: string
-  archetype: GoalArchetype | null
-  targetDate: string | null
-  metricStart: number | null
-  metricTarget: number | null
-
-  birthYear: number | null
-  heightCm: number | null
-  weightKg: number | null
-  sexAtBirth: SexAtBirth | null
-
-  workPattern: WorkPattern | null
-  freeDays: Weekday[]
-  slotTime: SlotTime | null
-  slotMinutes: number | null
-
-  preferredActivities: Activity[]
-  equipment: Equipment[]
-  experience: Experience | null
-  sessionsPerWeekTarget: number | null
-  preferredSessionMinutes: number | null
-
-  cooksAtHome: CookingFrequency | null
-  timeForCookingMin: number | null
-  eatsOutPerWeek: number | null
-  dietaryPattern: DietaryPattern | null
-  mealsPerDay: number | null
-  vegetablePortionsPerDay: number | null
-  sugaryDrinksPerDay: number | null
-
-  usualBedtime: string | null
-  usualWakeTime: string | null
-  sleepQuality: SleepQuality | null
-  wakesAtNight: boolean | null
-  screenBeforeBed: boolean | null
-
-  screenTimeHoursPerDay: number | null
-  focusStruggle: FocusStruggle | null
-  existingRoutines: string
-
-  commitments: Commitment[]
-  /** 'HH:MM' per weekday, partial: a day nobody answered stays unknown. */
-  wakeTimes: Partial<Record<Weekday, string>>
-
-  dislikedActivities: Activity[]
-  blockedDays: Weekday[]
-}
-
-const EMPTY: Draft = {
-  goalText: '', archetype: null, targetDate: null, metricStart: null, metricTarget: null,
-  birthYear: null, heightCm: null, weightKg: null, sexAtBirth: null,
-  workPattern: null, freeDays: [], slotTime: null, slotMinutes: null,
-  preferredActivities: [], equipment: [], experience: null,
-  sessionsPerWeekTarget: null, preferredSessionMinutes: null,
-  cooksAtHome: null, timeForCookingMin: null, eatsOutPerWeek: null,
-  dietaryPattern: null, mealsPerDay: null, vegetablePortionsPerDay: null, sugaryDrinksPerDay: null,
-  usualBedtime: null, usualWakeTime: null, sleepQuality: null, wakesAtNight: null, screenBeforeBed: null,
-  screenTimeHoursPerDay: null, focusStruggle: null, existingRoutines: '',
-  commitments: [],
-  wakeTimes: {},
-  dislikedActivities: [], blockedDays: [],
 }
 
 const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Fest', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
@@ -201,11 +133,13 @@ function buildAnswers(
   }
 }
 
-export function OnboardingForm() {
+export function OnboardingForm({ existing }: { existing?: StoredPlanInput | null }) {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [d, setD] = useState<Draft>(EMPTY)
+  // Prefilled when someone is redefining a goal rather than setting a first
+  // one, so the rest of their intake is not silently replaced by blanks.
+  const [d, setD] = useState<Draft>(() => (existing ? toDraft(existing) : EMPTY))
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setD((prev) => ({ ...prev, [key]: value }))

@@ -7,6 +7,48 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-21 — ADR-066: Ein Zielwechsel bearbeitet die Angaben, er ersetzt sie nicht
+
+**Entscheidung:** Das Onboarding-Formular wird beim Zielwechsel aus der Datenbank vorbefüllt.
+Die Umkehrabbildung liegt als reine Funktion `toDraft` in `src/app/onboarding/draft.ts`, testbar
+ohne Browser. Der **Zieltext selbst wird bewusst nicht** übernommen.
+
+**Begründung:** Das Formular startete jedes Mal leer. Für ein erstes Ziel ist das richtig, für
+ein zweites zerstörerisch: „Ziel wechseln" öffnete eine leere Aufnahme, und das Absenden ersetzte
+freie Zeitfenster, feste Termine, Aufstehzeiten, harte Constraints und jede Profilangabe durch
+das, was der leere Entwurf noch enthielt. Wer „Rest überspringen" benutzte, verlor das
+Fußballtraining, von dem die Nachtregel abhängt, die gesperrten Tage und die Ausrüstung —
+lautlos, weil der Schreibvorgang selbst gelang.
+
+Es widersprach außerdem dem Satz auf genau dem Screen, der dorthin führt: „Die Angaben sind
+gespeichert. Du musst hier nichts noch einmal machen."
+
+Der Zieltext bleibt leer, weil jemand, der sein Ziel neu definieren will, ein neues schreiben
+will. Ihn vorauszufüllen lädt dazu ein, ihn versehentlich erneut abzuschicken — und das würde
+ein Ziel pausieren und durch eine Kopie seiner selbst ersetzen.
+
+---
+
+## 2026-08-21 — ADR-067: Die Ringe beschreiben die Woche, die der Plan zeigt
+
+**Entscheidung:** `weeklyReview` liefert zusätzlich `thisWeek` — diese Woche, begrenzt auf das
+**aktive** Ziel. Fortschritt bewertet damit. `observations` bleibt bewusst unbegrenzt.
+
+**Begründung:** `readWeek` filtert nach `goal_id`, `loadObservations` nicht. Nach einem
+Zielwechsel mitten in der Woche zeigte Plan sieben Aktionen und der Ring zählte vierzehn; nach
+einem zweiten Wechsel einundzwanzig. Fortschritt verlinkte dann auf „im Wochenplan nachtragen"
+— wo die Hälfte davon gar nicht existiert. Genau der Defekt, den `1cae25c` beheben sollte, nur
+über den Zielwechsel-Pfad erreichbar.
+
+Die breite Sicht bleibt für die Mustererkennung: Verhalten ist Verhalten, und ein Mittwoch, den
+jemand unter seinem alten Ziel verpasst hat, ist weiterhin Evidenz über Mittwoche. Nur die
+Aussage „das ist deine Woche" muss zu dem passen, was die App als Woche anzeigt.
+
+Fällt die Abfrage aus, wird die ungefilterte Woche gezeigt: etwas zu breit ist ein kleinerer
+Fehler als leer.
+
+---
+
 ## 2026-08-21 — ADR-064: Rundung gehört an die Anzeige, nicht in die Rechnung
 
 **Entscheidung:** `ratePerWeekKg` in `bodyComposition.ts` wird nicht mehr gerundet. Die

@@ -20,7 +20,23 @@ import { analyze, completionRate, type Analysis, type Observation } from '@/lib/
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
 
 export type WeeklyReview = {
+  /**
+   * Everything in the analysis window, across goals.
+   *
+   * Deliberately unscoped: behaviour is behaviour, and a Wednesday someone
+   * kept missing under their old goal is still evidence about Wednesdays.
+   */
   observations: Observation[]
+  /**
+   * This week, limited to the goal the person is actually pursuing.
+   *
+   * The rings describe the week as the app shows it, and Today and Plan show
+   * one goal's plan. Without this the two disagreed the moment somebody
+   * changed their goal mid-week: Plan listed seven actions, the ring counted
+   * fourteen, and Progress then linked to a plan where half of them did not
+   * exist. A second change made it twenty-one.
+   */
+  thisWeek: Observation[]
   analysis: Analysis
   /** Share of resolved actions completed, or null when nothing is resolved. */
   completion: number | null
@@ -63,6 +79,7 @@ export async function weeklyReview(
   const observations = await loadObservations(profileId, today)
   const weekStart = startOfWeek(today)
   const thisWeek = observations.filter((o) => o.scheduledOn >= weekStart)
+  const thisWeekForGoal = await scopeToActiveGoal(profileId, thisWeek, weekStart, today)
 
   // The check-ins over the same window. Without them a pattern can only be
   // stated bare — "Dienstags läuft es schlechter" — and a shortfall with no
@@ -79,9 +96,61 @@ export async function weeklyReview(
 
   return {
     observations,
+    thisWeek: thisWeekForGoal,
     analysis: analyze({ ...input, today }, observations, { days }),
     completion: completionRate(observations),
-    completionThisWeek: completionRate(thisWeek),
+    completionThisWeek: completionRate(thisWeekForGoal),
     weeksWithData: new Set(observations.map((o) => startOfWeek(o.scheduledOn))).size,
   }
+}
+
+/**
+ * Narrows a week to the plan belonging to the active goal.
+ *
+ * A retired goal's items stay in plan_items on purpose — they are part of what
+ * happened, and detection reads them. They just must not be counted as part of
+ * *this* week's plan, because the screens that show that week show one goal.
+ *
+ * Falls back to the unfiltered week rather than to nothing: if the plan rows
+ * cannot be read, showing the week slightly too wide is a smaller error than
+ * showing an empty one.
+ */
+async function scopeToActiveGoal(
+  profileId: string,
+  week: Observation[],
+  weekStart: string,
+  today: string,
+): Promise<Observation[]> {
+  if (week.length === 0) return week
+  const supabase = await createClient()
+
+  const goal = await supabase
+    .from('goals')
+    .select('id')
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (goal.error || !goal.data) return week
+
+  const plans = await supabase
+    .from('plans')
+    .select('id')
+    .eq('profile_id', profileId)
+    .eq('goal_id', goal.data.id)
+    .gte('week_start', weekStart)
+    .lte('week_start', today)
+  if (plans.error) return week
+
+  const planIds = new Set((plans.data ?? []).map((row) => row.id))
+  if (planIds.size === 0) return week
+
+  const items = await supabase
+    .from('plan_items')
+    .select('id')
+    .eq('profile_id', profileId)
+    .in('plan_id', [...planIds])
+  if (items.error) return week
+
+  const belongs = new Set((items.data ?? []).map((row) => row.id))
+  return week.filter((o) => belongs.has(o.itemId))
 }

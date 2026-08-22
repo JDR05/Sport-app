@@ -67,5 +67,8 @@ export default async function OnboardingPage({ searchParams }: PageProps<'/onboa
     )
   }
 
-  return <OnboardingForm />
+  // Handed the existing intake when there is one, so redefining a goal edits
+  // what the person already told us instead of replacing it with blanks. The
+  // goal text itself is deliberately not carried over — see toDraft.
+  return <OnboardingForm existing={existing} />
 }

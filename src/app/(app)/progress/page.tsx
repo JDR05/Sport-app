@@ -11,7 +11,6 @@ import { loadMeasurements } from '@/lib/db/tracking'
 import { weeklyReview } from '@/lib/db/analysis'
 import { isResolved } from '@/lib/adaptive/detect'
 import { weekScores } from '@/lib/adaptive/scores'
-import { startOfWeek } from '@/lib/engine/dates'
 import { ProgressView, type ProgressData } from './ProgressView'
 import type { MetricSpec } from '@/components/MetricEntry'
 
@@ -57,12 +56,14 @@ export default async function ProgressPage() {
     completionThisWeek: review?.completionThisWeek ?? null,
     weeksWithData: review?.weeksWithData ?? 0,
     resolvedCount: review?.observations.filter(isResolved).length ?? 0,
-    // Rings describe *this* week. The six-week window behind them is for
-    // pattern detection, and a ring covering six weeks would answer a question
-    // nobody asked.
-    scores: weekScores(
-      (review?.observations ?? []).filter((o) => o.scheduledOn >= startOfWeek(today)),
-    ),
+    // Rings describe *this* week, for the goal being pursued. The six-week
+    // window behind them is for pattern detection, and a ring covering six
+    // weeks would answer a question nobody asked.
+    //
+    // Scoped in weeklyReview rather than filtered by date here: after a
+    // mid-week goal change the retired goal's items are still in this week,
+    // and counting them made the ring say fourteen while Plan showed seven.
+    scores: weekScores(review?.thisWeek ?? []),
   }
 
   return <ProgressView data={data} />
