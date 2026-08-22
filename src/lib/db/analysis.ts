@@ -92,6 +92,8 @@ export async function weeklyReview(
     sleepHours: c.sleepHours,
     dietQuality: c.dietQuality,
     soreness: c.soreness,
+    alcoholUnits: c.alcoholUnits,
+    caffeineLate: c.caffeineLate,
   }))
 
   return {

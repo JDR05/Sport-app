@@ -121,6 +121,22 @@ export const SLEEP_GAP_HOURS = 0.75
 export const SCALE_GAP = 0.6
 
 /**
+ * How much more often late caffeine has to occur on the affected days: on
+ * roughly half of them more than elsewhere.
+ *
+ * A yes/no answer carries less information than a scale, so the bar is higher
+ * than for the others. Two coffees over six weeks is a coincidence.
+ */
+export const CAFFEINE_SHARE_GAP = 0.5
+
+/**
+ * How much more alcohol counts as a real difference, in standard drinks per
+ * day. One is the smallest amount anybody reports at all, so a gap below it is
+ * rounding rather than a pattern.
+ */
+export const ALCOHOL_GAP_UNITS = 1
+
+/**
  * When a commitment counts as running late: it ends at 20:30 or after. Past
  * that, getting home, eating and winding down runs into the night for anyone
  * who has to be up early, which is the case the product owner described.

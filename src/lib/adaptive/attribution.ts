@@ -17,7 +17,10 @@
 //
 // Pure: dates, numbers and weekly commitments in, sentences out.
 
-import { LATE_END_MINUTES, MIN_CONTEXT_DAYS, SCALE_GAP, SLEEP_GAP_HOURS } from './constants'
+import {
+  ALCOHOL_GAP_UNITS, CAFFEINE_SHARE_GAP, LATE_END_MINUTES, MIN_CONTEXT_DAYS, SCALE_GAP,
+  SLEEP_GAP_HOURS,
+} from './constants'
 import type { Deviation } from './types'
 import { weekdayOf } from '@/lib/engine/dates'
 import { minutesOfDay } from '@/lib/engine/commitments'
@@ -37,6 +40,10 @@ export type DayContext = {
   dietQuality: number | null
   /** 1..5, higher is *more* soreness. The other upward scale. */
   soreness: number | null
+  /** Standard drinks that day. */
+  alcoholUnits: number | null
+  /** Coffee, tea or an energy drink after the afternoon. */
+  caffeineLate: boolean | null
 }
 
 export type AttributionFactor =
@@ -46,6 +53,8 @@ export type AttributionFactor =
   | 'high_soreness'
   | 'poor_diet'
   | 'late_commitment'
+  | 'late_caffeine'
+  | 'alcohol'
 
 export type Attribution = {
   factor: AttributionFactor
@@ -146,6 +155,34 @@ export function attribute(
     })
   }
 
+  // Asked only under a sleep goal — see checkin-fields — and read only here.
+  // They were collected for weeks and never used for anything, which is worse
+  // than not asking: an evening question that never comes back as an answer
+  // teaches people that the check-in is busywork.
+  const caffeine = compare(onDay, otherDays, (d) => bool(d.caffeineLate))
+  if (caffeine && caffeine.onBucket - caffeine.elsewhere >= CAFFEINE_SHARE_GAP) {
+    found.push({
+      factor: 'late_caffeine',
+      bucket: weekday,
+      ...caffeine,
+      statement:
+        `${WEEKDAY_LABEL[weekday]} trinkst du an ${share(caffeine.onBucket)} der Tage ` +
+        `spät Koffein, sonst an ${share(caffeine.elsewhere)}.`,
+    })
+  }
+
+  const alcohol = compare(onDay, otherDays, (d) => d.alcoholUnits)
+  if (alcohol && alcohol.onBucket - alcohol.elsewhere >= ALCOHOL_GAP_UNITS) {
+    found.push({
+      factor: 'alcohol',
+      bucket: weekday,
+      ...alcohol,
+      statement:
+        `${WEEKDAY_LABEL[weekday]} kommen im Schnitt ${drinks(alcohol.onBucket)} zusammen, ` +
+        `sonst ${drinks(alcohol.elsewhere)}.`,
+    })
+  }
+
   const diet = compare(onDay, otherDays, (d) => d.dietQuality)
   if (diet && diet.elsewhere - diet.onBucket >= SCALE_GAP) {
     found.push({
@@ -205,4 +242,18 @@ function hours(value: number): string {
 
 function scale(value: number): string {
   return `${value.toFixed(1).replace('.', ',')} von 5`
+}
+
+/** A yes/no answer as a number, so it can be averaged into a share. */
+function bool(value: boolean | null): number | null {
+  return value === null ? null : value ? 1 : 0
+}
+
+function share(value: number): string {
+  return `${Math.round(value * 100)} %`
+}
+
+function drinks(value: number): string {
+  const n = value.toFixed(1).replace('.', ',')
+  return `${n} Getränke`
 }

@@ -5,7 +5,9 @@
 
 import { describe, expect, it } from 'vitest'
 import { attribute, type DayContext } from '@/lib/adaptive/attribution'
-import { MIN_CONTEXT_DAYS, SCALE_GAP, SLEEP_GAP_HOURS } from '@/lib/adaptive/constants'
+import {
+  ALCOHOL_GAP_UNITS, MIN_CONTEXT_DAYS, SCALE_GAP, SLEEP_GAP_HOURS,
+} from '@/lib/adaptive/constants'
 import type { Deviation } from '@/lib/adaptive'
 import type { Commitment } from '@/lib/domain/types'
 
@@ -34,7 +36,7 @@ const football: Commitment = {
 function days(tuesday: Partial<DayContext>, other: Partial<DayContext>): DayContext[] {
   const base: DayContext = {
     date: '', energy: null, mood: null, stress: null, sleepHours: null,
-    dietQuality: null, soreness: null,
+    dietQuality: null, soreness: null, alcoholUnits: null, caffeineLate: null,
   }
   const out: DayContext[] = []
   for (let week = 0; week < 6; week++) {
@@ -163,5 +165,52 @@ describe('the numbers behind a statement', () => {
     expect(energy.onBucket).toBeCloseTo(2)
     expect(energy.elsewhere).toBeCloseTo(4)
     expect(energy.elsewhere! - energy.onBucket!).toBeGreaterThanOrEqual(SCALE_GAP)
+  })
+})
+
+// Both questions are asked under a sleep goal, every evening, and for weeks
+// nothing read them. An evening question that never comes back as an answer
+// teaches people that the check-in is busywork — which is worse than not
+// having asked.
+describe('the two questions a sleep goal asks', () => {
+  it('names late caffeine when it clusters on those days', () => {
+    const found = attribute(TUESDAY, days({ caffeineLate: true }, { caffeineLate: false }), [])
+    const caffeine = found.find((a) => a.factor === 'late_caffeine')
+
+    expect(caffeine).toBeDefined()
+    expect(caffeine?.statement).toContain('100 %')
+    expect(caffeine?.statement).toContain('0 %')
+  })
+
+  it('stays quiet when it happens about as often either way', () => {
+    const even = days({ caffeineLate: true }, { caffeineLate: true })
+    expect(attribute(TUESDAY, even, []).some((a) => a.factor === 'late_caffeine')).toBe(false)
+  })
+
+  it('needs a gap wider than a coincidence', () => {
+    // Just under the bar: the difference is there and is not called a finding.
+    const narrow = days({ alcoholUnits: 2 }, { alcoholUnits: 2 - ALCOHOL_GAP_UNITS + 0.1 })
+    expect(attribute(TUESDAY, narrow, []).some((a) => a.factor === 'alcohol')).toBe(false)
+  })
+
+  it('names alcohol with both averages and no verdict', () => {
+    const found = attribute(TUESDAY, days({ alcoholUnits: 3 }, { alcoholUnits: 0 }), [])
+    const alcohol = found.find((a) => a.factor === 'alcohol')
+
+    expect(alcohol).toBeDefined()
+    expect(alcohol?.onBucket).toBeCloseTo(3)
+    expect(alcohol?.elsewhere).toBeCloseTo(0)
+    // The module's own rule: state what was different, never why, and never
+    // grade the person for it.
+    expect(alcohol?.statement).not.toMatch(/Grund|zu viel|solltest|weniger/)
+  })
+
+  it('never speaks from one answer', () => {
+    // MIN_CONTEXT_DAYS applies here like everywhere else. A single Tuesday
+    // beer is not a pattern about Tuesdays.
+    const thin: DayContext[] = days({}, {}).map((d, i) =>
+      i === 0 ? { ...d, alcoholUnits: 5 } : d,
+    )
+    expect(attribute(TUESDAY, thin, []).some((a) => a.factor === 'alcohol')).toBe(false)
   })
 })

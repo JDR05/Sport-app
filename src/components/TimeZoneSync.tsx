@@ -20,11 +20,12 @@ export function TimeZoneSync() {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
     if (!zone) return
 
-    const current = document.cookie
-      .split('; ')
-      .find((c) => c.startsWith(`${TIMEZONE_COOKIE}=`))
-      ?.slice(TIMEZONE_COOKIE.length + 1)
-
+    // Decoded before comparing, because it was written encoded. Without this
+    // the stored "Europe%2FBerlin" never equalled "Europe/Berlin", so the
+    // check below never matched and every full page load rewrote the same
+    // cookie and asked the server to render the page again — the one round
+    // trip this component exists to avoid, turned into one every time.
+    const current = readCookie(TIMEZONE_COOKIE)
     if (current === zone) return
 
     // Lax so it survives normal navigation; not httpOnly because the client is
@@ -34,4 +35,20 @@ export function TimeZoneSync() {
   }, [router])
 
   return null
+}
+
+/** The cookie's value as it was written, or undefined. Never throws. */
+function readCookie(name: string): string | undefined {
+  const raw = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${name}=`))
+    ?.slice(name.length + 1)
+  if (raw === undefined) return undefined
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    // A malformed escape sequence — someone else's cookie, or a truncated
+    // one. Treating it as absent rewrites it, which is the right repair.
+    return undefined
+  }
 }
