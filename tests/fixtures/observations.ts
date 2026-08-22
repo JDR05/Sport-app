@@ -10,6 +10,15 @@ import type { Observation } from '@/lib/adaptive'
 /** Mondays. TODAY in the profile fixtures is Wednesday 2026-08-19. */
 export const WEEK_STARTS = ['2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10'] as const
 
+/**
+ * The Monday of the week TODAY sits in.
+ *
+ * Every week above is deliberately in the past — that is what makes them
+ * evidence for detection. Plan care works on the week someone is actually in,
+ * so anything testing it has to say so.
+ */
+export const THIS_WEEK_START = '2026-08-17'
+
 type Spec = {
   day: Weekday
   status: PlanItemStatus

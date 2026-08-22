@@ -13,22 +13,34 @@
 
 import type { Observation, PlanPatch } from './types'
 import { planningErrors } from './detect'
-import { addDays, weekdayOf } from '@/lib/engine/dates'
+import { addDays, startOfWeek, weekdayOf } from '@/lib/engine/dates'
 import { WEEKDAYS, type Weekday } from '@/lib/domain/types'
 import { DOMAIN_LABELS, WEEKDAY_LABELS } from './labels'
 
 /**
- * @param observations everything planned so far this week and what became of it
+ * @param observations the analysis window — six weeks, across goals
  * @param today ISO date; nothing before it is touched, the past cannot be replanned
+ *
+ * Only this week is refined, and that is the whole point of the first line of
+ * the function. Plan care is handed the same six-week window detection reads,
+ * and it used to act on all of it: every `not_relevant` action ever marked was
+ * offered for removal again, every week, for six weeks — an action already
+ * dropped, reported as news. Every miss in six weeks became a move, and since
+ * the search always started from today they all landed on the same date. Five
+ * corrections, one day, under a heading that said "an dieser Woche".
+ *
+ * Detection wants the long window; care wants the week someone is in. They are
+ * different questions asked of the same rows.
  */
 export function refinePlan(observations: Observation[], today: string): PlanPatch {
+  const week = observations.filter((o) => o.scheduledOn >= startOfWeek(today))
   const patch: PlanPatch = { moves: [], removals: [], provisional: true, notes: [] }
 
   // ------------------------------------------------- planning errors ----
   // `not_relevant` means the plan asked for something that does not apply to
   // this person's life. That is the plan being wrong, so it is corrected
   // quietly — it is never counted as a miss and never becomes a pattern.
-  for (const wrong of planningErrors(observations)) {
+  for (const wrong of planningErrors(week)) {
     patch.removals.push({
       itemId: wrong.itemId,
       reason:
@@ -41,10 +53,15 @@ export function refinePlan(observations: Observation[], today: string): PlanPatc
   // One missed action is not a pattern and must not be treated as one. It is
   // still worth offering the day back, which is a scheduling courtesy rather
   // than a claim about the person.
-  const missedPast = observations.filter((o) => o.status === 'missed' && o.scheduledOn < today)
+  //
+  // Each make-up claims its day, so two misses land on two days. Stacking them
+  // is what turns a courtesy into a backlog.
+  const claimed = new Set<string>()
+  const missedPast = week.filter((o) => o.status === 'missed' && o.scheduledOn < today)
   for (const item of missedPast) {
-    const target = nextFreeDate(today, observations)
+    const target = nextFreeDate(today, week, claimed)
     if (target === null) continue
+    claimed.add(target)
     patch.moves.push({
       itemId: item.itemId,
       fromDate: item.scheduledOn,
@@ -57,7 +74,11 @@ export function refinePlan(observations: Observation[], today: string): PlanPatc
   }
 
   if (patch.moves.length > 0 || patch.removals.length > 0) {
-    const domains = [...new Set(observations.map((o) => o.domain))]
+    const touched = new Set([
+      ...patch.removals.map((r) => r.itemId),
+      ...patch.moves.map((m) => m.itemId),
+    ])
+    const domains = [...new Set(week.filter((o) => touched.has(o.itemId)).map((o) => o.domain))]
       .map((d) => DOMAIN_LABELS[d])
       .join(', ')
     patch.notes.push(
@@ -74,11 +95,16 @@ export function refinePlan(observations: Observation[], today: string): PlanPatc
  * within the current week. Stacking a make-up session onto a day that already
  * has one is how a plan starts to feel like a second job.
  */
-function nextFreeDate(today: string, observations: Observation[]): string | null {
+function nextFreeDate(
+  today: string,
+  observations: Observation[],
+  /** Days another make-up in this same patch has already taken. */
+  claimed: ReadonlySet<string>,
+): string | null {
   const occupied = new Set(observations.map((o) => o.scheduledOn))
   for (let offset = 1; offset <= remainingDays(today); offset++) {
     const candidate = addDays(today, offset)
-    if (!occupied.has(candidate)) return candidate
+    if (!occupied.has(candidate) && !claimed.has(candidate)) return candidate
   }
   return null
 }

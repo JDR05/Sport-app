@@ -23,7 +23,7 @@ import { weekdayOf } from '@/lib/engine/dates'
 import { readRules } from '@/lib/engine/rules'
 import type { PersonalRule } from '@/lib/domain/types'
 import { ALL_COMBINATIONS, GOALS, makeInput, PROFILES, TODAY } from './fixtures/profiles'
-import { repeat, weekOf, WEDNESDAY_PROBLEM, WEEK_STARTS } from './fixtures/observations'
+import { repeat, THIS_WEEK_START, weekOf, WEDNESDAY_PROBLEM } from './fixtures/observations'
 
 // Aylin trains on Wednesday and has enough other free days that the day can
 // actually be given up — the case where the rule has something to do.
@@ -218,20 +218,22 @@ describe('rules the planner applies', () => {
 })
 
 describe('plan care', () => {
+  /** This week, the one plan care is allowed to touch. */
+  const thisWeek = weekOf(THIS_WEEK_START, [
+    { day: 'mon', status: 'missed' },
+    { day: 'tue', status: 'done' },
+  ])
+
   it('produces no personal rule — by having nowhere to put one', () => {
     // ADR-013 as a shape, not a convention: there is no field on PlanPatch a
     // careless caller could read a rule out of.
-    const patch = refinePlan(WEDNESDAY_PROBLEM, TODAY)
+    const patch = refinePlan(thisWeek, TODAY)
     expect(Object.keys(patch).sort()).toEqual(['moves', 'notes', 'provisional', 'removals'])
     expect(patch.provisional).toBe(true)
   })
 
   it('acts in week one, where detection deliberately cannot', () => {
-    const firstWeek = weekOf('2026-08-17', [
-      { day: 'mon', status: 'missed' },
-      { day: 'tue', status: 'done' },
-    ])
-    const analysis = analyze(jonas, firstWeek)
+    const analysis = analyze(jonas, thisWeek)
 
     expect(analysis.deviations).toEqual([])
     expect(analysis.experiment).toBeNull()
@@ -239,25 +241,88 @@ describe('plan care', () => {
   })
 
   it('drops what the plan got wrong instead of counting it as a miss', () => {
-    const wrong = repeat([
+    const wrong = weekOf(THIS_WEEK_START, [
       { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
       { day: 'tue', status: 'done' },
     ])
     const patch = refinePlan(wrong, TODAY)
 
-    expect(patch.removals).toHaveLength(WEEK_STARTS.length)
+    expect(patch.removals).toHaveLength(1)
     expect(patch.removals[0].reason).toContain('nicht als verpasst')
   })
 
   it('says out loud that it is provisional', () => {
-    const patch = refinePlan(WEDNESDAY_PROBLEM, TODAY)
+    const patch = refinePlan(thisWeek, TODAY)
     expect(patch.notes.join(' ')).toMatch(/gespeichert|gelernt/)
     for (const move of patch.moves) expect(move.reason).toContain('Vorläufig')
   })
 
   it('never replans the past', () => {
-    const patch = refinePlan(WEDNESDAY_PROBLEM, TODAY)
+    const patch = refinePlan(thisWeek, TODAY)
     for (const move of patch.moves) expect(move.toDate > TODAY).toBe(true)
+  })
+})
+
+// Plan care is handed the same six-week window detection reads, and it used to
+// work on all of it. Every `not_relevant` action ever marked came back as news
+// every week for six weeks, an action already dropped offered for removal
+// again. Every miss in six weeks became a move, and because the search always
+// started from today they all landed on the same date: five corrections, one
+// day, under a heading that said "an dieser Woche".
+describe('the week plan care is allowed to touch', () => {
+  it('leaves six weeks of history alone', () => {
+    // WEDNESDAY_PROBLEM is four past weeks with a miss in each. It is evidence
+    // for detection and none of the app's business as a correction.
+    const patch = refinePlan(WEDNESDAY_PROBLEM, TODAY)
+    expect(patch.moves).toEqual([])
+    expect(patch.removals).toEqual([])
+    expect(patch.notes).toEqual([])
+  })
+
+  it('does not re-offer a planning error from a past week', () => {
+    const wrong = repeat([
+      { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
+      { day: 'tue', status: 'done' },
+    ])
+    expect(refinePlan(wrong, TODAY).removals).toEqual([])
+  })
+
+  it('still sees this week when the history is long', () => {
+    const both = [
+      ...WEDNESDAY_PROBLEM,
+      ...weekOf(THIS_WEEK_START, [{ day: 'mon', status: 'missed' }]),
+    ]
+    const patch = refinePlan(both, TODAY)
+    expect(patch.moves).toHaveLength(1)
+    expect(patch.moves[0].fromDate).toBe(THIS_WEEK_START)
+  })
+
+  it('gives two misses two different days', () => {
+    // One make-up is a courtesy. Two on the same evening is a backlog, and
+    // that is exactly what a search always starting from today produced.
+    const twoMisses = weekOf(THIS_WEEK_START, [
+      { day: 'mon', status: 'missed' },
+      { day: 'tue', status: 'missed' },
+    ])
+    const patch = refinePlan(twoMisses, TODAY)
+
+    expect(patch.moves).toHaveLength(2)
+    expect(new Set(patch.moves.map((m) => m.toDate)).size).toBe(2)
+    for (const move of patch.moves) expect(move.toDate > TODAY).toBe(true)
+  })
+
+  it('names only the domains it actually corrected', () => {
+    // The note listed every domain in the window, including weeks it had not
+    // touched — a correction to one training session announced as covering
+    // nutrition and movement too.
+    const mixed = [
+      ...weekOf(THIS_WEEK_START, [{ day: 'mon', status: 'missed', domain: 'training' }]),
+      ...weekOf(THIS_WEEK_START, [{ day: 'tue', status: 'done', domain: 'nutrition' }]),
+    ]
+    const note = refinePlan(mixed, TODAY).notes.join(' ')
+
+    expect(note).toContain('Training')
+    expect(note).not.toContain('Ernährung')
   })
 })
 
