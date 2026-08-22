@@ -44,6 +44,22 @@ export function formatGermanDate(iso: string): string {
   return `${d.getUTCDate()}. ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
+/**
+ * The same date with the year left off — but only when it is the year the
+ * reader is in.
+ *
+ * A tile is narrow and "14. November 2026" wraps, so Progress used to strip
+ * the year with a regex, unconditionally. That is fine for this year and
+ * quietly wrong for any other: a goal date in the past, or one in the spring
+ * after next, both read as if they were a few weeks away.
+ *
+ * @param reference any date in the year the reader is in — usually today
+ */
+export function formatGermanDateShort(iso: string, reference: string): string {
+  const full = formatGermanDate(iso)
+  return iso.slice(0, 4) === reference.slice(0, 4) ? full.replace(/ \d{4}$/, '') : full
+}
+
 export function timeSlotOf(start: string): 'early' | 'midday' | 'evening' {
   const hour = Number(start.slice(0, 2))
   if (hour < 11) return 'early'

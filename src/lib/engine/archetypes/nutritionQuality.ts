@@ -6,9 +6,10 @@
 // most disordered eating, and this archetype must not reach for it.
 
 import { DEFAULT_HORIZON_WEEKS, MAX_NUTRITION_ADDITIONS_PER_WEEK } from '../constants'
-import { addDays, formatGermanDate } from '../dates'
+import { formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import { dateOf, pickDays, type PlanContext } from '../context'
+import { horizonFor, withNote } from '../horizon'
 import type { ArchetypeStrategy, ClampedGoal } from './types'
 import type { GoalTrack, PlannedItem, PlanResult } from '@/lib/domain/types'
 
@@ -143,14 +144,17 @@ export const nutritionQuality: ArchetypeStrategy = {
   label: 'Ernährungsqualität',
 
   clampGoal(ctx: PlanContext): ClampedGoal {
-    const targetDate =
-      ctx.input.goal.targetDate ?? addDays(ctx.input.today, DEFAULT_HORIZON_WEEKS * 7)
+    const { targetDate, adjusted, note } = horizonFor(
+      ctx.input.today, ctx.input.goal.targetDate, DEFAULT_HORIZON_WEEKS,
+    )
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `Bis zum ${formatGermanDate(targetDate)} — und zwar durch Dazulegen, nicht durch Weglassen. ` +
-        `Die App verbietet dir kein Lebensmittel und setzt dir kein Kalorienziel.`,
+          `Die App verbietet dir kein Lebensmittel und setzt dir kein Kalorienziel.`,
+      ),
     }
   },
 

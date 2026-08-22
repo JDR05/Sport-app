@@ -89,6 +89,20 @@ function assertSharedInvariants(plan: PlanResult, input: PlanInput): void {
     }
   }
 
+  // ------------------------------------------------------ target date ---
+  // A date that has already passed is not a deadline, and a plan working
+  // towards one is working towards nothing. Four archetypes used to let it
+  // through untouched, and Progress printed it under "wie gewünscht".
+  //
+  // Checked here rather than trusted to each archetype: this is the sort of
+  // thing a new goal type forgets, and forgetting it is invisible.
+  const { targetDate } = plan.strategy
+  if (targetDate !== null && targetDate <= input.today) {
+    throw new PlanInvariantError(
+      `target date ${targetDate} is not in the future (today is ${input.today})`,
+    )
+  }
+
   // ---------------------------------------- the baseline stays a baseline --
   const goalItems = plan.items.filter((i) => i.track === 'goal').length
   if (goalItems === 0 && plan.strategy.archetype !== 'general_health') {

@@ -6,8 +6,9 @@
 // deterministic code cannot. Never an error, never a refusal.
 
 import { DEFAULT_HORIZON_WEEKS } from '../constants'
-import { addDays, formatGermanDate } from '../dates'
+import { formatGermanDate } from '../dates'
 import { dateOf, type PlanContext } from '../context'
+import { horizonFor, withNote } from '../horizon'
 import type { ArchetypeStrategy, ClampedGoal } from './types'
 import type { GoalTrack, PlanDomain, PlanInput, PlannedItem } from '@/lib/domain/types'
 
@@ -16,15 +17,18 @@ export const generalHealth: ArchetypeStrategy = {
   label: 'Allgemeine Gesundheit',
 
   clampGoal(ctx: PlanContext): ClampedGoal {
-    const targetDate =
-      ctx.input.goal.targetDate ?? addDays(ctx.input.today, DEFAULT_HORIZON_WEEKS * 7)
+    const { targetDate, adjusted, note } = horizonFor(
+      ctx.input.today, ctx.input.goal.targetDate, DEFAULT_HORIZON_WEEKS,
+    )
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `Dein Ziel lässt sich noch nicht eindeutig einordnen. Bis zum ${formatGermanDate(targetDate)} ` +
-        `startest du mit der Gesundheitsbasis — und sobald klarer wird, worauf es hinausläuft, ` +
-        `wird der Plan spezifischer.`,
+          `startest du mit der Gesundheitsbasis — und sobald klarer wird, worauf es hinausläuft, ` +
+          `wird der Plan spezifischer.`,
+      ),
     }
   },
 

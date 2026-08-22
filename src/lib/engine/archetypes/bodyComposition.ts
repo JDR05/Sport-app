@@ -19,6 +19,7 @@ import {
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { computeEnergy, intakeFloor, targetIntake } from '../energy'
 import { PlanInvariantError } from '../errors'
+import { horizonFor, withNote } from '../horizon'
 import {
   bestSlotOn,
   dateOf,
@@ -93,7 +94,14 @@ export const bodyComposition: ArchetypeStrategy = {
     const safeWeeks = totalChangeKg > 0 ? Math.ceil(totalChangeKg / maxRate) : 0
 
     if (totalChangeKg === 0) {
-      return { adjusted: false, targetDate: input.goal.targetDate, reason: 'Kein Zielwert gesetzt.' }
+      // No change to pace, so the rate check below never runs — which is where
+      // a date in the past used to slip through untouched.
+      const open = horizonFor(input.today, input.goal.targetDate, DEFAULT_HORIZON_WEEKS)
+      return {
+        adjusted: open.adjusted,
+        targetDate: input.goal.targetDate === null ? null : open.targetDate,
+        reason: withNote(open.note, 'Kein Zielwert gesetzt.'),
+      }
     }
 
     if (weeksRequested <= 0 || weeksRequested < safeWeeks) {
@@ -109,14 +117,18 @@ export const bodyComposition: ArchetypeStrategy = {
       }
     }
 
-    const targetDate = input.goal.targetDate ?? addDays(input.today, Math.ceil(weeksRequested) * 7)
+    const { targetDate, adjusted, note } = horizonFor(
+      input.today, input.goal.targetDate, Math.ceil(weeksRequested),
+    )
     const rate = totalChangeKg / weeksRequested
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `${formatDecimal(totalChangeKg)} kg bis zum ${formatGermanDate(targetDate)} — ` +
-        `das sind ${formatDecimal(rate)} kg pro Woche und liegt im sicheren Bereich.`,
+          `das sind ${formatDecimal(rate)} kg pro Woche und liegt im sicheren Bereich.`,
+      ),
     }
   },
 

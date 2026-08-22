@@ -10,9 +10,10 @@ import {
   MAX_SLEEP_HOURS,
   MIN_SLEEP_HOURS,
 } from '../constants'
-import { addDays, formatGermanDate } from '../dates'
+import { formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import { dateOf, type PlanContext } from '../context'
+import { horizonFor, withNote } from '../horizon'
 import type { ArchetypeStrategy, ClampedGoal } from './types'
 import { WEEKDAYS, type GoalTrack, type PlanInput, type PlannedItem, type PlanResult } from '@/lib/domain/types'
 
@@ -41,15 +42,18 @@ export const sleepRecovery: ArchetypeStrategy = {
   label: 'Schlaf und Erholung',
 
   clampGoal(ctx: PlanContext): ClampedGoal {
-    const targetDate =
-      ctx.input.goal.targetDate ?? addDays(ctx.input.today, DEFAULT_HORIZON_WEEKS * 7)
+    const { targetDate, adjusted, note } = horizonFor(
+      ctx.input.today, ctx.input.goal.targetDate, DEFAULT_HORIZON_WEEKS,
+    )
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `Schlaf verändert sich langsam. Bis zum ${formatGermanDate(targetDate)} verschieben ` +
-        `wir deine Zeiten in kleinen Schritten von höchstens ${MAX_BEDTIME_SHIFT_MIN_PER_WEEK} Minuten pro Woche — ` +
-        `alles andere hält kein Mensch durch.`,
+          `wir deine Zeiten in kleinen Schritten von höchstens ${MAX_BEDTIME_SHIFT_MIN_PER_WEEK} Minuten pro Woche — ` +
+          `alles andere hält kein Mensch durch.`,
+      ),
     }
   },
 

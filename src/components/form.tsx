@@ -128,14 +128,18 @@ export function NumberInput({
 export function DateInput({
   value,
   onChange,
+  min,
 }: {
   value: string | null
   onChange: (value: string | null) => void
+  /** Earliest selectable date. The picker greys out everything before it. */
+  min?: string
 }) {
   return (
     <input
       type="date"
       value={value ?? ''}
+      min={min}
       onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
       className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none"
     />

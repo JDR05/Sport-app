@@ -19,6 +19,7 @@ import {
 } from '@/components/form'
 import { CommitmentsStep } from './CommitmentsStep'
 import { classifyGoalText } from '@/lib/engine'
+import { addDays } from '@/lib/engine/dates'
 import { EMPTY, SLOT_START, toDraft, type Draft } from './draft'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
 import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
@@ -133,7 +134,14 @@ function buildAnswers(
   }
 }
 
-export function OnboardingForm({ existing }: { existing?: StoredPlanInput | null }) {
+export function OnboardingForm({
+  existing,
+  today,
+}: {
+  existing?: StoredPlanInput | null
+  /** Today, as the person experiences it. Comes from the server so both renders agree. */
+  today: string
+}) {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -256,7 +264,15 @@ export function OnboardingForm({ existing }: { existing?: StoredPlanInput | null
 
           <div className="mt-6">
             <Field label="Bis wann?" hint="Optional. Ist der Wunsch zu schnell, verschiebt die App das Datum – nicht das Tempo.">
-              <DateInput value={d.targetDate} onChange={(v) => set('targetDate', v)} />
+              {/* A date in the past is not a deadline. The engine moves it
+                  anyway — that check is deterministic and lives in
+                  horizonFor — but the picker should not offer it in the
+                  first place. */}
+              <DateInput
+                value={d.targetDate}
+                onChange={(v) => set('targetDate', v)}
+                min={addDays(today, 1)}
+              />
             </Field>
           </div>
         </>

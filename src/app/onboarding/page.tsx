@@ -27,6 +27,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth/session'
 import { loadPlanInput } from '@/lib/db/plan-input'
+import { serverToday } from '@/lib/db/today'
 import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
 import { OnboardingForm } from './OnboardingForm'
 
@@ -70,5 +71,8 @@ export default async function OnboardingPage({ searchParams }: PageProps<'/onboa
   // Handed the existing intake when there is one, so redefining a goal edits
   // what the person already told us instead of replacing it with blanks. The
   // goal text itself is deliberately not carried over — see toDraft.
-  return <OnboardingForm existing={existing} />
+  // The date comes from the server so the form's earliest selectable day is the
+  // same on both renders. Read through the timezone cookie, so it is the day
+  // the person is in rather than the day UTC is in.
+  return <OnboardingForm existing={existing} today={await serverToday()} />
 }

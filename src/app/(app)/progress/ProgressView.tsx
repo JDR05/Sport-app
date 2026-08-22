@@ -5,7 +5,7 @@ import { RequirePlan } from '@/components/RequirePlan'
 import { MetricEntry, type MetricSpec } from '@/components/MetricEntry'
 import { ScoreRing } from '@/components/ScoreRing'
 import { DOMAIN_LABEL, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
-import { formatGermanDate } from '@/lib/engine/dates'
+import { formatGermanDateShort } from '@/lib/engine/dates'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
 import type { WeekScores } from '@/lib/adaptive/scores'
 
@@ -101,7 +101,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <StatTile
                 label="Zieldatum"
-                value={s.targetDate ? formatGermanDate(s.targetDate).replace(/ \d{4}$/, '') : 'offen'}
+                value={s.targetDate ? formatGermanDateShort(s.targetDate, s.weekStart) : 'offen'}
                 hint={s.targetDateAdjusted ? 'angepasst' : 'wie gewünscht'}
               />
               <StatTile

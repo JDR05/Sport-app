@@ -13,6 +13,7 @@ import {
 } from '../constants'
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
+import { horizonFor, withNote } from '../horizon'
 import {
   bestSlotOn, dateOf, formatDecimal, longestSlotOn, planTrainingDays, restDays, round1,
   slotOf,
@@ -77,10 +78,13 @@ export const endurance: ArchetypeStrategy = {
       : DEFAULT_HORIZON_WEEKS
 
     if (safeWeeks === 0) {
+      // No growth to cap, so the rate check below never runs — which is where
+      // a date in the past used to slip through untouched.
+      const reached = horizonFor(input.today, input.goal.targetDate, DEFAULT_HORIZON_WEEKS)
       return {
-        adjusted: false,
-        targetDate: input.goal.targetDate,
-        reason: 'Dein Zielumfang liegt bereits im erreichten Bereich.',
+        adjusted: reached.adjusted,
+        targetDate: input.goal.targetDate === null ? null : reached.targetDate,
+        reason: withNote(reached.note, 'Dein Zielumfang liegt bereits im erreichten Bereich.'),
       }
     }
 
@@ -96,13 +100,17 @@ export const endurance: ArchetypeStrategy = {
       }
     }
 
-    const targetDate = input.goal.targetDate ?? addDays(input.today, Math.ceil(weeksRequested) * 7)
+    const { targetDate, adjusted, note } = horizonFor(
+      input.today, input.goal.targetDate, Math.ceil(weeksRequested),
+    )
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `${formatDecimal(target)} km bis zum ${formatGermanDate(targetDate)} — ` +
-        `mit unter 10 % Steigerung pro Woche gut machbar.`,
+          `mit unter 10 % Steigerung pro Woche gut machbar.`,
+      ),
     }
   },
 

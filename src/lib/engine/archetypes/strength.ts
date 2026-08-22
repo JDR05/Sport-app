@@ -12,6 +12,7 @@ import {
 } from '../constants'
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
+import { horizonFor, withNote } from '../horizon'
 import {
   bestSlotOn, dateOf, longestRun, planTrainingDays, restDays, slotOf,
   type PlanContext,
@@ -57,13 +58,19 @@ export const strength: ArchetypeStrategy = {
       }
     }
 
-    const targetDate = input.goal.targetDate ?? addDays(input.today, DEFAULT_HORIZON_WEEKS * 7)
+    // Nothing to cap — no metric, or the target is already reached. The date
+    // still has to be one the plan can work towards.
+    const { targetDate, adjusted, note } = horizonFor(
+      input.today, input.goal.targetDate, DEFAULT_HORIZON_WEEKS,
+    )
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `Bis zum ${formatGermanDate(targetDate)} mit stetiger, kleiner Steigerung — ` +
-        `das ist der Weg, der hält.`,
+          `das ist der Weg, der hält.`,
+      ),
     }
   },
 

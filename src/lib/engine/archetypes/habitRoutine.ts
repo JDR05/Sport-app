@@ -11,9 +11,10 @@ import {
   HABIT_MIN_MINUTES,
   MAX_NEW_HABITS_AT_ONCE,
 } from '../constants'
-import { addDays, formatGermanDate } from '../dates'
+import { formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import { dateOf, slotOf, type PlanContext } from '../context'
+import { horizonFor, withNote } from '../horizon'
 import type { ArchetypeStrategy, ClampedGoal } from './types'
 import { WEEKDAYS, type GoalTrack, type PlannedItem, type PlanResult, type Weekday } from '@/lib/domain/types'
 
@@ -81,14 +82,17 @@ export const habitRoutine: ArchetypeStrategy = {
   label: 'Gewohnheit und Routine',
 
   clampGoal(ctx: PlanContext): ClampedGoal {
-    const targetDate =
-      ctx.input.goal.targetDate ?? addDays(ctx.input.today, DEFAULT_HORIZON_WEEKS * 7)
+    const { targetDate, adjusted, note } = horizonFor(
+      ctx.input.today, ctx.input.goal.targetDate, DEFAULT_HORIZON_WEEKS,
+    )
     return {
-      adjusted: false,
+      adjusted,
       targetDate,
-      reason:
+      reason: withNote(
+        note,
         `Eine Gewohnheit zur Zeit, bis zum ${formatGermanDate(targetDate)}. ` +
-        `Zwei gleichzeitig anzufangen ist der zuverlässigste Weg, am Ende keine zu haben.`,
+          `Zwei gleichzeitig anzufangen ist der zuverlässigste Weg, am Ende keine zu haben.`,
+      ),
     }
   },
 
