@@ -147,7 +147,7 @@ function percent(n: number): string {
 export { detectDeviations, planningErrors, completionRate } from './detect'
 export { formHypothesis, proposedRuleFor } from './hypothesis'
 export { proposeExperiment, trialRuleOf, domainOfMetricKey, decline, start } from './experiment'
-export { evaluateExperiment, applyDecision } from './evaluate'
+export { evaluateExperiment, applyDecision, outOfTime } from './evaluate'
 export { derivePersonalRule, reinforce, activeRules, mergeRule } from './rules'
 export { refinePlan } from './refine'
 export { attribute, type Attribution, type DayContext } from './attribution'

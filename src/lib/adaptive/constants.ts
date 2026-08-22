@@ -59,6 +59,22 @@ export const EXPERIMENT_DAYS = 14
 export const MIN_EXPERIMENT_INSTANCES = 3
 
 /**
+ * How long an experiment may stay open before it is given up on.
+ *
+ * `continue` extends by another fortnight whenever too little happened, and
+ * nothing stopped it doing that for ever. Someone who put the app down for
+ * four months came back to an experiment still running, still holding the
+ * only slot — one at a time is the rule — and still shaping every plan
+ * through its trial rule, on evidence that no longer existed: the fortnight
+ * it was meant to measure had fallen out of the readable window entirely.
+ *
+ * Twelve weeks is that window. Past it the experiment cannot be read against
+ * its own baseline any more, so the honest end is to abandon it and let a new
+ * one start from where the person actually is.
+ */
+export const MAX_EXPERIMENT_WEEKS = 12
+
+/**
  * Noise floor. Compliance measured over two weeks moves by a tenth on its own.
  * An improvement below this counts as "no effect", not as success — see
  * docs/ADAPTIVE_ENGINE.md, Schritt 5.

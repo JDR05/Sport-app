@@ -8,6 +8,7 @@ import {
   activeRules,
   derivePersonalRule,
   evaluateExperiment,
+  outOfTime,
   formHypothesis,
   detectDeviations,
   mergeRule,
@@ -171,5 +172,80 @@ describe('rules can weaken again', () => {
     expect(merged).toHaveLength(1)
     expect(merged[0].ruleValue).toEqual({ weekday: 'fri' })
     expect(merged[0].confidence).toBe(INITIAL_RULE_CONFIDENCE)
+  })
+})
+
+// `continue` extends an experiment by another fortnight whenever too little
+// happened, and nothing stopped it doing that for ever. Someone who put the
+// app down for four months came back to a test still running, still holding
+// the only slot — one at a time is the rule — and still shaping every plan
+// through its trial rule, on a fortnight that had long since fallen out of the
+// window its result would be read in.
+describe('an experiment nobody came back to', () => {
+  const started = '2026-05-01'
+  const experiment: Experiment = {
+    hypothesis: 'Früh statt abends',
+    variable: 'time_slot',
+    changeDescription: 'Training auf den Morgen',
+    proposedRule: { ruleKey: 'prefer_time_slot', ruleValue: { slot: 'early' } },
+    baseline: { metricKey: 'completion_rate', metricClass: 'behavior', value: 0.5 },
+    metricKey: 'completion_rate',
+    startDate: started,
+    endDate: '2026-05-15',
+    status: 'running',
+    evidence: [],
+  }
+  const nothing: BehaviorMetric = {
+    metricKey: 'completion_rate',
+    metricClass: 'behavior',
+    value: 0.5,
+  }
+
+  it('still extends while it can be read', () => {
+    const soon = evaluateExperiment(experiment, nothing, 0, '2026-05-20')
+    expect(soon.decision).toBe('continue')
+    expect(soon.abandoned).toBeUndefined()
+    expect(applyDecision(experiment, soon).status).toBe('extended')
+  })
+
+  it('is given up on once it cannot', () => {
+    const late = evaluateExperiment(experiment, nothing, 0, '2026-09-01')
+    expect(late.decision).toBe('discard')
+    expect(late.abandoned).toBe(true)
+  })
+
+  it('is aborted, not rejected', () => {
+    // Two different statements. Rejected says the change did not help;
+    // aborted says nobody found out. Filing the second as the first would put
+    // a change nobody measured into the record as one that failed.
+    const late = evaluateExperiment(experiment, nothing, 0, '2026-09-01')
+    expect(applyDecision(experiment, late).status).toBe('aborted')
+  })
+
+  it('says which of the two it is', () => {
+    const late = evaluateExperiment(experiment, nothing, 0, '2026-09-01')
+    expect(late.reason).toContain('nicht, weil die Änderung nichts gebracht hätte')
+    expect(late.reason).toContain('Platz')
+  })
+
+  it('never gives up on one that produced enough to decide', () => {
+    // Age alone is not a reason. An experiment with data gets its verdict,
+    // however long it took to arrive.
+    const worked: BehaviorMetric = { ...nothing, value: 0.85 }
+    const late = evaluateExperiment(experiment, worked, 6, '2026-09-01')
+    expect(late.decision).toBe('keep')
+    expect(late.abandoned).toBeUndefined()
+  })
+
+  it('cannot give up at all when it is not told the date', () => {
+    // The parameter is optional, and the old call sites pass nothing. They
+    // keep behaving exactly as before rather than silently gaining a deadline.
+    const noDate = evaluateExperiment(experiment, nothing, 0)
+    expect(noDate.decision).toBe('continue')
+  })
+
+  it('draws the line at twelve weeks', () => {
+    expect(outOfTime(experiment, '2026-07-24')).toBe(false)
+    expect(outOfTime(experiment, '2026-07-25')).toBe(true)
   })
 })

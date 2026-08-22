@@ -236,7 +236,9 @@ export async function concludeIfDue(
     evidence: [],
   }
 
-  const evaluation = evaluateExperiment(experiment, metric, resolved)
+  // `today` is what lets an experiment be given up on. Without it the only
+  // answer to "too little happened" is another fortnight, for ever.
+  const evaluation = evaluateExperiment(experiment, metric, resolved, today)
   const concluded = applyDecision(experiment, evaluation)
 
   const supabase = await createClient()

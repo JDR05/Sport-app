@@ -133,6 +133,15 @@ export type Evaluation = {
   resolvedInstances: number
   /** German, shown to the user with the decision. */
   reason: string
+  /**
+   * The experiment was given up on rather than decided.
+   *
+   * Only ever set together with `discard`, and the two say different things:
+   * discard means the change did not help, abandoned means we never found
+   * out. The distinction reaches the database as the `aborted` status, so a
+   * result nobody could read is not filed as a change that failed.
+   */
+  abandoned?: true
 }
 
 /**
