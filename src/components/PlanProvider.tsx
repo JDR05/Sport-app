@@ -23,6 +23,7 @@ import {
 import type { ReactNode } from 'react'
 import { loadWeek, setItemStatus } from '@/app/(app)/actions'
 import type { StoredItem, StoredWeek } from '@/lib/db/week-plan'
+import { planStateOf, type PlanState } from '@/components/planState'
 import { localToday } from '@/lib/engine/localDate'
 import type { PlanItemStatus } from '@/lib/domain/types'
 
@@ -41,13 +42,14 @@ const clockStore = {
 }
 
 type PlanContextValue = {
-  /** False while the clock is unknown or the week is still being fetched. */
-  ready: boolean
+  state: PlanState
   week: StoredWeek | null
-  /** Set when a safety invariant refused the plan. Shown, never swallowed. */
+  /** The invariant message, set only in the `unsafe` state. */
   planError: string | null
   today: string
   setStatus: (itemId: string, status: PlanItemStatus) => void
+  /** Load the week again. Only meaningful from `failed`. */
+  retry: () => void
 }
 
 const PlanContext = createContext<PlanContextValue | null>(null)
@@ -61,7 +63,19 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const [week, setWeek] = useState<StoredWeek | null>(null)
   const [planError, setPlanError] = useState<string | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  // What was asked for. An answer belongs to the question it was asked for, so
+  // it carries the key it was fetched under — that is what makes "loading" a
+  // derived value rather than something an effect has to remember to set back.
+  const key = `${today ?? ''}#${attempt}`
+  const [answer, setAnswer] = useState<{ key: string; state: PlanState }>({
+    key: '',
+    state: 'loading',
+  })
+  const state: PlanState = answer.key === key ? answer.state : 'loading'
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
 
   useEffect(() => {
     if (today === null) return
@@ -69,21 +83,29 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
     // Not setState-in-an-effect: this resolves after a round trip, and the
     // guard drops the answer if the day changed underneath it.
-    void loadWeek(today).then((result) => {
-      if (!current) return
-      if (result.ok) {
-        setWeek(result.week)
-        setPlanError(null)
-      } else if (result.reason === 'unsafe') {
-        setPlanError(result.message)
-      }
-      setLoaded(true)
-    })
+    void loadWeek(today)
+      .then((result) => {
+        if (!current) return
+        if (result.ok) {
+          setWeek(result.week)
+          setPlanError(null)
+        } else {
+          setPlanError(result.reason === 'unsafe' ? result.message : null)
+        }
+        setAnswer({ key, state: planStateOf(result) })
+      })
+      // A server action that throws — a failed read reported by
+      // PlanInputUnavailableError, or the network simply being gone — rejects
+      // here. Without this the app sat on an empty screen for ever, and the
+      // one thing it could honestly have said was that it did not know.
+      .catch(() => {
+        if (current) setAnswer({ key, state: 'failed' })
+      })
 
     return () => {
       current = false
     }
-  }, [today])
+  }, [today, key])
 
   /**
    * Optimistic, and deliberately so: tapping "done" must feel instant. If the
@@ -124,13 +146,14 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const value: PlanContextValue = useMemo(
     () => ({
-      ready: today !== null && loaded,
+      state,
       week,
       planError,
       today: today ?? '1970-01-01',
       setStatus,
+      retry,
     }),
-    [today, loaded, week, planError, setStatus],
+    [today, state, week, planError, setStatus, retry],
   )
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>
@@ -143,3 +166,4 @@ export function usePlan(): PlanContextValue {
 }
 
 export type { StoredItem, StoredWeek }
+export type { PlanState }

@@ -2,19 +2,26 @@
 
 // Guard for every screen that needs a plan.
 //
-// Whether a goal exists is settled on the server: the app layout redirects to
-// the onboarding before any of these screens render. What is left here is the
-// wait for the week to arrive, and the one case the server cannot decide away —
-// a plan the safety invariants refused.
+// Whether a goal exists is normally settled on the server: the app layout
+// redirects to the onboarding before any of these screens render. This guard
+// handles what is left — the wait for the week to arrive, and the three ways it
+// can fail to.
+//
+// Every one of them used to render nothing. `no_goal` fell through to
+// `return null`, and a request that threw left the provider stuck on "not
+// loaded" for ever. From the sofa both look the same: the app opens to a blank
+// screen and stays there, with no way to tell whether it is thinking, broken,
+// or waiting for something. So each state says what it knows and offers the
+// one thing that helps.
 
 import Link from 'next/link'
 import { usePlan, type StoredWeek } from '@/components/PlanProvider'
 import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
 
 export function RequirePlan({ children }: { children: (week: StoredWeek) => React.ReactNode }) {
-  const { ready, week, planError } = usePlan()
+  const { state, week, planError, retry } = usePlan()
 
-  if (planError) {
+  if (state === 'unsafe') {
     return (
       <Screen>
         <ScreenTitle title="Plan nicht möglich" />
@@ -23,7 +30,7 @@ export function RequirePlan({ children }: { children: (week: StoredWeek) => Reac
             Die App hat den Plan abgelehnt, weil er eine Sicherheitsgrenze verletzt hätte. Das ist
             gewollt: lieber kein Plan als ein riskanter.
           </p>
-          <p className="mt-2 font-mono text-xs text-muted">{planError}</p>
+          {planError && <p className="mt-2 font-mono text-xs text-muted">{planError}</p>}
         </Card>
 
         {/* Every screen behind this guard shows the same thing, so without a way
@@ -38,6 +45,46 @@ export function RequirePlan({ children }: { children: (week: StoredWeek) => Reac
     )
   }
 
-  if (!ready || !week) return null
+  if (state === 'no_goal') {
+    return (
+      <Screen>
+        <ScreenTitle title="Noch kein Ziel" />
+        <Card>
+          <p className="text-sm leading-relaxed text-ink">
+            Für einen Plan fehlt noch dein Ziel. Sobald du es beschrieben hast, entsteht daraus
+            deine Woche.
+          </p>
+        </Card>
+        <div className="mt-4">
+          <Link href="/onboarding">
+            <Button>Ziel festlegen</Button>
+          </Link>
+        </div>
+      </Screen>
+    )
+  }
+
+  if (state === 'failed') {
+    return (
+      <Screen>
+        <ScreenTitle title="Plan nicht geladen" />
+        <Card tone="warn">
+          <p className="text-sm leading-relaxed text-ink">
+            Deine Woche konnte nicht geladen werden. Das liegt an der Verbindung oder am Server,
+            nicht an deinen Angaben — es ist nichts verloren gegangen.
+          </p>
+        </Card>
+        <div className="mt-4">
+          <Button onClick={retry}>Erneut versuchen</Button>
+        </div>
+      </Screen>
+    )
+  }
+
+  // Loading, and the moment between "ready" and the week arriving in state.
+  // Nothing rather than a spinner: the fetch is usually faster than a spinner
+  // is readable, and a flash of loading UI on every navigation reads as slower
+  // than silence.
+  if (state !== 'ready' || !week) return null
   return <>{children(week)}</>
 }
