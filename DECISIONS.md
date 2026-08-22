@@ -7,6 +7,97 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-22 — ADR-071: Ein Experiment wird aufgegeben, nicht verworfen
+
+**Entscheidung:** Ein Experiment, das länger als zwölf Wochen offen ist und immer noch zu
+wenige Aktionen gesammelt hat, endet mit dem Status `aborted` statt mit einer weiteren
+Verlängerung. `Evaluation.abandoned` unterscheidet es von `rejected`.
+
+**Begründung:** „Zu wenig passiert" antwortete mit weiteren zwei Wochen, und nichts hinderte
+es daran, das ewig zu tun. Wer die App vier Monate weglegte, kam zu einem Test zurück, der
+noch lief, den einzigen Platz belegte — eins zur Zeit ist die Regel — und über seine
+Trial-Regel weiter jeden Plan formte, auf Basis von zwei Wochen, die längst aus dem lesbaren
+Fenster gefallen waren.
+
+Aufgegeben ist nicht abgelehnt. Abgelehnt ist ein Urteil über die Änderung; abgebrochen sagt,
+dass es nie eines gab. Das Zweite als das Erste zu verbuchen hieße, der Person zu erzählen,
+das Morgentraining habe bei ihr nicht funktioniert — über einen Zeitraum, in dem sie gar
+nicht da war. Alter allein ist nie der Grund: ein Experiment mit genügend Daten bekommt sein
+Urteil, egal wie lange es gedauert hat.
+
+---
+
+## 2026-08-22 — ADR-070: Ein Zieldatum in der Vergangenheit wird ersetzt, nicht abgelehnt
+
+**Entscheidung:** `horizonFor()` in `src/lib/engine/horizon.ts` beantwortet für alle sieben
+Archetypen dieselbe Dreiteilung — kein Datum, ein gültiges Datum, ein vergangenes Datum. Eine
+gemeinsame Invariante lehnt jede Strategie ab, deren Zieldatum nicht in der Zukunft liegt.
+
+**Begründung:** Vier Archetypen — Schlaf, Gesundheitsbasis, Gewohnheit, Ernährung — nahmen,
+was getippt wurde, und stellten es unbesehen in die Strategie. Es kam als `adjusted: false`
+zurück, und Fortschritt druckte es unter die Worte „wie gewünscht": eine Frist, die Monate
+vorbei war, präsentiert als Plan, der wie vorgesehen läuft. Gewünscht hatte das niemand — es
+war eine vertippte Jahreszahl oder ein nach langer Pause wieder aufgenommenes Ziel.
+
+Die drei ratenbegrenzten Archetypen kamen zufällig zum richtigen Ergebnis: eine negative
+Wochenzahl ist kleiner als die sichere, also fing der Deckel es im Vorbeigehen ab. Das hörte
+in dem Moment auf zu funktionieren, in dem es keine Rate zu deckeln gab.
+
+Die Antwort ist nie eine Absage (K6): ein Datum, das nicht benutzbar ist, wird durch eines
+ersetzt, das es ist, und der Austausch wird ausgesprochen. Die Invariante liegt zentral, weil
+genau das ein neuer Zieltyp vergisst — und das Vergessen unsichtbar ist.
+
+---
+
+## 2026-08-22 — ADR-069: Planpflege arbeitet an der laufenden Woche, Erkennung am ganzen Fenster
+
+**Entscheidung:** `refinePlan` filtert seine Beobachtungen auf die aktuelle Woche. Jede
+Nachhol-Verschiebung belegt ihren Tag, sodass zwei Ausfälle zwei Tage bekommen.
+
+**Begründung:** Planpflege bekam dasselbe Sechs-Wochen-Fenster wie die Mustererkennung und
+handelte auf allem davon. Jede je als „passt nicht zu meinem Alltag" markierte Aktion kam
+sechs Wochen lang jede Woche als Neuigkeit zurück — etwas längst Entferntes, erneut zum
+Entfernen angeboten. Jeder Ausfall aus sechs Wochen wurde eine Verschiebung, und weil die
+Suche immer bei heute begann, landeten alle auf demselben Datum: fünf Korrekturen, ein Tag,
+unter einer Überschrift, die „an dieser Woche" sagt.
+
+Erkennung will das lange Fenster, Pflege die Woche, in der jemand gerade steckt. Dieselben
+Zeilen, zwei verschiedene Fragen.
+
+---
+
+## 2026-08-22 — ADR-068: Jeder Ausgang des Wochen-Ladens hat einen Screen
+
+**Entscheidung:** Der Zustand des Wochenplans ist ein benannter Union-Typ in
+`src/components/planState.ts` — `loading`, `ready`, `unsafe`, `no_goal`, `failed` — statt
+zweier Booleans. `RequirePlan` behandelt alle fünf.
+
+**Begründung:** Zwei davon zeigten überhaupt nichts. `no_goal` kam vom Server, wurde als
+„geladen" notiert und passte dann zu keinem Zweig des Guards, der auf `return null` durchfiel.
+Und eine Anfrage, die warf, erreichte den Handler nie, sodass `loaded` für immer falsch blieb.
+Keins von beidem loggt etwas, und von der Couch aus sehen beide gleich aus: Die App öffnet
+sich zu einem leeren Bildschirm und bleibt dort — ohne Möglichkeit zu erkennen, ob sie denkt,
+kaputt ist oder auf etwas wartet.
+
+Ein Zustand, den niemand rendert, ist ein Zustand, dessen Defekt niemand bemerkt.
+
+---
+
+## 2026-08-22 — ADR-067: Vor dem ersten Tag wird nichts geplant
+
+**Entscheidung:** `materialise()` bekommt den ersten Tag der Person in dieser Woche und
+schreibt nichts davor. Die Sicherheitsinvarianten prüfen weiterhin die vollständige Woche.
+
+**Begründung:** Eine Woche wird beim ersten Öffnen festgeschrieben (ADR-039), also schrieb
+eine Anmeldung am Samstag auch Montag bis Freitag mit: fünf Aktionen aus der Zeit vor dem
+Konto, die auf dem Plan-Screen um Bewertung baten. Unangetastet altern sie zu `missed`, und
+die Erkennung liest das als Evidenz über Wochentage — wer sich an einem Samstag anmeldet,
+bekäme gesagt, dass Montage bei ihm nie funktionieren.
+
+Ein Tag vor dem ersten Tag ist keine unbewertete Aktion. Er war nie geplant.
+
+---
+
 ## 2026-08-21 — ADR-066: Ein Zielwechsel bearbeitet die Angaben, er ersetzt sie nicht
 
 **Entscheidung:** Das Onboarding-Formular wird beim Zielwechsel aus der Datenbank vorbefüllt.
