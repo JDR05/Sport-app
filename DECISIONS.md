@@ -7,6 +7,61 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-23 — ADR-076: Nachholen erzeugt eine zweite Aktion, es verschiebt nicht die erste
+
+**Entscheidung:** Planpflege wird auf Knopfdruck angewendet. Eine Verschiebung legt eine
+**neue** Aktion auf den freien Tag; die ausgefallene bleibt als `missed` stehen, wo sie war.
+Eine Entfernung überträgt die Antwort der Person auf die noch offenen Wiederholungen derselben
+Aktion in dieser Woche.
+
+**Begründung:** Zwei Fehler übereinander. `nextFreeDate` lehnte jeden Tag ab, der irgendeine
+Aktion trug, während der eigene Kommentar „frei von einer Aktion derselben Domain" sagte — und
+weil die Gesundheitsbasis über alle sieben Tage materialisiert wird, war nach dieser Lesart
+jeder Tag belegt. Planpflege erzeugte in **allen siebzig** Profil-Ziel-Kombinationen null
+Verschiebungen. Die sichtbare Hälfte der schnellen Schleife lief nie, und Woche eins, für die
+sie existiert, zeigte nichts. Dazu sah sie die Tage gar nicht, zwischen denen sie wählte:
+`loadObservations` endet bei heute, weil Evidenz das ist, was schon passiert ist.
+
+Der zweite Fehler war, dass nichts davon je angewendet wurde. „2 Aktionen könnten an einem
+anderen Tag besser passen" war ein Satz über eine Datenstruktur.
+
+Die neue Aktion statt einer Verschiebung ist die eigentliche Entscheidung: `scheduled_on` zu
+überschreiben würde den Ausfall vom Montag wegtragen und damit genau das zerstören, wonach die
+langsame Schleife sucht — dass Montage wiederholt nicht funktionieren. Was passiert ist, muss
+die Höflichkeit überleben, einen anderen Tag angeboten zu bekommen.
+
+Auf Knopfdruck, nicht beim Laden: ADR-039 sagt, eine Woche ist ein bereits gegebenes
+Versprechen. Sie darf von der Person geändert werden, nie unter ihr.
+
+---
+
+## 2026-08-23 — ADR-075: Eine gelernte Regel wird jede Woche gegen die Wirklichkeit geprüft
+
+**Entscheidung:** `recheckRules()` bewertet jede aktive, nicht-Trial-Regel gegen die letzten
+sechs Wochen und bewegt ihre Confidence über `reinforce()`. Ausgeführt genau dann, wenn eine
+neue Woche materialisiert wird. Fällt eine Regel unter `MIN_RULE_CONFIDENCE`, entsteht ein
+Insight. Erfüllt ADR-033.
+
+**Begründung:** `reinforce`, `activeRules` und `mergeRule` wurden in Schritt 6 geschrieben,
+getestet — und nie aufgerufen. Confidence betrat das Modell bei 0,6 und blieb dort für immer.
+Eine im November gelernte Regel formte im März weiter jeden Plan mit demselben Gewicht, und
+der Satz, der im Playbook darunter steht („sie kann wieder sinken, wenn es später anders
+läuft"), traf auf nichts zu, was der Code tat. Ein Modell, das nur Gewissheit ansammeln kann,
+erzählt einem Menschen irgendwann, wer er früher war.
+
+Zwei Asymmetrien sind Absicht. **Fehlende Evidenz ändert nichts** — und das ist der Normalfall:
+eine Regel, die ihre eigene Evidenz gelöscht hat (auf einem gemiedenen Wochentag wird nichts
+mehr geplant), verfestigt sich nicht und verblasst nicht. Das ist das sechste
+Architekturprinzip, angewandt auf das Modell selbst. Und eine Regel wurde durch ein Experiment
+erworben, also braucht es drei widersprechende Wochen, um sie zu kippen, nicht eine schiefe.
+
+Der Zeitpunkt braucht keine Buchhaltungsspalte: der partielle Unique-Index auf `plans`
+garantiert, dass eine Woche genau einmal gebaut wird. Trial-Regeln bleiben ausgenommen — über
+die urteilt bereits ein laufendes Experiment, und zwei Mechanismen über derselben Regel machen
+beide Ergebnisse unlesbar.
+
+---
+
 ## 2026-08-23 — ADR-074: Der Fortschrittsbalken zählt echte Tage auf ein echtes Ziel
 
 **Entscheidung:** Der Balken im Playbook zählt Tage, an denen mindestens eine Aktion
