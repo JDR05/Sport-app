@@ -14,6 +14,7 @@ import {
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import { horizonFor, withNote } from '../horizon'
+import { currentOf } from '../progress'
 import {
   bestSlotOn, dateOf, formatDecimal, longestSlotOn, planTrainingDays, restDays, round1,
   slotOf,
@@ -50,7 +51,10 @@ function volumeMetric(input: PlanInput) {
 }
 
 function startVolume(input: PlanInput): number {
-  return volumeMetric(input)?.startValue ?? FALLBACK_START_KM
+  // The volume actually being run now, not the one entered at the beginning.
+  // Growth is capped at ten percent a week *from where the person is* — from a
+  // stale start value it was capped from somewhere they had already left.
+  return currentOf(volumeMetric(input)) ?? FALLBACK_START_KM
 }
 
 function targetVolume(input: PlanInput): number {

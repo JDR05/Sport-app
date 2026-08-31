@@ -107,7 +107,7 @@ describe('the deficit follows the goal, not a rounded version of it', () => {
       profile: { ...base.profile, weightKg: start },
       goal: { ...base.goal, targetDate: addDays(base.today, weeks * 7) },
       metrics: [
-        { metricKey: 'weight_kg', startValue: start, targetValue: target, unit: 'kg' },
+        { metricKey: 'weight_kg', startValue: start, targetValue: target, currentValue: null, unit: 'kg' },
       ],
     }
 

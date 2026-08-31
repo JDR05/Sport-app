@@ -7,6 +7,37 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-23 — ADR-077: Der Plan rechnet mit dem Stand von heute, nicht mit dem vom Anfang
+
+**Entscheidung:** `GoalMetric` bekommt `currentValue` — die letzte Messung. Alle drei
+metrischen Archetypen planen über `currentOf()` von dort aus statt vom `startValue`.
+`metricReached()` erkennt richtungsabhängig, dass der Zielwert erreicht ist; Fortschritt sagt
+es. Das Ziel wird **nicht** automatisch stillgelegt.
+
+**Begründung:** Messwerte wurden bei jedem Eintrag geschrieben, im Chart gezeichnet — und von
+nichts gelesen, was plant. Der Plan wurde also für immer aus dem Startwert berechnet. Wer vier
+von fünf Kilo geschafft hatte, bekam weiter das Defizit für die vollen fünf. Wer angekommen
+war, bekam weiter ein Defizit, das er nicht mehr brauchte — und das ist nicht bloß falsch,
+sondern genau die Art von falsch, gegen die die Körperziel-Regeln in CLAUDE.md geschrieben
+sind. Beim Ausdauerziel dasselbe in Grün: die 10-%-Grenze wuchs von einem Umfang aus, den die
+Person längst hinter sich gelassen hatte.
+
+Der Status `reached` existiert seit der ersten Migration und wurde von keinem Codepfad je
+gesetzt. Eine Goal-Execution-App hatte damit kein Ende: das Ziel wurde erreicht, der Plan
+schob weiter auf eine Zahl zu, die schon passiert war, und die Person erfuhr es, indem sie das
+Diagramm las.
+
+Angekündigt statt automatisch beendet. Ein Ziel mitten in der Woche stillzulegen nähme jemandem
+den Plan weg, den er heute noch vor sich hat — ADR-039, eine Woche ist ein bereits gegebenes
+Versprechen. Der Plan läuft unverändert weiter (bei einem erreichten Körperziel heißt das
+rechnerisch Erhalt statt Defizit), und was als Nächstes kommt, entscheidet die Person über das
+Onboarding, das ein altes Ziel ohnehin sauber pausiert.
+
+`currentValue` ist bewusst nicht Teil der Onboarding-Daten: die Aufnahme sagt, wo jemand
+startet und wo er hinwill. Wo er heute steht, beobachtet die App.
+
+---
+
 ## 2026-08-23 — ADR-076: Nachholen erzeugt eine zweite Aktion, es verschiebt nicht die erste
 
 **Entscheidung:** Planpflege wird auf Knopfdruck angewendet. Eine Verschiebung legt eine

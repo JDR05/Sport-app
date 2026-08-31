@@ -151,7 +151,13 @@ describe('a starting volume the app never refuses', () => {
       const base = makeInput(PROFILES[0], GOALS[2])
       const input: PlanInput = {
         ...base,
-        metrics: [{ metricKey: 'distance_km', startValue: km, targetValue: km * 2.5, unit: 'km' }],
+        metrics: [{
+          metricKey: 'distance_km',
+          startValue: km,
+          targetValue: km * 2.5,
+          currentValue: null,
+          unit: 'km',
+        }],
       }
       expect(() => generatePlan(input)).not.toThrow()
       const plan = generatePlan(input)

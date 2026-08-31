@@ -11,6 +11,7 @@ import { loadMeasurements } from '@/lib/db/tracking'
 import { weeklyReview } from '@/lib/db/analysis'
 import { isResolved } from '@/lib/adaptive/detect'
 import { weekScores } from '@/lib/adaptive/scores'
+import { metricReached } from '@/lib/domain/types'
 import { ProgressView, type ProgressData } from './ProgressView'
 import type { MetricSpec } from '@/components/MetricEntry'
 
@@ -52,6 +53,12 @@ export default async function ProgressPage() {
   const data: ProgressData = {
     spec,
     history,
+    // Reached, and nobody was ever told. The enum has had a `reached` status
+    // since the first migration and no code path has ever set it, so a
+    // goal-execution app had no ending: the target was met, the plan kept
+    // pushing towards a number already passed, and the person found out by
+    // reading the chart. See ADR-077.
+    reached: metricReached(metric),
     completion: review?.completion ?? null,
     completionThisWeek: review?.completionThisWeek ?? null,
     weeksWithData: review?.weeksWithData ?? 0,

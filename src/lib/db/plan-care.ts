@@ -127,7 +127,10 @@ export async function applyPlanCare(profileId: string, today: string): Promise<P
     // plan having asked for the wrong thing.
     const written = await supabase
       .from('plan_items')
-      .update({ status: 'not_relevant' })
+      // Stamped like any other status change. The adaptive engine reads this
+      // to tell "answered that evening" from "answered three weeks later",
+      // and a row that changed status without a time on it is a gap in that.
+      .update({ status: 'not_relevant', status_changed_at: new Date().toISOString() })
       .eq('id', removal.itemId)
       .eq('profile_id', profileId)
       // Only ones nobody has answered. An action the person has since ticked

@@ -224,7 +224,14 @@ export const GOALS: NamedGoal[] = [
     name: '5 kg abnehmen',
     archetype: 'body_composition',
     goal: { rawText: 'Ich möchte 5 kg abnehmen', archetype: 'body_composition', targetDate: '2026-11-11', classifiedBy: 'keywords' },
-    metrics: (p) => [{ metricKey: 'weight_kg', startValue: p.weightKg, targetValue: (p.weightKg ?? 80) - 5, unit: 'kg' }],
+    metrics: (p) => [{
+      metricKey: 'weight_kg',
+      startValue: p.weightKg,
+      targetValue: (p.weightKg ?? 80) - 5,
+      // No measurement yet: the plan starts from where the person said they are.
+      currentValue: null,
+      unit: 'kg',
+    }],
   },
   {
     name: 'stärker werden',
@@ -236,7 +243,13 @@ export const GOALS: NamedGoal[] = [
     // ten different people cannot get a different plan from an identical input.
     metrics: (p) => {
       const start = Math.round((p.weightKg ?? 75) * LOAD_FACTOR[p.sport.experience ?? 'beginner'])
-      return [{ metricKey: 'load_kg', startValue: start, targetValue: Math.round(start * 1.3), unit: 'kg' }]
+      return [{
+        metricKey: 'load_kg',
+        startValue: start,
+        targetValue: Math.round(start * 1.3),
+        currentValue: null,
+        unit: 'kg',
+      }]
     },
   },
   {
@@ -248,7 +261,13 @@ export const GOALS: NamedGoal[] = [
     // fact that both were being handed the same 13 km week.
     metrics: (p) => {
       const start = WEEKLY_KM[p.sport.experience ?? 'beginner']
-      return [{ metricKey: 'distance_km', startValue: start, targetValue: start * 2.5, unit: 'km' }]
+      return [{
+        metricKey: 'distance_km',
+        startValue: start,
+        targetValue: start * 2.5,
+        currentValue: null,
+        unit: 'km',
+      }]
     },
   },
   {
@@ -309,7 +328,7 @@ export const incompleteInput: PlanInput = {
     mind: { screenTimeHoursPerDay: null, focusStruggle: null, existingRoutines: [] },
   },
   goal: { rawText: 'abnehmen', archetype: 'body_composition', targetDate: null, classifiedBy: 'keywords' },
-  metrics: [{ metricKey: 'weight_kg', startValue: 80, targetValue: 75, unit: 'kg' }],
+  metrics: [{ metricKey: 'weight_kg', startValue: 80, targetValue: 75, currentValue: null, unit: 'kg' }],
   constraints: [],
   schedule: schedule({ freeSlots: slots([['tue', '18:00', 45], ['sat', '10:00', 60]]) }),
   personalRules: [],

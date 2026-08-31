@@ -78,7 +78,32 @@ export type GoalMetric = {
   metricKey: string
   startValue: number | null
   targetValue: number | null
+  /**
+   * The most recent measurement, or null before there is one.
+   *
+   * Measurements were recorded, drawn on the Progress chart, and then never
+   * read by anything that plans. So the plan was computed from the start value
+   * for ever: someone four kilos into a five-kilo goal still got the deficit
+   * for the whole five, and someone who had arrived kept getting a deficit
+   * they no longer needed. See ADR-077.
+   */
+  currentValue: number | null
   unit: string
+}
+
+/**
+ * Whether the goal metric has arrived, in whichever direction it was going.
+ *
+ * Direction matters: a weight goal usually counts down, an endurance or
+ * strength goal counts up, and someone gaining weight counts up too. Comparing
+ * against the start is the only way to know which.
+ */
+export function metricReached(metric: GoalMetric | undefined): boolean {
+  if (!metric) return false
+  const { startValue: start, targetValue: target, currentValue: current } = metric
+  if (start === null || target === null || current === null) return false
+  if (start === target) return false
+  return target < start ? current <= target : current >= target
 }
 
 // --------------------------------------------------------- the person ----

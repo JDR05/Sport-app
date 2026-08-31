@@ -69,7 +69,7 @@ function buildAnswers(
   classifiedBy: 'ai' | 'keywords' | 'user',
 ) {
   const metricSpec = METRIC_FOR[archetype]
-  const metrics: GoalMetric[] =
+  const metrics: Array<Omit<GoalMetric, 'currentValue'>> =
     metricSpec && (d.metricStart !== null || d.metricTarget !== null)
       ? [{ metricKey: metricSpec.key, startValue: d.metricStart, targetValue: d.metricTarget, unit: metricSpec.unit }]
       : []

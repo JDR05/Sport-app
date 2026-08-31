@@ -20,6 +20,7 @@ import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { computeEnergy, intakeFloor, targetIntake } from '../energy'
 import { PlanInvariantError } from '../errors'
 import { horizonFor, withNote } from '../horizon'
+import { currentOf } from '../progress'
 import {
   bestSlotOn,
   dateOf,
@@ -82,7 +83,7 @@ export const bodyComposition: ArchetypeStrategy = {
   clampGoal(ctx: PlanContext): ClampedGoal {
     const { input } = ctx
     const metric = weightMetric(input)
-    const start = metric?.startValue ?? input.profile.weightKg ?? FALLBACK.weightKg
+    const start = currentOf(metric) ?? input.profile.weightKg ?? FALLBACK.weightKg
     const target = metric?.targetValue ?? start
 
     const totalChangeKg = Math.abs(start - target)
@@ -135,7 +136,7 @@ export const bodyComposition: ArchetypeStrategy = {
   planGoalTrack(ctx: PlanContext): GoalTrack {
     const { input, experience } = ctx
     const metric = weightMetric(input)
-    const start = metric?.startValue ?? input.profile.weightKg ?? FALLBACK.weightKg
+    const start = currentOf(metric) ?? input.profile.weightKg ?? FALLBACK.weightKg
     const target = metric?.targetValue ?? start
     const losing = target <= start
 
@@ -240,7 +241,7 @@ export const bodyComposition: ArchetypeStrategy = {
     const intake = Number(track.signature.intakeBucket)
     const floor = intakeFloor(input.profile)
     const metric = weightMetric(input)
-    const start = metric?.startValue ?? input.profile.weightKg ?? FALLBACK.weightKg
+    const start = currentOf(metric) ?? input.profile.weightKg ?? FALLBACK.weightKg
 
     if (track.signature.direction === 'deficit' && intake + 249 < floor) {
       throw new PlanInvariantError(

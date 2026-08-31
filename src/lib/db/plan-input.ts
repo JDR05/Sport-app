@@ -58,7 +58,9 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
   // Fetched flat rather than as a nested select: the simplified generated types
   // carry no relationship metadata, and reaching around the type system to save
   // one round trip is a bad trade.
-  const [profileRow, goalRow, metricRows, scheduleRow, constraintRows, ruleRows] =
+  const [
+    profileRow, goalRow, metricRows, scheduleRow, constraintRows, ruleRows, measurementRows,
+  ] =
     await Promise.all([
     supabase.from('profiles').select('*').eq('id', profileId).maybeSingle(),
     supabase
@@ -75,6 +77,14 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
       .select('*')
       .eq('profile_id', profileId)
       .eq('active', true),
+    // The latest reading per metric. Measurements were written, drawn on the
+    // Progress chart, and read by nothing that plans — so the plan was built
+    // from the start value for ever. See ADR-077.
+    supabase
+      .from('measurements')
+      .select('metric_key, value, measured_at')
+      .eq('profile_id', profileId)
+      .order('measured_at', { ascending: false }),
   ])
 
   // A failed read is reported, never interpreted. This also covers the case
@@ -109,12 +119,19 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
     classifiedBy: g.classified_by,
   }
 
+  // Newest first from the query, so the first hit per key is the latest.
+  const latest = new Map<string, number>()
+  for (const row of measurementRows.data ?? []) {
+    if (!latest.has(row.metric_key)) latest.set(row.metric_key, Number(row.value))
+  }
+
   const metrics: GoalMetric[] = (metricRows.data ?? [])
     .filter((m) => m.goal_id === g.id)
     .map((m) => ({
       metricKey: m.metric_key,
       startValue: m.start_value,
       targetValue: m.target_value,
+      currentValue: latest.get(m.metric_key) ?? null,
       unit: m.unit,
     }))
 

@@ -17,7 +17,12 @@ import type { Constraint, Goal, GoalMetric, Profile, Schedule } from '@/lib/doma
 export type OnboardingData = {
   profile: Profile
   goal: Goal
-  metrics: GoalMetric[]
+  /**
+   * Without `currentValue`: that one is read back from the measurements, never
+   * entered. The intake says where someone starts and where they want to get
+   * to; where they are today is something the app observes.
+   */
+  metrics: Array<Omit<GoalMetric, 'currentValue'>>
   schedule: Schedule
   constraints: Constraint[]
 }

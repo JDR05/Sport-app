@@ -13,6 +13,7 @@ import {
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { PlanInvariantError } from '../errors'
 import { horizonFor, withNote } from '../horizon'
+import { currentOf } from '../progress'
 import {
   bestSlotOn, dateOf, longestRun, planTrainingDays, restDays, slotOf,
   type PlanContext,
@@ -35,7 +36,7 @@ export const strength: ArchetypeStrategy = {
   clampGoal(ctx: PlanContext): ClampedGoal {
     const { input } = ctx
     const metric = input.metrics[0]
-    const start = metric?.startValue ?? 0
+    const start = currentOf(metric) ?? 0
     const target = metric?.targetValue ?? 0
 
     const weeksRequested = input.goal.targetDate

@@ -4,13 +4,15 @@ import Link from 'next/link'
 import { RequirePlan } from '@/components/RequirePlan'
 import { MetricEntry, type MetricSpec } from '@/components/MetricEntry'
 import { ScoreRing } from '@/components/ScoreRing'
-import { DOMAIN_LABEL, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
+import { DOMAIN_LABEL, Button, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
 import { formatGermanDateShort } from '@/lib/engine/dates'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
 import type { WeekScores } from '@/lib/adaptive/scores'
 
 export type ProgressData = {
   spec: MetricSpec | null
+  /** The goal metric has arrived, in whichever direction it was going. */
+  reached: boolean
   history: Array<{ value: number; measuredAt: string }>
   completion: number | null
   completionThisWeek: number | null
@@ -27,6 +29,31 @@ export function ProgressView({ data }: { data: ProgressData }) {
         return (
           <Screen>
             <ScreenTitle title="Fortschritt" subtitle="Wo stehst du, und was hält dich zurück?" />
+
+            {/* Said here rather than on Today: this is the screen where the
+                number is entered and read, so it is where arriving at it
+                belongs. The goal is not retired automatically — the plan keeps
+                running as it is until the person decides what comes next, and
+                a week already promised is not taken away from them. */}
+            {data.reached && (
+              <Card tone="accent">
+                <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                  Ziel erreicht
+                </p>
+                <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
+                  Du bist da. Dein Zielwert ist erreicht.
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-muted">
+                  Der Plan läuft unverändert weiter, bis du entscheidest, was als Nächstes
+                  kommt. Nichts von dem, was du dir aufgebaut hast, geht dabei verloren.
+                </p>
+                <div className="mt-3">
+                  <Link href="/onboarding">
+                    <Button>Nächstes Ziel festlegen</Button>
+                  </Link>
+                </div>
+              </Card>
+            )}
 
             {data.scores.overall.planned === 0 ? (
               <EmptyState
