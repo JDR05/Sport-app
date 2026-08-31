@@ -13,7 +13,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { respondToExperiment } from '@/app/(app)/actions'
+import { applyCorrections, respondToExperiment } from '@/app/(app)/actions'
 import { Button, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
 import { formatGermanDate } from '@/lib/engine/dates'
@@ -46,10 +46,21 @@ export function InsightsView({ data }: { data: InsightsData }) {
   const router = useRouter()
   const [responding, setResponding] = useState(false)
 
+  const [applying, setApplying] = useState(false)
+
   const respond = async (accept: boolean) => {
     setResponding(true)
     await respondToExperiment(data.today, accept)
     setResponding(false)
+    router.refresh()
+  }
+
+  // The corrections used to be a sentence about a data structure. The count
+  // was printed, nothing moved, and the same offer came back every week.
+  const apply = async () => {
+    setApplying(true)
+    await applyCorrections(data.today)
+    setApplying(false)
     router.refresh()
   }
 
@@ -147,14 +158,33 @@ export function InsightsView({ data }: { data: InsightsData }) {
           <SectionHeading>Kleine Korrekturen</SectionHeading>
           <Card>
             <p className="text-sm leading-relaxed text-ink">
-              {data.moveCount > 0 && `${data.moveCount} Aktion${data.moveCount === 1 ? '' : 'en'} könnten an einem anderen Tag besser passen. `}
-              {data.removalCount > 0 && `${data.removalCount} Aktion${data.removalCount === 1 ? '' : 'en'} passt nicht zu deinem Alltag und fällt raus.`}
+              {data.moveCount > 0 &&
+                (data.moveCount === 1
+                  ? 'Für eine ausgefallene Aktion gibt es diese Woche noch einen freien Tag. '
+                  : `Für ${data.moveCount} ausgefallene Aktionen gibt es diese Woche noch freie Tage. `)}
+              {data.removalCount > 0 &&
+                (data.removalCount === 1
+                  ? 'Eine Wiederholung von etwas, das nicht zu dir passt, wird dir nicht noch einmal gestellt.'
+                  : `${data.removalCount} Wiederholungen von etwas, das nicht zu dir passt, werden dir nicht noch einmal gestellt.`)}
             </p>
             {data.patchNotes.map((note) => (
               <p key={note} className="mt-2 text-xs text-faint">
                 {note}
               </p>
             ))}
+
+            {/* ADR-039 says a week is a promise already made, so it may be
+                changed by the person and never under them. That is why this is
+                a button rather than something that happens on load. */}
+            <div className="mt-3">
+              <Button type="button" variant="quiet" onClick={apply} disabled={applying}>
+                {applying ? 'Einen Moment …' : 'Übernehmen'}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-faint">
+              Der ausgefallene Tag bleibt stehen, wie er war — nachgeholt wird zusätzlich, nicht
+              statt. Was du schon beantwortet hast, bleibt, wie du es beantwortet hast.
+            </p>
           </Card>
         </>
       )}

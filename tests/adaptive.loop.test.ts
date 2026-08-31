@@ -24,6 +24,8 @@ import { readRules } from '@/lib/engine/rules'
 import type { PersonalRule } from '@/lib/domain/types'
 import { ALL_COMBINATIONS, GOALS, makeInput, PROFILES, TODAY } from './fixtures/profiles'
 import { repeat, THIS_WEEK_START, weekOf, WEDNESDAY_PROBLEM } from './fixtures/observations'
+import { materialise } from '@/lib/db/item-mapping'
+import { MAX_ITEMS_PER_DAY } from '@/lib/engine/constants'
 
 // Aylin trains on Wednesday and has enough other free days that the day can
 // actually be given up — the case where the rule has something to do.
@@ -241,14 +243,39 @@ describe('plan care', () => {
   })
 
   it('drops what the plan got wrong instead of counting it as a miss', () => {
+    // A standing rule is materialised across all seven days, so saying "passt
+    // nicht" on Monday leaves six identical copies asking the same question
+    // for the rest of the week. Those repeats are what a removal is about —
+    // the one already answered needs nothing done to it.
     const wrong = weekOf(THIS_WEEK_START, [
       { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
+      { day: 'wed', status: 'unknown', title: 'Meal Prep am Sonntag' },
+      { day: 'sat', status: 'unknown', title: 'Meal Prep am Sonntag' },
       { day: 'tue', status: 'done' },
     ])
     const patch = refinePlan(wrong, TODAY)
 
-    expect(patch.removals).toHaveLength(1)
+    expect(patch.removals).toHaveLength(2)
     expect(patch.removals[0].reason).toContain('nicht als verpasst')
+    expect(patch.removals[0].reason).toContain('Rest der Woche')
+  })
+
+  it('leaves the answer the person already gave alone', () => {
+    const onlyPast = weekOf(THIS_WEEK_START, [
+      { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
+    ])
+    expect(refinePlan(onlyPast, TODAY).removals).toEqual([])
+  })
+
+  it('never overwrites an answer the person has already given', () => {
+    // A repeat they ticked off is theirs. Only ones nobody has answered are
+    // carried forward.
+    const mixed = weekOf(THIS_WEEK_START, [
+      { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
+      { day: 'thu', status: 'done', title: 'Meal Prep am Sonntag' },
+      { day: 'sat', status: 'unknown', title: 'Meal Prep am Sonntag' },
+    ])
+    expect(refinePlan(mixed, TODAY).removals).toHaveLength(1)
   })
 
   it('says out loud that it is provisional', () => {
@@ -377,5 +404,77 @@ describe('the metric key', () => {
   it('reads a plain completion_rate as covering every domain', () => {
     expect(domainOfMetricKey('completion_rate')).toBeNull()
     expect(domainOfMetricKey('completion_rate.nutrition')).toBe('nutrition')
+  })
+})
+
+// The only visible half of the fast tier produced nothing at all.
+//
+// nextFreeDate refused any day that carried an action of any kind, while its
+// own comment said "free of a same-domain action". Since the health baseline
+// is materialised across all seven days, every day was occupied by that
+// reading — so plan care generated zero moves across all seventy profile/goal
+// combinations, and week one, which it exists for, showed nothing.
+describe('where a missed action can actually go', () => {
+  /** A real materialised week, with everything before today missed. */
+  function realWeek(index: number) {
+    const { input } = ALL_COMBINATIONS[index]
+    const plan = generatePlan(input)
+    const week = materialise(plan.items, plan.strategy.weekStart)
+    return {
+      today: input.today,
+      observations: week.map((item, i) => ({
+        itemId: `${i}`,
+        scheduledOn: item.scheduledOn,
+        domain: item.domain,
+        track: item.track,
+        title: item.title,
+        timeSlot: item.timeSlot,
+        plannedDurationMin: item.plannedDurationMin,
+        status: (item.scheduledOn < input.today ? 'missed' : 'unknown') as
+          | 'missed'
+          | 'unknown',
+      })),
+    }
+  }
+
+  it('offers a day in a plan that actually exists', () => {
+    const { today, observations } = realWeek(0)
+    expect(refinePlan(observations, today).moves.length).toBeGreaterThan(0)
+  })
+
+  it('offers one in most real plans, not in none of them', () => {
+    const withMoves = ALL_COMBINATIONS.map((_, i) => realWeek(i)).filter(
+      ({ today, observations }) => refinePlan(observations, today).moves.length > 0,
+    ).length
+    expect(withMoves).toBeGreaterThan(ALL_COMBINATIONS.length / 2)
+  })
+
+  it('never puts a make-up on a day that already carries that domain', () => {
+    for (let i = 0; i < ALL_COMBINATIONS.length; i++) {
+      const { today, observations } = realWeek(i)
+      for (const move of refinePlan(observations, today).moves) {
+        const source = observations.find((o) => o.itemId === move.itemId)
+        const clash = observations.filter(
+          (o) => o.scheduledOn === move.toDate && o.domain === source?.domain,
+        )
+        expect(clash, `${ALL_COMBINATIONS[i].name} → ${move.toDate}`).toEqual([])
+      }
+    }
+  })
+
+  it('never pushes a day past the action ceiling', () => {
+    // The day ceiling is a safety limit. A courtesy is not allowed through it.
+    for (let i = 0; i < ALL_COMBINATIONS.length; i++) {
+      const { today, observations } = realWeek(i)
+      const moves = refinePlan(observations, today).moves
+      const perDay = new Map<string, number>()
+      for (const o of observations) perDay.set(o.scheduledOn, (perDay.get(o.scheduledOn) ?? 0) + 1)
+      for (const move of moves) perDay.set(move.toDate, (perDay.get(move.toDate) ?? 0) + 1)
+      for (const [date, count] of perDay) {
+        expect(count, `${ALL_COMBINATIONS[i].name} · ${date}`).toBeLessThanOrEqual(
+          MAX_ITEMS_PER_DAY,
+        )
+      }
+    }
   })
 })

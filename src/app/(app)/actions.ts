@@ -14,6 +14,7 @@ import { ensureWeekPlan, type WeekResult } from '@/lib/db/week-plan'
 import { loadCheckIns, saveCheckIn, saveMeasurement, type CheckIn } from '@/lib/db/tracking'
 import { acceptExperiment, concludeIfDue, declineExperiment } from '@/lib/db/experiments'
 import { weeklyReview } from '@/lib/db/analysis'
+import { applyPlanCare, type PlanCareResult } from '@/lib/db/plan-care'
 
 // Shared with the onboarding: a shape check is not a value check.
 import { isoDate } from '@/lib/domain/isoDate'
@@ -39,6 +40,22 @@ export async function loadWeek(today: unknown): Promise<WeekResult> {
   await concludeIfDue(user.id, parsed.data).catch(() => null)
 
   return ensureWeekPlan(user.id, parsed.data)
+}
+
+/**
+ * Carries out this week's small corrections.
+ *
+ * The patch is recomputed on the server from the database and never taken from
+ * the payload: a move is a write against someone's plan, and a request naming
+ * which rows to touch is a request that can name rows the engine never chose.
+ */
+export async function applyCorrections(today: unknown): Promise<PlanCareResult> {
+  const user = await requireUser()
+
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) return { ok: false, moved: 0, removed: 0 }
+
+  return applyPlanCare(user.id, parsed.data)
 }
 
 // ---------------------------------------------------------------- check-in ---

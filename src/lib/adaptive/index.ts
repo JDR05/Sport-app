@@ -42,6 +42,15 @@ export type AnalyzeOptions = {
    * analysis simply says less — never that it guesses.
    */
   days?: DayContext[]
+  /**
+   * The current week in full, days still ahead included.
+   *
+   * Only plan care uses it, and it needs it: choosing a day to move an action
+   * onto means knowing what is already on the days it is choosing between.
+   * Detection must not see them — an action that has not happened yet is not
+   * evidence — so this is separate from `observations` rather than folded in.
+   */
+  week?: Observation[]
 }
 
 export function analyze(
@@ -49,7 +58,7 @@ export function analyze(
   observations: Observation[],
   options: AnalyzeOptions = {},
 ): Analysis {
-  const patch = refinePlan(observations, input.today)
+  const patch = refinePlan(options.week ?? observations, input.today)
   const deviations = detectDeviations(observations)
 
   // A pattern is stated together with what was different about those days.

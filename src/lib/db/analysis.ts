@@ -15,7 +15,7 @@ import { fromRow, type ItemRow } from './item-mapping'
 import { analysisWindowStart, toObservations } from './observations'
 import { loadPlanInput } from './plan-input'
 import { loadCheckIns } from './tracking'
-import { startOfWeek } from '@/lib/engine/dates'
+import { addDays, startOfWeek } from '@/lib/engine/dates'
 import { analyze, completionRate, type Analysis, type Observation } from '@/lib/adaptive'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
 
@@ -43,6 +43,32 @@ export type WeeklyReview = {
   completionThisWeek: number | null
   /** How many weeks actually carry data — what the UI counts towards. */
   weeksWithData: number
+}
+
+/**
+ * Every action in one week, including the days still ahead.
+ *
+ * loadObservations deliberately stops at today — evidence is what has already
+ * happened. Plan care needs the opposite: it is choosing a day to move
+ * something to, and a day it cannot see looks empty. It saw Thursday through
+ * Sunday as free of everything and would have stacked make-ups onto a day that
+ * already carries training.
+ */
+export async function loadWeekItems(
+  profileId: string,
+  weekStart: string,
+): Promise<Observation[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('plan_items')
+    .select('*')
+    .eq('profile_id', profileId)
+    .gte('scheduled_on', weekStart)
+    .lte('scheduled_on', addDays(weekStart, 6))
+    .order('scheduled_on', { ascending: true })
+
+  return toObservations((data ?? []).map((row) => fromRow(row as ItemRow)))
 }
 
 export async function loadObservations(
@@ -79,6 +105,9 @@ export async function weeklyReview(
   const observations = await loadObservations(profileId, today)
   const weekStart = startOfWeek(today)
   const thisWeek = observations.filter((o) => o.scheduledOn >= weekStart)
+  // The whole week, days ahead included — plan care is picking a day to move
+  // something onto and must be able to see what is already there.
+  const wholeWeek = await loadWeekItems(profileId, weekStart)
   const thisWeekForGoal = await scopeToActiveGoal(profileId, thisWeek, weekStart, today)
 
   // The check-ins over the same window. Without them a pattern can only be
@@ -99,7 +128,7 @@ export async function weeklyReview(
   return {
     observations,
     thisWeek: thisWeekForGoal,
-    analysis: analyze({ ...input, today }, observations, { days }),
+    analysis: analyze({ ...input, today }, observations, { days, week: wholeWeek }),
     completion: completionRate(observations),
     completionThisWeek: completionRate(thisWeekForGoal),
     weeksWithData: new Set(observations.map((o) => startOfWeek(o.scheduledOn))).size,
