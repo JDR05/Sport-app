@@ -7,6 +7,28 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-23 — ADR-078: Die englische Fassung ist ein eigener Schritt, nicht ein Nebenbei
+
+**Entscheidung:** Die App bleibt vorerst durchgehend deutsch. Die englische Fassung — komplett,
+inklusive Plantexte — wird als eigener, geschnittener Schritt gebaut, wenn die Texte stabil
+sind. Entscheidung des Product Owners.
+
+**Begründung:** Der Umfang ist gemessen, nicht geschätzt: rund 350 nutzersichtbare Texte in 64
+Dateien, davon 165 in `src/lib/engine/` — Plantexte und Begründungen mit Interpolation, also
+die aufwendige Sorte. Dazu die Prompts, die das Modell heute auf Deutsch antworten lassen.
+
+Der Grund für das Verschieben ist nicht der Umfang, sondern der Zeitpunkt. Eine i18n-Schicht
+verdoppelt ab dem Tag ihrer Einführung die Pflege **jedes** Textes. In dieser Session haben
+sich Texte in Insights, Fortschritt, Playbook und in drei Archetypen geändert, weil dahinter
+Fehler steckten. Jede dieser Korrekturen wäre doppelt angefallen — und eine halb
+nachgezogene Übersetzung ist schlechter als gar keine, weil sie aussieht, als stimme sie.
+
+Wenn sie kommt, dann zweisprachig und umschaltbar, nicht als Ersatz: der Product Owner liest
+deutsch, und eine App, die ihm ihre Sicherheitsbegründungen in einer Fremdsprache erklärt,
+verliert genau die Nachvollziehbarkeit, die Prinzip 4 verlangt.
+
+---
+
 ## 2026-08-23 — ADR-077: Der Plan rechnet mit dem Stand von heute, nicht mit dem vom Anfang
 
 **Entscheidung:** `GoalMetric` bekommt `currentValue` — die letzte Messung. Alle drei
