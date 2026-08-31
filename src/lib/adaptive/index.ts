@@ -15,14 +15,23 @@ import { detectDeviations } from './detect'
 import { formHypothesis } from './hypothesis'
 import { proposeExperiment } from './experiment'
 import { refinePlan } from './refine'
+import { detectStrengths, type Strength } from './strengths'
 import { attribute, type Attribution, type DayContext } from './attribution'
 import type { Deviation, Experiment, Hypothesis, Insight, Observation, PlanPatch } from './types'
-import { DOMAIN_LABELS } from './labels'
-import type { PlanInput } from '@/lib/domain/types'
+import { DOMAIN_LABELS, SLOT_LABELS, WEEKDAY_LABELS } from './labels'
+import type { PlanDomain, PlanInput, TimeSlot, Weekday } from '@/lib/domain/types'
 
 export type Analysis = {
   /** Everything the data supports, strongest first. Often empty. */
   deviations: Deviation[]
+  /**
+   * Where this person's plan reliably works, strongest first.
+   *
+   * Separate from deviations rather than a signed version of them, because
+   * they are not judged by the same bar. A shortfall is worth naming as soon
+   * as it is real; a strength is only worth naming when it is unmistakable.
+   */
+  strengths: Strength[]
   /** The one pattern acted on this cycle, if any. */
   hypothesis: Hypothesis | null
   /** Null when nothing qualified, or when a change would break a safety limit. */
@@ -60,6 +69,7 @@ export function analyze(
 ): Analysis {
   const patch = refinePlan(options.week ?? observations, input.today)
   const deviations = detectDeviations(observations)
+  const strengths = detectStrengths(observations)
 
   // A pattern is stated together with what was different about those days.
   // Detection alone reports that Tuesdays go badly, and a shortfall with no
@@ -68,19 +78,28 @@ export function analyze(
   const context = (d: Deviation) =>
     attribute(d, options.days ?? [], input.schedule.commitments)
 
+  // Said first, and said even when there is nothing else to say. Six weeks in
+  // which the only thing the app has ever told someone is where they fall
+  // short is how a health app becomes a second job.
+  const good = strengths.slice(0, 1).map(strengthInsight)
+
   const empty: Analysis = {
     deviations,
+    strengths,
     hypothesis: null,
     experiment: null,
     patch,
-    insights: [],
+    insights: good,
   }
 
   if (deviations.length === 0) return empty
   if (options.experimentInFlight) {
     return {
       ...empty,
-      insights: deviations.slice(0, 1).flatMap((d) => [patternInsight(d), ...contextInsights(d, context(d))]),
+      insights: [
+        ...good,
+        ...deviations.slice(0, 1).flatMap((d) => [patternInsight(d), ...contextInsights(d, context(d))]),
+      ],
     }
   }
 
@@ -96,10 +115,12 @@ export function analyze(
 
     return {
       deviations,
+      strengths,
       hypothesis,
       experiment,
       patch,
       insights: [
+        ...good,
         patternInsight(deviation),
         ...contextInsights(deviation, context(deviation)),
         hypothesisInsight(hypothesis),
@@ -112,7 +133,43 @@ export function analyze(
   // better than an unsafe suggestion.
   return {
     ...empty,
-    insights: [patternInsight(deviations[0]), ...contextInsights(deviations[0], context(deviations[0]))],
+    insights: [
+      ...good,
+      patternInsight(deviations[0]),
+      ...contextInsights(deviations[0], context(deviations[0])),
+    ],
+  }
+}
+
+/**
+ * A strength, in the person's own week.
+ *
+ * Never a comparison to other people and never praise for effort — it names
+ * when their plan works, with the numbers behind it, the same way a pattern
+ * does. "Du bist toll" is not something a measuring instrument may say.
+ */
+function strengthInsight(strength: Strength): Insight {
+  return {
+    kind: 'progress',
+    statement:
+      `${bucketLabel(strength)}: ${strength.done} von ${strength.resolved} Aktionen umgesetzt ` +
+      `(${percent(strength.rate)}), sonst ${percent(strength.comparisonRate)}. ` +
+      `Über ${strength.distinctWeeks} Wochen — darauf lässt sich bauen.`,
+    evidence: strength.evidence,
+  }
+}
+
+/** How a bucket is named on screen, per axis. */
+function bucketLabel(strength: Strength): string {
+  switch (strength.dimension) {
+    case 'weekday':
+      return WEEKDAY_LABELS[strength.bucket as Weekday] ?? strength.bucket
+    case 'time_slot':
+      return SLOT_LABELS[strength.bucket as TimeSlot] ?? strength.bucket
+    case 'domain':
+      return DOMAIN_LABELS[strength.bucket as PlanDomain] ?? strength.bucket
+    case 'duration':
+      return strength.bucket === 'long' ? 'Längere Einheiten' : 'Kürzere Einheiten'
   }
 }
 
@@ -160,6 +217,7 @@ export { evaluateExperiment, applyDecision, outOfTime } from './evaluate'
 export { derivePersonalRule, reinforce, activeRules, mergeRule } from './rules'
 export { recheckRules, fadedStatement, type RuleVerdict } from './recheck'
 export { refinePlan } from './refine'
+export { detectStrengths, type Strength } from './strengths'
 export { attribute, type Attribution, type DayContext } from './attribution'
 export type {
   BehaviorMetric,

@@ -24,9 +24,13 @@ export default async function InsightsPage() {
 
   const data: InsightsData = {
     today,
+    // The strengths are lifted out of the insight list rather than left in it:
+    // they get their own heading on the screen, and a good finding buried
+    // between two shortfalls reads as a consolation prize.
+    strengths: analysis.insights.filter((i) => i.kind === 'progress'),
     // While one is running, no second proposal is shown. One variable at a
     // time is what makes either result readable.
-    insights: analysis.insights,
+    insights: analysis.insights.filter((i) => i.kind !== 'progress'),
     experiment: running
       ? null
       : analysis.experiment

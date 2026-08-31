@@ -21,6 +21,8 @@ import type { Insight } from '@/lib/adaptive'
 
 export type InsightsData = {
   today: string
+  /** Where this person's plan reliably works. Shown above everything else. */
+  strengths: Insight[]
   insights: Insight[]
   experiment: {
     hypothesis: string
@@ -67,6 +69,27 @@ export function InsightsView({ data }: { data: InsightsData }) {
   return (
     <Screen>
       <ScreenTitle title="Insights" subtitle="Was funktioniert bei dir – und was nicht?" />
+
+      {/* Said first, and deliberately given its own heading. Six weeks in which
+          the only thing the app has ever told someone is where they fall short
+          is how a health app turns into a second job — and the one thing this
+          product has that a chat does not is that it can point at the days. */}
+      {data.strengths.length > 0 && (
+        <>
+          <SectionHeading>Was bei dir funktioniert</SectionHeading>
+          <div className="mb-2 flex flex-col gap-3">
+            {data.strengths.map((strength, index) => (
+              <Card key={index} tone="accent">
+                <p className="text-sm leading-relaxed text-ink">{strength.statement}</p>
+                <p className="mt-2 text-xs text-faint">
+                  Beruht auf {strength.evidence.length}{' '}
+                  {strength.evidence.length === 1 ? 'Aktion' : 'Aktionen'}, die du umgesetzt hast.
+                </p>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       <SectionHeading>Muster</SectionHeading>
       {data.insights.length === 0 ? (

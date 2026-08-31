@@ -27,6 +27,18 @@ export const MIN_MISSES = 2
 export const MIN_MISS_RATE = 0.5
 
 /**
+ * Share of resolved instances that must be *completed* before a bucket counts
+ * as a strength. Four out of five.
+ *
+ * Deliberately a higher bar than MIN_MISS_RATE. A shortfall is worth naming as
+ * soon as it is real, because the person can act on it. A strength is only
+ * worth naming when it is unmistakable — "samstags läuft es bei dir gut" said
+ * about a coin flip is flattery, and flattery from a measuring instrument
+ * costs it everything it has.
+ */
+export const MIN_STRENGTH_RATE = 0.8
+
+/**
  * The bucket has to be worse than the rest of the week by this margin. Without
  * it, someone who misses everything would be told they have a Wednesday
  * problem — the honest reading there is that the plan is too big, not that
