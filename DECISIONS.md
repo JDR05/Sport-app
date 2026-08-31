@@ -7,6 +7,64 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-23 — ADR-074: Der Fortschrittsbalken zählt echte Tage auf ein echtes Ziel
+
+**Entscheidung:** Der Balken im Playbook zählt Tage, an denen mindestens eine Aktion
+tatsächlich beantwortet wurde, gegen `DAYS_TO_FIRST_RULE` = `MIN_DISTINCT_WEEKS * 7 +
+EXPERIMENT_DAYS`.
+
+**Begründung:** Er war in beiden Hälften Dekoration: `done` stand fest auf 0, `needed` auf
+einer erfundenen 21. Der Balken bewegte sich also nie, und das Ziel entsprach keinem Wert im
+Code. Beides ist jetzt hergeleitet — die Erkennung braucht das Muster in zwei getrennten
+Wochen, danach läuft das Experiment vierzehn Tage. Gezählt werden Tage mit *Antwort*, nicht
+Tage seit der Anmeldung: eine Woche, die niemand getrackt hat, bringt die App keinem Wissen
+näher, und ein Balken, der trotzdem voller wird, verspricht etwas, das er nicht halten kann.
+
+---
+
+## 2026-08-23 — ADR-073: Die App sagt auch, was funktioniert
+
+**Entscheidung:** `detectStrengths()` sucht Buckets, in denen der Plan zuverlässig aufgeht,
+mit einer bewusst höheren Schwelle als die Abweichungserkennung: `MIN_STRENGTH_RATE` = 0,8
+zusätzlich zum bestehenden Kontrast- und Wochen-Kriterium. Das Ergebnis steht oben auf
+Insights, vor allem anderen.
+
+**Begründung:** Jeder andere Teil der adaptiven Schicht sucht, was schiefgeht. Das ist nötig
+und es ist zugleich der Weg, auf dem eine Gesundheits-App zum zweiten Job wird: nach sechs
+Wochen ist das Einzige, was sie je über einen Menschen gesagt hat, wo er zu kurz kommt.
+
+Die höhere Schwelle ist der Punkt. Ein Defizit ist nennenswert, sobald es real ist — man kann
+etwas dagegen tun. Eine Stärke ist erst nennenswert, wenn sie unübersehbar ist. „Samstags
+läuft es bei dir gut" über einen Münzwurf gesagt ist Schmeichelei, und Schmeichelei aus einem
+Messinstrument kostet es alles, was es hat. Wer seinen ganzen Plan umsetzt, bekommt auf keiner
+Achse eine Stärke: es gibt nichts, besser als das zu sein.
+
+---
+
+## 2026-08-23 — ADR-072: Ein KI-Pfad, der Aktionen erzeugt — kein zweiter daneben
+
+**Entscheidung:** `suggest()` samt Prompt, Schema, Mock, Adapter-Methode und
+`checkSuggestions` wird entfernt. `proposePlan()` bleibt der einzige Weg, auf dem
+modellgeschriebener Text einen Menschen erreicht. Die Prüfregeln von `checkSuggestions` waren
+Wort für Wort dieselben wie in `checkProposal`; die zugehörigen Tests zeigen jetzt dorthin.
+
+**Begründung:** `suggest` stammt aus der Zeit vor ADR-041 und wurde von ihm überholt. Es hatte
+in keiner Codezeile des Produkts einen Aufrufer — es lief nie. Was es erzeugt hätte, wäre ein
+zweiter Kartenstapel neben dem Plan gewesen: unverbindliche Ideen, für die niemand
+verantwortlich ist, auf einem Screen, für den die UX-Prinzipien „keine Datenüberflutung, keine
+zwanzig Karten pro Screen" festhalten.
+
+Toter Code mit eigenem Prompt, Schema, Validator und Adapter-Methode ist keine Reserve,
+sondern eine Falle: der Nächste verdrahtet ihn und hat zwei konkurrierende KI-Pfade. Es geht
+keine Sicherheit verloren — `checkProposal` wendet dieselben vier Regelfamilien an, und zwar
+auf dem Pfad, der tatsächlich läuft.
+
+`AI_SUGGEST_MODEL` wird weiterhin gelesen. Eine Variable umzubenennen, die in einem Deployment
+bereits gesetzt ist, würde still auf den Default zurückfallen statt zu scheitern — das
+schlechteste beider Ergebnisse.
+
+---
+
 ## 2026-08-22 — ADR-071: Ein Experiment wird aufgegeben, nicht verworfen
 
 **Entscheidung:** Ein Experiment, das länger als zwölf Wochen offen ist und immer noch zu

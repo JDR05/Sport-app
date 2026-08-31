@@ -1,13 +1,12 @@
 // Plausibility checks.
 //
 // The schema proves the shape. This proves the content is allowed. A
-// schema-valid suggestion can still tell someone to skip dinner, and that is the
+// schema-valid proposal can still tell someone to skip dinner, and that is the
 // failure mode that matters.
 //
-// Violations are rejected, never repaired. Silently fixing a bad suggestion
+// Violations are rejected, never repaired. Silently fixing a bad proposal
 // would hide that the model produced one.
 
-import type { Suggestions } from './schemas'
 import type { GoalClassification } from './schemas'
 
 export type Violation = { rule: string; detail: string }
@@ -51,12 +50,12 @@ function scan(text: string, patterns: RegExp[], rule: string): Violation[] {
 }
 
 /**
- * Plausibility for a plan proposal.
+ * Plausibility for a plan proposal — the only path by which model-written text
+ * reaches a person.
  *
- * The same rule set the suggestions path uses, applied to the fields that
- * actually reach a plan. Stricter in one place: a proposed action becomes
- * something the person is asked to *do* every week, so an unrealistic duration
- * matters more than in a piece of advice they can ignore.
+ * A proposed action becomes something they are asked to *do* every week, which
+ * is why the effort and frequency limits sit here rather than being left to
+ * the reader's judgement.
  */
 export function checkProposal(proposal: {
   headline: string
@@ -91,26 +90,6 @@ export function checkProposal(proposal: {
     // failure then reads as a behavioural pattern that is really a planning one.
     if (action.timesPerWeek > 5) {
       violations.push({ rule: 'too_frequent', detail: `${where}: ${action.timesPerWeek}×/week` })
-    }
-  }
-
-  return violations
-}
-
-export function checkSuggestions(value: Suggestions): Violation[] {
-  const violations: Violation[] = []
-
-  for (const s of [value.headline, ...value.suggestions.flatMap((x) => [x.title, x.reasoning])]) {
-    violations.push(...scan(s, RESTRICTIVE, 'additive_only'))
-    violations.push(...scan(s, NUMERIC_HEALTH_CLAIM, 'no_numeric_health_claims'))
-    violations.push(...scan(s, SLEEP_REDUCTION, 'never_less_sleep'))
-    violations.push(...scan(s, MEDICAL, 'no_medical_claims'))
-  }
-
-  // A suggestion nobody can fit into a day is not a suggestion.
-  for (const s of value.suggestions) {
-    if (s.effortMinutes > 45) {
-      violations.push({ rule: 'realistic_effort', detail: `${s.title}: ${s.effortMinutes} min` })
     }
   }
 

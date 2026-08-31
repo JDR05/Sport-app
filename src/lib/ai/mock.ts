@@ -7,8 +7,8 @@
 
 import { classifyGoalText } from '@/lib/engine'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
-import type { PlanInput, PlanResult } from '@/lib/domain/types'
+import type { GoalClassification, PlanProposal } from './schemas'
+import type {  } from '@/lib/domain/types'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
   body_composition: { key: 'weight_kg', unit: 'kg' },
@@ -44,48 +44,6 @@ export class MockAdapter implements AiAdapter {
     }
   }
 
-  async suggest(input: PlanInput, plan: PlanResult): Promise<AiResult<Suggestions>> {
-    // Built from the person's own answers, not invented: the same discipline the
-    // real adapter is held to.
-    const suggestions: Suggestions['suggestions'] = []
-
-    if (input.profile.sleep.screenBeforeBed === true) {
-      suggestions.push({
-        title: 'Handy 30 Min vor dem Schlafen weglegen',
-        reasoning:
-          'Du hast angegeben, vor dem Schlafen noch am Bildschirm zu sein. Das ist der Hebel mit dem besten Verhältnis von Aufwand zu Wirkung.',
-        domain: 'sleep',
-        effortMinutes: 0,
-      })
-    }
-    if ((input.profile.nutrition.vegetablePortionsPerDay ?? 3) < 3) {
-      suggestions.push({
-        title: 'Eine Portion Gemüse dazulegen',
-        reasoning:
-          'Nach deinen Angaben kommst du auf wenige Portionen am Tag. Dazulegen ist einfacher als umstellen.',
-        domain: 'nutrition',
-        effortMinutes: 5,
-      })
-    }
-    if (suggestions.length === 0) {
-      suggestions.push({
-        title: 'Eine Woche beobachten, was dazwischenkommt',
-        reasoning:
-          'Dein Profil gibt noch wenig her. Eine Woche mitschreiben, was den Plan stört, macht den nächsten deutlich besser.',
-        domain: 'priority',
-        effortMinutes: 5,
-      })
-    }
-
-    return {
-      ok: true,
-      source: 'ai',
-      value: {
-        headline: plan.strategy.goalTrack.headline,
-        suggestions: suggestions.slice(0, 3),
-      },
-    }
-  }
   /**
    * Returns nothing, deliberately.
    *
@@ -112,9 +70,6 @@ export class MockAdapter implements AiAdapter {
 export class NullAdapter implements AiAdapter {
   readonly name = 'null'
   async classifyGoal(): Promise<AiResult<GoalClassification>> {
-    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
-  }
-  async suggest(): Promise<AiResult<Suggestions>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
   /**

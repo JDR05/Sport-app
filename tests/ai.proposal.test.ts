@@ -115,9 +115,6 @@ describe('without a model', () => {
       classifyGoal: async () => {
         throw new Error('nope')
       },
-      suggest: async () => {
-        throw new Error('nope')
-      },
       proposePlan: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
     }
     await expect(proposePlan(input, exploding)).resolves.toMatchObject({ proposal: null })

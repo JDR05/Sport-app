@@ -3,12 +3,15 @@
 Der Hebel-Prompt. Er ist der Grund, warum die App auf ein Ziel eingehen kann, für das kein
 Archetyp gebaut wurde — siehe `docs/AI_CAPABILITIES.md` und ADR-041.
 
-## Was ihn von `suggest.v1` unterscheidet
+## Der einzige Prompt, der Aktionen erzeugt
 
-`suggest` gab Anregungen neben dem Plan. Dieser hier erzeugt **Aktionen, die in den Plan
-gehen**: terminiert von der Engine, abhakbar, Teil der Mustererkennung. Deshalb ist er
-strenger — jede Regel unten ist eine, deren Verletzung die App den ganzen Vorschlag verwerfen
-lässt.
+Er erzeugt **Aktionen, die in den Plan gehen**: terminiert von der Engine, abhakbar, Teil der
+Mustererkennung. Deshalb ist er streng — jede Regel unten ist eine, deren Verletzung die App
+den ganzen Vorschlag verwerfen lässt.
+
+Ein zweiter Prompt (`suggest.v1`) erzeugte einmal Anregungen *neben* dem Plan. Er ist mit
+ADR-072 entfallen: unverbindliche Ideen neben einem Plan sind die Kartenflut, die die
+UX-Prinzipien ausschließen, und zwei KI-Pfade nebeneinander sind eine Falle.
 
 ## Die wichtigste Regel
 

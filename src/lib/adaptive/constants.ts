@@ -71,6 +71,17 @@ export const EXPERIMENT_DAYS = 14
 export const MIN_EXPERIMENT_INSTANCES = 3
 
 /**
+ * The earliest a first personal rule can exist, in days with data.
+ *
+ * Not a round number picked to look encouraging: detection needs the pattern
+ * in MIN_DISTINCT_WEEKS separate weeks before it will say anything, and the
+ * experiment that confirms it then runs for EXPERIMENT_DAYS. The Playbook's
+ * progress bar counted towards a hardcoded 21 and started from a hardcoded
+ * zero, so it was a decoration in both halves.
+ */
+export const DAYS_TO_FIRST_RULE = MIN_DISTINCT_WEEKS * 7 + EXPERIMENT_DAYS
+
+/**
  * How long an experiment may stay open before it is given up on.
  *
  * `continue` extends by another fortnight whenever too little happened, and

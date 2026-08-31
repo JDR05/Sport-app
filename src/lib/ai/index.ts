@@ -1,14 +1,14 @@
 // Public entry point of the AI layer.
 //
 // Which adapter runs is configuration. Calling code never picks — it asks for
-// a classification or a suggestion and always gets an answer, because a failed
+// a classification or a plan proposal and always gets an answer, because a failed
 // AI call falls through to the deterministic path.
 
 import { ClaudeAdapter } from './claude'
 import { MockAdapter, NullAdapter } from './mock'
-import type { AiAdapter, AiConfig, AiFailure, AiResult } from './types'
-import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
-import type { PlanInput, PlanResult } from '@/lib/domain/types'
+import type { AiAdapter, AiConfig, AiFailure } from './types'
+import type { GoalClassification, PlanProposal } from './schemas'
+import type { PlanInput } from '@/lib/domain/types'
 
 /** Sensible for a small app; a slow answer is worse than a deterministic one. */
 const DEFAULT_TIMEOUT_MS = 20_000
@@ -17,9 +17,13 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   return {
     apiKey: env.ANTHROPIC_API_KEY,
     // Both tasks are configurable separately: classification is a small job that
-    // a cheap model handles well, while the suggestions are where quality shows.
+    // a cheap model handles well, while the proposal is where quality shows.
     classifyModel: env.AI_CLASSIFY_MODEL ?? 'claude-opus-5',
-    suggestModel: env.AI_SUGGEST_MODEL ?? 'claude-opus-5',
+    // AI_SUGGEST_MODEL is the old name for the same thing and is still read, so
+    // an environment configured before ADR-072 keeps working. Renaming a
+    // variable that is already set in a deployment would silently fall back to
+    // the default rather than fail, which is the worst of both outcomes.
+    proposeModel: env.AI_PROPOSE_MODEL ?? env.AI_SUGGEST_MODEL ?? 'claude-opus-5',
     timeoutMs: Number(env.AI_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
   }
 }
@@ -59,39 +63,6 @@ export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promis
   return { value: fallback.value, source: 'fallback', fallbackReason: result.reason }
 }
 
-export type Suggested = {
-  value: Suggestions | null
-  source: 'ai' | 'fallback' | 'none'
-  fallbackReason?: string
-}
-
-/**
- * Suggestions are an enhancement, not a requirement. When nothing usable comes
- * back the app shows the plan without them — never an error, never a placeholder
- * pretending to be advice.
- */
-export async function suggest(
-  input: PlanInput,
-  plan: PlanResult,
-  adapter?: AiAdapter,
-): Promise<Suggested> {
-  const primary = adapter ?? createAdapter()
-  const result: AiResult<Suggestions> = await primary.suggest(input, plan)
-
-  if (result.ok) {
-    return { value: result.value, source: primary.name === 'claude' ? 'ai' : 'fallback' }
-  }
-
-  if (primary.name === 'null') {
-    return { value: null, source: 'none', fallbackReason: result.reason }
-  }
-
-  const fallback = await new MockAdapter().suggest(input, plan)
-  return fallback.ok
-    ? { value: fallback.value, source: 'fallback', fallbackReason: result.reason }
-    : { value: null, source: 'none', fallbackReason: result.reason }
-}
-
 /**
  * A plan proposal, or nothing.
  *
@@ -118,10 +89,10 @@ export async function proposePlan(
 
 export { MockAdapter, NullAdapter } from './mock'
 export { ClaudeAdapter } from './claude'
-export { checkClassification, checkProposal, checkSuggestions } from './validate'
+export { checkClassification, checkProposal } from './validate'
 // Exported so tests can hold the contract itself to account, not just its
 // consumers — the schema is the boundary, so it is worth asserting directly.
-export { goalClassificationSchema, planProposalSchema, suggestionsSchema } from './schemas'
-export { CLASSIFY_PROMPT_VERSION, PROPOSE_PROMPT_VERSION, SUGGEST_PROMPT_VERSION } from './prompts'
+export { goalClassificationSchema, planProposalSchema } from './schemas'
+export { CLASSIFY_PROMPT_VERSION, PROPOSE_PROMPT_VERSION } from './prompts'
 export type { AiAdapter, AiConfig, AiResult, AiFailure } from './types'
-export type { GoalClassification, PlanProposal, ProposedAction, Suggestions, Suggestion } from './schemas'
+export type { GoalClassification, PlanProposal, ProposedAction } from './schemas'

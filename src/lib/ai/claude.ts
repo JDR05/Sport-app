@@ -6,12 +6,12 @@
 // a result rather than throwing. The caller then falls back.
 
 import Anthropic from '@anthropic-ai/sdk'
-import { goalClassificationSchema, planProposalSchema, suggestionsSchema } from './schemas'
-import { checkClassification, checkProposal, checkSuggestions } from './validate'
+import { goalClassificationSchema, planProposalSchema } from './schemas'
+import { checkClassification, checkProposal } from './validate'
 import type { AiAdapter, AiConfig, AiResult } from './types'
-import type { GoalClassification, PlanProposal, Suggestions } from './schemas'
-import type { PlanInput, PlanResult } from '@/lib/domain/types'
-import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM, SUGGEST_SYSTEM } from './prompts'
+import type { GoalClassification, PlanProposal } from './schemas'
+import type { PlanInput } from '@/lib/domain/types'
+import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM } from './prompts'
 
 export class ClaudeAdapter implements AiAdapter {
   readonly name = 'claude'
@@ -44,28 +44,9 @@ export class ClaudeAdapter implements AiAdapter {
     })
   }
 
-  async suggest(input: PlanInput, plan: PlanResult): Promise<AiResult<Suggestions>> {
-    return this.call({
-      model: this.config.suggestModel,
-      effort: 'high',
-      maxTokens: 4000,
-      system: SUGGEST_SYSTEM,
-      user: buildContext(input, plan),
-      parse: (json) => {
-        const parsed = suggestionsSchema.safeParse(json)
-        if (!parsed.success) return { ok: false as const, detail: parsed.error.message }
-        const violations = checkSuggestions(parsed.data)
-        if (violations.length > 0) {
-          return { ok: false as const, detail: violations.map((v) => v.rule).join(', '), implausible: true }
-        }
-        return { ok: true as const, value: parsed.data }
-      },
-    })
-  }
-
   async proposePlan(input: PlanInput): Promise<AiResult<PlanProposal>> {
     return this.call({
-      model: this.config.suggestModel,
+      model: this.config.proposeModel,
       // The hardest thing the model is asked to do, and the one whose quality
       // the user feels most directly.
       effort: 'high',
@@ -161,30 +142,6 @@ export class ClaudeAdapter implements AiAdapter {
 function stripCodeFence(text: string): string {
   const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/)
   return fenced ? fenced[1] : text
-}
-
-/**
- * The context the model gets. Deliberately structured and trimmed: only what the
- * task needs, so that personal data is not shipped wholesale to a third party.
- */
-function buildContext(input: PlanInput, plan: PlanResult): string {
-  const p = input.profile
-  const lines = [
-    `Ziel (eigene Worte): ${input.goal.rawText}`,
-    `Zielart: ${input.goal.archetype}`,
-    `Bereits geplant: ${plan.strategy.goalTrack.headline}`,
-    `Plan-Aktionen: ${plan.items.map((i) => i.title).join(' · ')}`,
-    '',
-    'Was der Nutzer angegeben hat:',
-    `- Alltag: ${input.schedule.workPattern ?? 'keine Angabe'}, freie Tage: ${input.schedule.freeSlots.map((s) => s.weekday).join(', ') || 'keine'}`,
-    `- Sport: ${p.sport.preferredActivities.join(', ') || 'keine Angabe'}; ausgeschlossen: ${p.sport.dislikedActivities.join(', ') || 'nichts'}; Erfahrung: ${p.sport.experience ?? 'keine Angabe'}`,
-    `- Ernährung: kocht ${p.nutrition.cooksAtHome ?? 'keine Angabe'}, auswärts ${p.nutrition.eatsOutPerWeek ?? '?'}×/Woche, ${p.nutrition.dietaryPattern ?? 'keine Angabe'}, Gemüse ${p.nutrition.vegetablePortionsPerDay ?? '?'} Portionen/Tag`,
-    `- Schlaf: ${p.sleep.usualBedtime ?? '?'} bis ${p.sleep.usualWakeTime ?? '?'}, Qualität ${p.sleep.quality ?? 'keine Angabe'}`,
-    `- Kopf: Bildschirmzeit ${p.mind.screenTimeHoursPerDay ?? '?'} h/Tag, Fokus ${p.mind.focusStruggle ?? 'keine Angabe'}`,
-    '',
-    'Gib ein bis drei Anregungen, die über das bereits Geplante hinausgehen.',
-  ]
-  return lines.join('\n')
 }
 
 /**

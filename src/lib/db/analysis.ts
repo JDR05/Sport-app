@@ -71,6 +71,26 @@ export async function loadWeekItems(
   return toObservations((data ?? []).map((row) => fromRow(row as ItemRow)))
 }
 
+/**
+ * Days on which at least one action was actually answered.
+ *
+ * The Playbook counts towards its first rule with this. Deliberately days with
+ * an *answer* rather than days since signing up: a week nobody tracked brings
+ * the app no closer to knowing anything, and a bar that filled up anyway would
+ * be promising something it cannot deliver.
+ */
+export async function countDaysWithData(profileId: string): Promise<number> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('plan_items')
+    .select('scheduled_on, status')
+    .eq('profile_id', profileId)
+    .in('status', ['done', 'moved', 'missed'])
+
+  return new Set((data ?? []).map((row) => row.scheduled_on)).size
+}
+
 export async function loadObservations(
   profileId: string,
   today: string,

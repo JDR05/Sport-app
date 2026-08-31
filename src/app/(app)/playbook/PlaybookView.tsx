@@ -10,6 +10,7 @@
 import Link from 'next/link'
 import { RequirePlan } from '@/components/RequirePlan'
 import { Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { DAYS_TO_FIRST_RULE } from '@/lib/adaptive/constants'
 import type { LearnedRule } from '@/lib/db/experiments'
 
 /**
@@ -47,7 +48,14 @@ function describe(rule: LearnedRule): string {
   }
 }
 
-export function PlaybookView({ rules }: { rules: LearnedRule[] }) {
+export function PlaybookView({
+  rules,
+  daysWithData,
+}: {
+  rules: LearnedRule[]
+  /** Days on which at least one action was actually answered. */
+  daysWithData: number
+}) {
   return (
     <RequirePlan>
       {() => (
@@ -74,11 +82,22 @@ export function PlaybookView({ rules }: { rules: LearnedRule[] }) {
               ))}
             </div>
           ) : (
-          <EmptyState
-            title="Noch keine Regel bestätigt"
-            body="Eine Regel entsteht erst, wenn ein Experiment sie belegt hat – nicht aus einer Vermutung und nicht aus einer einzelnen guten Woche. Jede Regel hier trägt später ihren Beleg."
-            progress={{ done: 0, needed: 21, unit: 'Tagen mit Daten' }}
-          />
+            <>
+              {/* The number was hardcoded at zero against a hardcoded 21, so
+                  the bar never moved and the target was invented. Both halves
+                  are real now: days on which something was actually answered,
+                  counted towards the earliest a rule can exist — two weeks for
+                  detection plus the fortnight the experiment then runs. */}
+              <EmptyState
+                title="Noch keine Regel bestätigt"
+                body="Eine Regel entsteht erst, wenn ein Experiment sie belegt hat – nicht aus einer Vermutung und nicht aus einer einzelnen guten Woche. Jede Regel hier trägt später ihren Beleg."
+                progress={{
+                  done: Math.min(daysWithData, DAYS_TO_FIRST_RULE),
+                  needed: DAYS_TO_FIRST_RULE,
+                  unit: 'Tagen mit Daten',
+                }}
+              />
+            </>
           )}
 
           {rules.length === 0 && (
