@@ -95,6 +95,18 @@ export const CONFIDENCE_STEP = 0.15
 /** Below this a rule stops influencing the plan — the person has changed. */
 export const MIN_RULE_CONFIDENCE = 0.3
 
+/**
+ * How far the recent weeks have to lean before a re-check says anything about
+ * an existing rule. Fifteen points of completion rate, in either direction.
+ *
+ * Below the detection threshold on purpose: detection is looking for a pattern
+ * nobody knew about and has to clear a high bar, while a re-check already has
+ * a belief in front of it and only asks whether it still holds. The protection
+ * against a noisy fortnight is not this number — it is that fading a rule out
+ * takes three contradicting re-checks at CONFIDENCE_STEP each.
+ */
+export const RULE_RECHECK_MARGIN = 0.15
+
 // ------------------------------------------------------- context factors --
 //
 // Fixed here, before the code that uses them exists, for the same reason as

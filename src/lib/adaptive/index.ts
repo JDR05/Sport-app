@@ -149,6 +149,7 @@ export { formHypothesis, proposedRuleFor } from './hypothesis'
 export { proposeExperiment, trialRuleOf, domainOfMetricKey, decline, start } from './experiment'
 export { evaluateExperiment, applyDecision, outOfTime } from './evaluate'
 export { derivePersonalRule, reinforce, activeRules, mergeRule } from './rules'
+export { recheckRules, fadedStatement, type RuleVerdict } from './recheck'
 export { refinePlan } from './refine'
 export { attribute, type Attribution, type DayContext } from './attribution'
 export type {

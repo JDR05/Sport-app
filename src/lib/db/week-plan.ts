@@ -19,6 +19,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { loadPlanInput } from './plan-input'
 import { withProposal } from './propose'
+import { recheckPersonalRules } from './rules'
 import { generatePlan } from '@/lib/engine'
 import { startOfWeek } from '@/lib/engine/dates'
 import { PlanInvariantError } from '@/lib/engine/errors'
@@ -75,7 +76,15 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   }
 
   const written = await writeWeek(profileId, weekStart, goalId, plan, today)
-  if (written) return { ok: true, week: written }
+  if (written) {
+    // A new week is the moment to re-examine what the app believes about this
+    // person. It happens exactly once per week for free: the partial unique
+    // index means this branch is reached once and only once. Deliberately not
+    // awaited for its result and unable to throw — a re-check that fails is
+    // never worth someone not seeing their week.
+    await recheckPersonalRules(profileId, today)
+    return { ok: true, week: written }
+  }
 
   // Either the insert lost a race with another request, in which case the
   // winner's plan is the one that counts and re-reading is the correct answer,
