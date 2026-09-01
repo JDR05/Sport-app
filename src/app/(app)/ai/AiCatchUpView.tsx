@@ -131,16 +131,26 @@ export function AiCatchUpView({
             </p>
           </Card>
         </>
-      ) : !granted ? (
+      ) : (
         <>
-          <SectionHeading>Erst die Zustimmung</SectionHeading>
+          {/* Rendered whether or not the box is ticked.
+              
+              It used to disappear the moment somebody ticked it, which broke it
+              twice over: a mis-tap could only be undone from another screen,
+              and a failed write took its own error message with it — AiConsent
+              corrects `granted` back to false through the same callback, so the
+              box silently reappeared unticked with nothing saying why. A
+              control that vanishes on use cannot report what it did. */}
+          <SectionHeading>Zustimmung</SectionHeading>
           <AiConsent
             initial={consent}
             provider={provider}
             onChange={(state) => setGranted(state.granted)}
           />
         </>
-      ) : phase.name === 'done' ? (
+      )}
+
+      {provider !== null && granted && (phase.name === 'done' ? (
         <>
           <SectionHeading>Erledigt</SectionHeading>
           <Card>
@@ -196,7 +206,7 @@ export function AiCatchUpView({
             aufgesetzt und nichts gelöscht. Der neue Plan startet mit der nächsten Woche.
           </Note>
         </>
-      )}
+      ))}
     </Screen>
   )
 }

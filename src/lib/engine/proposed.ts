@@ -43,10 +43,23 @@ export const MAX_AUGMENT_ACTIONS = 3
  * model almost nothing it needed.
  */
 const OWNED_DOMAINS: Record<GoalArchetype, readonly PlanDomain[]> = {
-  body_composition: ['training', 'nutrition'],
-  strength: ['training'],
-  endurance: ['training'],
-  sleep_recovery: ['sleep'],
+  // `movement` is owned wherever an archetype has a load regime, and that is
+  // the fix for the worst hole this engine had. Each archetype counts its
+  // limits over the domain it owns — weekly kilometres, rest days, recovery
+  // gaps — so leaving `movement` open meant a proposal could put twenty-two
+  // hours of hill running into a beginner's week and every one of those counts
+  // reported zero. `movement` is the natural word for a run, and the prompt
+  // offers it, so this was one word away from happening on its own.
+  //
+  // What it costs the model: it can no longer add a walk to a strength goal.
+  // The baseline already plans movement, so that is close to nothing.
+  body_composition: ['training', 'movement', 'nutrition'],
+  strength: ['training', 'movement'],
+  endurance: ['training', 'movement'],
+  // Sleep owns exertion too. A ninety-minute evening session against a
+  // prescribed 22:00 bedtime is the same instruction as "sleep less", written
+  // as a schedule instead of a sentence.
+  sleep_recovery: ['sleep', 'training', 'movement'],
   nutrition_quality: ['nutrition'],
   habit_routine: ['self_improvement'],
   // The fallback owns nothing, which is precisely why it is the one archetype a

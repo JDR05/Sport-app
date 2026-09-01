@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import { checkQuestions } from '@/lib/ai'
 import { intakeQuestionsSchema } from '@/lib/ai/schemas'
-import { knownFields, openFields, questionsUserMessage } from '@/lib/ai/tasks'
+import { knownFields, openFields, proposeUserMessage, questionsUserMessage } from '@/lib/ai/tasks'
 import { ALL_COMBINATIONS, incompleteInput } from './fixtures/profiles'
 import type { IntakeQuestions } from '@/lib/ai/schemas'
 
@@ -130,13 +130,51 @@ describe('the gap list handed to the model', () => {
     expect(complete.some((open) => open.length === 0)).toBe(true)
   })
 
-  it('never sends an exact time or count, even here', () => {
-    // The question step must not become the back door through which the exact
+  it('never sends an exact time, in any of the ways people write one', () => {
+    // The question step must not become the back door through which exact
     // values leave the machine — it is built on the same coarsened text the
     // proposal gets, and this is what proves that stayed true.
+    //
+    // The first version of this test only looked for HH:MM, which structurally
+    // could not see a bare hour — and "Kaffee um 7, Hund um 18 Uhr" is the
+    // literal placeholder the onboarding shows people, so the format the app
+    // teaches was the one format the guard could not catch. Every spelling of
+    // a clock time is checked now.
+    const CLOCK = /\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s*Uhr\b|\b(?:um|gegen)\s+\d{1,2}\b/i
+    const ROUTINES = ['Kaffee um 7', 'Hund um 18 Uhr', 'Aufstehen 6:45', 'Lesen um 22.30']
+
     for (const { input } of ALL_COMBINATIONS) {
-      expect(questionsUserMessage(input)).not.toMatch(/\b\d{1,2}:\d{2}\b/)
+      const withRoutines = {
+        ...input,
+        profile: {
+          ...input.profile,
+          mind: { ...input.profile.mind, existingRoutines: ROUTINES },
+        },
+      }
+      expect(questionsUserMessage(withRoutines)).not.toMatch(CLOCK)
+      expect(proposeUserMessage(withRoutines)).not.toMatch(CLOCK)
     }
+  })
+
+  it('keeps the part of a routine that is worth knowing', () => {
+    // Redaction that removes the signal is not redaction, it is deletion. The
+    // model needs "there is a morning routine to hang something on"; the
+    // minute tells it nothing more.
+    const input = {
+      ...ALL_COMBINATIONS[0].input,
+      profile: {
+        ...ALL_COMBINATIONS[0].input.profile,
+        mind: {
+          ...ALL_COMBINATIONS[0].input.profile.mind,
+          existingRoutines: ['Kaffee um 7', 'Hund um 18 Uhr', 'Krafttraining 3 Sätze'],
+        },
+      },
+    }
+    const message = proposeUserMessage(input)
+    expect(message).toContain('Kaffee morgens')
+    expect(message).toContain('Hund nachmittags')
+    // A count that is not a clock time is not a secret and must survive.
+    expect(message).toContain('3 Sätze')
   })
 
   it('does not carry the proposal instruction into a question prompt', () => {

@@ -5,7 +5,7 @@
 // underneath, and enforces the one rule that spans both — the baseline may never
 // crowd the goal track out of the day.
 
-import { MAX_ITEMS_PER_DAY } from './constants'
+import { MAX_ITEMS_PER_DAY, MAX_WEEKLY_EXERTION_MIN } from './constants'
 import { buildContext, type PlanContext } from './context'
 import { planBaseline } from './baseline'
 import { strategyFor } from './archetypes'
@@ -30,15 +30,16 @@ export function buildStrategy(input: PlanInput): StrategyResult {
   const goalTrack = withProposed(ctx, planned)
   const clamped = archetype.clampGoal(ctx)
   const baseline = thinLightDomains(ctx, planBaseline(ctx, goalTrack))
+  const trimmed = withinExertionCeiling(goalTrack, baseline)
 
-  const items = capPerDay([...goalTrack.items, ...baseline.items])
+  const items = capPerDay([...trimmed.items, ...baseline.items])
 
   const strategy: WeekStrategy = {
     weekStart: ctx.weekStart,
     archetype: goalTrack.archetype,
     targetDate: clamped.targetDate,
     targetDateAdjusted: clamped.adjusted,
-    goalTrack,
+    goalTrack: trimmed,
     baseline,
   }
 
@@ -59,6 +60,50 @@ export function buildStrategy(input: PlanInput): StrategyResult {
  * invariants. The archetype still supplies the safety regime; a takeover
  * changes what is planned, never what is allowed.
  */
+/**
+ * Drops proposed actions from the end until the week's exertion is under the
+ * ceiling the shared invariant enforces.
+ *
+ * Trimmed rather than refused, and that trade is deliberate. A proposal asking
+ * for twenty-two hours of running is the model being over-eager, not the
+ * person being in danger — and refusing the whole week would take the
+ * deterministic track down with it, leaving somebody with no plan at all
+ * because a model got carried away. So the proposal loses its tail and
+ * everything that was already safe survives.
+ *
+ * Only AI items are dropped. If the archetype's own track ever exceeded the
+ * ceiling that would be a bug in the archetype, and silently trimming it here
+ * would hide it — the invariant then throws, which is what should happen.
+ *
+ * Runs after the baseline is built because the baseline carries exertion too:
+ * a daily walk is real minutes, and trimming against a guess at them would
+ * either shrink the model's room for nothing or leave the invariant to fire.
+ */
+function withinExertionCeiling(track: GoalTrack, baseline: BaselineTrack): GoalTrack {
+  const minutesOf = (item: PlannedItem) =>
+    (item.domain === 'training' || item.domain === 'movement') && (item.plannedDurationMin ?? 0) > 0
+      ? (item.plannedDurationMin ?? 0) * (item.cadence === 'daily' ? 7 : 1)
+      : 0
+
+  let total =
+    track.items.reduce((sum, i) => sum + minutesOf(i), 0) +
+    baseline.items.reduce((sum, i) => sum + minutesOf(i), 0)
+  if (total <= MAX_WEEKLY_EXERTION_MIN) return track
+
+  const kept: PlannedItem[] = []
+  // Reversed, so the last actions the model asked for are the first to go —
+  // the model puts what it considers most important first.
+  for (const item of [...track.items].reverse()) {
+    const isProposed = item.details.kind === 'ai_proposed'
+    if (isProposed && total > MAX_WEEKLY_EXERTION_MIN) {
+      total -= minutesOf(item)
+      continue
+    }
+    kept.unshift(item)
+  }
+  return { ...track, items: kept }
+}
+
 function withProposed(ctx: PlanContext, track: GoalTrack): GoalTrack {
   const proposal = ctx.input.aiProposal
   if (!proposal || proposal.actions.length === 0) return track

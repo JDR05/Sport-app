@@ -18,7 +18,6 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { loadPlanInput } from './plan-input'
-import { withProposal } from './propose'
 import { recheckPersonalRules } from './rules'
 import { generatePlan } from '@/lib/engine'
 import { startOfWeek } from '@/lib/engine/dates'
@@ -49,13 +48,6 @@ export type WeekResult =
   /** A safety invariant refused the plan. The message is shown, never hidden. */
   | { ok: false; reason: 'unsafe'; message: string }
 
-/**
- * How long the model may take when the ask happens on a page load rather than
- * in the onboarding. Four seconds is already long to stare at a skeleton; past
- * that the deterministic plan is the better answer.
- */
-const WEEK_LOAD_AI_BUDGET_MS = 4_000
-
 export async function ensureWeekPlan(profileId: string, today: string): Promise<WeekResult> {
   const weekStart = startOfWeek(today)
 
@@ -68,12 +60,28 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   const loaded = await loadPlanInput(profileId)
   if (!loaded) return { ok: false, reason: 'no_goal' }
 
-  // Normally already answered: the onboarding asks, where the person is
-  // watching a button that says the plan is being built. This is the fallback
-  // for a goal that was never asked — one created before that moved, or one
-  // whose proposal was cleared — and it runs on a short budget. A page load is
-  // not a place to wait twenty seconds for a model.
-  const input = await withProposal(profileId, { ...loaded, today }, WEEK_LOAD_AI_BUDGET_MS)
+  // No model call here at all any more, and that is the fix for two things.
+  //
+  // This used to ask on a four-second budget, as a fallback for a goal that was
+  // never asked. Two problems, and the second is the serious one:
+  //
+  //   * Four seconds is four seconds added to the first load of a week, on the
+  //     screen somebody opens first. That is the "es hängt sich manchmal auf"
+  //     this project has already chased once.
+  //   * `withProposal` stamps `ai_proposal_at` whether or not an answer came
+  //     back — that is what stops a retry loop — and the stamp is one-way. A
+  //     real provider takes about twelve seconds for a proposal (ADR-088), so
+  //     a four-second budget was a guaranteed timeout that permanently marked
+  //     the goal "asked, nothing came back". Somebody who started the catch-up
+  //     flow on /ai and then tapped away before answering had it silently
+  //     undone by their next page load.
+  //
+  // The proposal is fetched in the two places where a person is deliberately
+  // waiting: the onboarding, and /ai. A goal without one plans deterministically
+  // and Insights says so with a button to fix it (ADR-089). A page load is not
+  // a place to wait for a model, and it is certainly not a place to close a
+  // door that only an explicit action can reopen.
+  const input = { ...loaded, today }
 
   let plan
   try {

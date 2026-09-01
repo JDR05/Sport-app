@@ -11,10 +11,26 @@ import type { GoalClassification, IntakeQuestions, WeeklyNote } from './schemas'
 
 export type Violation = { rule: string; detail: string }
 
-/** Restriction framing. Additive advice only — see docs/GOAL_ARCHETYPES.md. */
+/**
+ * Restriction framing. Additive advice only — see docs/GOAL_ARCHETYPES.md.
+ *
+ * `keine[nrs]?` used to miss the bare masculine/neuter `kein`, which let
+ * through the exact counter-example PROPOSE_SYSTEM gives the model: rule 2
+ * says to write "Handy ab 22 Uhr in einem anderen Raum laden" instead of
+ * "kein Handy nach 22 Uhr", and promises such a proposal is discarded whole.
+ * It was not. `keine?[nrs]?` covers kein, keine, keinen, keiner, keines.
+ *
+ * The three additions below close the same shape said differently: "iss abends
+ * nichts mehr" and "lass abends das Brot weg" are restrictions that walk past
+ * a list looking only for `weglassen` as one word.
+ */
 const RESTRICTIVE = [
   /\bverzicht/i, /\bverbot/i, /\bweglassen\b/i, /\bstreich/i,
-  /\bkeine[nrs]?\s+\S+\s+mehr\b/i, /\bnicht mehr essen\b/i, /\btabu\b/i,
+  /\bkeine?[nrs]?\s+\S+\s+mehr\b/i,
+  /\bnichts? mehr\s+(essen|trinken|naschen)\b/i,
+  /\b(iss|trink|esse|trinke)\b[^.!?]{0,20}\bnichts mehr\b/i,
+  /\blass\w*\b[^.!?]{0,25}\bweg\b/i,
+  /\bnicht mehr essen\b/i, /\btabu\b/i,
   /\bfasten\b/i, /\bcheat.?day\b/i,
 ]
 
@@ -25,16 +41,38 @@ const NUMERIC_HEALTH_CLAIM = [
   /\b\d+(\.\d+)?\s?kg\s+(abnehmen|zunehmen|in)\b/i,
 ]
 
-/** Never, under any goal. */
-// Word order in German is free, so a fixed phrase list leaks. "kürzer
-// schlafen" was caught and "schlafe kürzer" was not — the same instruction,
-// and the one rule CLAUDE.md states in absolute terms: never recommend less
-// sleep, for any goal, for any reason. Both directions are matched now.
+/**
+ * Never, under any goal. The one rule CLAUDE.md states in absolute terms.
+ *
+ * The previous version claimed to match "both directions" and matched only
+ * *adjacent* word pairs, so anything between the sleep word and the reduction
+ * word walked through: "Schlaf eine Stunde weniger", "Reduziere deinen
+ * Schlaf", "Kürze deine Nachtruhe", "Nimm dir eine Stunde vom Schlaf". Nine
+ * such sentences were demonstrated passing the whole gate. The three tests
+ * that covered this family all happened to use the two adjacent forms, so it
+ * looked covered — which is why a safety family needs its escapes enumerated
+ * rather than its happy path asserted.
+ *
+ * German puts the verb at the end, so the constructions are listed rather than
+ * a proximity window used: proximity would also refuse "an den Tagen mit
+ * schlechtem Schlaf hast du weniger umgesetzt", which is an observation the
+ * weekly note exists to make. Verified in both directions — fifteen refusals
+ * that must fire and nine ordinary sentences that must not.
+ */
 const SLEEP_REDUCTION = [
-  /\bweniger\s+schlaf/i,
-  /\bkürzer\s+schlaf/i,
-  /\bschlaf\w*\s+(kürzer|kürzen|reduzieren|opfern|weniger)\b/i,
-  /\bfrüher\s+auf(stehen|zustehen)\b.{0,40}\b(trainier|sport|laufen)/i,
+  /\b(weniger|k(ü|ue)rzer)\s+(zu\s+)?schlaf/i,
+  /\bschlaf\w*\s+(k(ü|ue)rzer|k(ü|ue)rzen|reduzieren|opfern|weniger|verk(ü|ue)rzen)\b/i,
+  // "Reduziere deinen Schlaf", "Kürze deine Nachtruhe" — verb first.
+  /\b(k(ü|ue)rz|verk(ü|ue)rz|reduzier|opfer|streich|beschneid)\w*\s+(dein\w*\s+|den\s+|die\s+|etwas\s+)?(schlaf|nachtruhe)/i,
+  // "deinen Schlaf etwas reduzieren" — verb last, as German prefers.
+  /\b(schlaf|nachtruhe)\w*\b[^.!?]{0,30}\b(k(ü|ue)rzen|reduzieren|opfern|verk(ü|ue)rzen|streichen)\b/i,
+  /\b(stunde|stunden|minuten|zeit)\s+weniger\s+(zu\s+)?schlaf/i,
+  /\bschlaf\w*\s+\S+\s+(stunde|stunden|minuten)\s+weniger\b/i,
+  /\b(vom|von deinem|beim)\s+schlaf\b[^.!?]{0,30}\b(nehmen|nimm|abzwack|abknapp|hol)/i,
+  /\b(nimm|nehmen|hol|klau|zwack|knaps)\w*\b[^.!?]{0,40}\b(vom|von deinem|beim)\s+schlaf/i,
+  /\bfr(ü|ue)her\s+auf(stehen|zustehen)\b.{0,40}\b(trainier|sport|laufen)/i,
+  // Two halves that are each harmless and together mean less sleep.
+  /\bsp(ä|ae)ter\s+ins\s+bett\b[^.!?]{0,60}\bfr(ü|ue)her\s+(auf|raus)/i,
   /\bnachts?\s+(durcharbeiten|wach bleiben)\b/i,
 ]
 

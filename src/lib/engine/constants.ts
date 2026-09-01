@@ -23,6 +23,34 @@ export const MAX_CONSECUTIVE_TRAINING_DAYS = 3
 /** Today shows three to five actions. This is a hard ceiling, not a guideline. */
 export const MAX_ITEMS_PER_DAY = 5
 
+/**
+ * The ceiling on real exertion in one week, across every domain.
+ *
+ * Exists because every other load limit was keyed on `domain === 'training'`,
+ * and the domain is a label the model chooses. `movement` is open to all seven
+ * archetypes and is the obvious word for a run, so three proposed actions of
+ * 90 minutes, five times a week, were scheduled as real checkable actions
+ * while every count that decides whether a week is safe reported them as
+ * absent: 1213 minutes of exertion certified as compliant, on a beginner.
+ *
+ * 600 is set against measurement, not taste. The most demanding plan the
+ * engine builds for any of the ten fixture profiles under any of the seven
+ * goals is 350 minutes, so this leaves most of a factor of two of headroom for
+ * a plan nobody has written yet, and still refuses the attack by a wide
+ * margin. A limit tight enough to be argued with would get loosened; one that
+ * only ever fires on something absurd does not.
+ */
+export const MAX_WEEKLY_EXERTION_MIN = 600
+
+/**
+ * When a movement action stops being a walk and starts being a session.
+ *
+ * The baseline plans a short daily walk, and counting that as a training day
+ * would leave every week with seven consecutive ones. Forty-five minutes is
+ * where "I went for a walk" turns into something a body needs to recover from.
+ */
+export const STRENUOUS_MINUTES = 45
+
 /** A slot shorter than this cannot hold a useful session. */
 export const MIN_VIABLE_SESSION_MINUTES = 20
 

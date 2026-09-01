@@ -112,9 +112,9 @@ export function ProfileView({
               <Card>
                 <p className="text-sm font-semibold text-ink">Kein KI-Anbieter eingerichtet</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted">
-                  Die App plant vollständig ohne. Ziel einordnen, Plan bauen, Muster erkennen und
-                  Experimente auswerten passieren hier im Gerätecode — nur die freieren
-                  Vorschläge und der Wochenimpuls fehlen.
+                  Die App plant vollständig ohne. Ziel einordnen, Plan bauen, Muster erkennen
+                  und Experimente auswerten passiert auf dem Server dieser App und geht an
+                  niemanden sonst — nur die freieren Vorschläge und der Wochenimpuls fehlen.
                 </p>
               </Card>
             ) : (

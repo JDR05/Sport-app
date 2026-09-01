@@ -20,7 +20,7 @@ import { grantConsent, readConsent, withdrawConsent, type ConsentState } from '@
 import { restartAi, type AiRestart } from '@/lib/db/ai-restart'
 import { saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { loadPlanInput } from '@/lib/db/plan-input'
-import { withProposal } from '@/lib/db/propose'
+import { refreshProposal } from '@/lib/db/propose'
 import { serverToday } from '@/lib/db/today'
 
 // Shared with the onboarding: a shape check is not a value check.
@@ -247,7 +247,10 @@ export async function finishAiForGoal(payload: unknown): Promise<{ ok: boolean }
   if (!input) return { ok: false }
 
   const today = await serverToday()
-  const withIt = await withProposal(user.id, { ...input, today })
+  // refreshProposal, not withProposal: this path is explicitly "ask again", and
+  // it writes only if an answer came back — so a provider that is down leaves
+  // the previous proposal intact instead of erasing it.
+  const withIt = await refreshProposal(user.id, { ...input, today })
 
   revalidatePath('/', 'layout')
   // Reports whether a proposal actually came back, so the screen can say "the

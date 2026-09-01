@@ -102,3 +102,54 @@ export async function clearProposal(profileId: string): Promise<void> {
     .eq('profile_id', profileId)
     .eq('status', 'active')
 }
+
+/**
+ * Asks again for a goal that already has an answer, and replaces it only once
+ * a new one is in hand.
+ *
+ * Separate from `withProposal` because the two want opposite things.
+ * `withProposal` must never re-ask; this must. And the ordering is the point:
+ * `restartAi` used to call `clearProposal` first and then ask, which is
+ * destroy-then-build — the exact inverse of the rule save-onboarding.ts states
+ * for the same reason. PostgREST gives each statement its own transaction, so
+ * ordering *is* the safety property: a provider that is down between the two
+ * writes took somebody's working proposal with it, unrecoverably, and the
+ * screen could only say "the model gave nothing".
+ *
+ * Now nothing is written unless there is something to write. A failure leaves
+ * the previous answer exactly where it was.
+ */
+export async function refreshProposal(
+  profileId: string,
+  input: PlanInput,
+): Promise<PlanInput> {
+  const { proposal } = await proposePlan(input, await adapterFor(profileId))
+  if (!proposal) return input
+
+  const supabase = await createClient()
+  const goal = await supabase
+    .from('goals')
+    .select('id')
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (!goal.data) return input
+
+  const stored: AiProposal = {
+    headline: proposal.headline,
+    reasoning: proposal.reasoning,
+    actions: proposal.actions,
+    mode: modeFor(input),
+  }
+
+  const { error } = await supabase
+    .from('goals')
+    .update({
+      ai_proposal: stored as unknown as Record<string, unknown>,
+      ai_proposal_at: new Date().toISOString(),
+    })
+    .eq('id', goal.data.id)
+    .eq('profile_id', profileId)
+
+  return error === null ? { ...input, aiProposal: stored } : input
+}

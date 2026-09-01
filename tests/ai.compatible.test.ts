@@ -311,3 +311,48 @@ describe('a failure that leaves a trace', () => {
     expect(lines).toEqual([])
   })
 })
+
+describe('a provider that answers and then goes quiet', () => {
+  // The timeout used to be disarmed the moment headers arrived. A provider
+  // could answer 200 and never finish sending the body — ordinary on a
+  // degraded free tier — and `await response.text()` would then wait with
+  // nothing left to interrupt it. The documented `timeout` never fired and the
+  // page load simply hung, which is the failure mode this whole layer exists
+  // to make impossible.
+  // Ties the body stream to the abort signal, because that is what real fetch
+  // does — and a stub that ignores the signal tests the stub, not the adapter.
+  // The first version of this stub did exactly that and hung for five seconds
+  // against a fix that works.
+  const stalling: typeof fetch = async (_url, init) =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          init?.signal?.addEventListener('abort', () => controller.error(new Error('aborted')))
+        },
+      }),
+      { status: 200 },
+    )
+
+  it('gives up on a stalled body instead of waiting for ever', async () => {
+    const adapter = new OpenAiCompatibleAdapter({ ...config, timeoutMs: 300 }, stalling)
+
+    const began = Date.now()
+    const result = await adapter.classifyGoal('Ich will besser schlafen')
+    const took = Date.now() - began
+
+    expect(result.ok).toBe(false)
+    expect(result.ok ? null : result.reason).toBe('timeout')
+    // Generous, because the assertion is "bounded", not "fast". Before the fix
+    // this never resolved at all.
+    expect(took).toBeLessThan(5_000)
+  })
+
+  it('says the body stalled, not that the provider never answered', async () => {
+    // Two different faults with two different fixes: nothing arrived at all
+    // versus headers arrived and the stream stopped. A log that cannot tell
+    // them apart sends somebody to check the wrong thing.
+    const adapter = new OpenAiCompatibleAdapter({ ...config, timeoutMs: 300 }, stalling)
+    const result = await adapter.classifyGoal('Ich will besser schlafen')
+    expect(result.ok ? '' : result.detail).toContain('stalled')
+  })
+})

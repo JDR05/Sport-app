@@ -5,7 +5,12 @@
 // is what is true regardless of the goal, plus the dispatcher that makes sure
 // the archetype's own checks always run too.
 
-import { MAX_CONSECUTIVE_TRAINING_DAYS, MAX_ITEMS_PER_DAY } from './constants'
+import {
+  MAX_CONSECUTIVE_TRAINING_DAYS,
+  MAX_ITEMS_PER_DAY,
+  MAX_WEEKLY_EXERTION_MIN,
+  STRENUOUS_MINUTES,
+} from './constants'
 import { longestRun } from './context'
 import { PlanInvariantError } from './errors'
 import { strategyFor } from './archetypes'
@@ -23,6 +28,39 @@ export function assertPlanInvariants(plan: PlanResult, input: PlanInput): void {
   strategyFor(plan.strategy.archetype).assertInvariants(plan, input)
 }
 
+/**
+ * What counts as exertion, whatever the model chose to call it.
+ *
+ * Every load limit in this engine used to read `domain === 'training'`. The
+ * domain is a label the AI supplies, `movement` is open to all seven
+ * archetypes, and `movement` is the natural word for a run — so a proposal
+ * could put twenty-two hours of hill running into a week and every invariant
+ * would count zero. The hard constraints a person set themselves went the same
+ * way: "never train on Wednesday" was enforced only against items labelled
+ * `training`.
+ *
+ * A body does not read labels. These two predicates are the fix, and they are
+ * deliberately in the shared invariants rather than in each archetype: a rule
+ * repeated seven times is a rule six of them will drift away from.
+ */
+function isExertion(item: PlanResult['items'][number]): boolean {
+  return (
+    (item.domain === 'training' || item.domain === 'movement') &&
+    (item.plannedDurationMin ?? 0) > 0
+  )
+}
+
+/** Exertion a body has to recover from, as opposed to a walk. */
+function isStrenuous(item: PlanResult['items'][number]): boolean {
+  if (item.domain === 'training') return true
+  return item.domain === 'movement' && (item.plannedDurationMin ?? 0) >= STRENUOUS_MINUTES
+}
+
+/** Weekly items are one occurrence; a daily rule is seven. */
+function weeklyMinutes(item: PlanResult['items'][number]): number {
+  return (item.plannedDurationMin ?? 0) * (item.cadence === 'daily' ? 7 : 1)
+}
+
 function assertSharedInvariants(plan: PlanResult, input: PlanInput): void {
   // ------------------------------------------------- actions per day ----
   const perDay = new Map<string, number>()
@@ -38,9 +76,19 @@ function assertSharedInvariants(plan: PlanResult, input: PlanInput): void {
   }
 
   // ----------------------------------------------------- training load --
+  //
+  // Counted by what the actions are, not by what they are labelled. See
+  // isExertion above for the hole this closes.
+  const totalMinutes = plan.items.filter(isExertion).reduce((sum, i) => sum + weeklyMinutes(i), 0)
+  if (totalMinutes > MAX_WEEKLY_EXERTION_MIN) {
+    throw new PlanInvariantError(
+      `${totalMinutes} minutes of exertion in one week exceeds the ceiling of ${MAX_WEEKLY_EXERTION_MIN}`,
+    )
+  }
+
   const trainingDays = WEEKDAYS.filter((day, index) => {
     const date = addDaysIso(plan.strategy.weekStart, index)
-    return plan.items.some((i) => i.scheduledOn === date && i.domain === 'training')
+    return plan.items.some((i) => i.scheduledOn === date && isStrenuous(i))
   })
   if (longestRun(trainingDays) > MAX_CONSECUTIVE_TRAINING_DAYS) {
     throw new PlanInvariantError(
@@ -62,7 +110,10 @@ function assertSharedInvariants(plan: PlanResult, input: PlanInput): void {
 
     if (v.type === 'max_session_minutes') {
       for (const item of plan.items) {
-        if (item.domain !== 'training') continue
+        // Any exertion session, not only one labelled `training`. A ninety
+        // minute "movement" block breaks a forty-five minute hard limit just
+        // as thoroughly.
+        if (!isExertion(item)) continue
         if ((item.plannedDurationMin ?? 0) > v.minutes) {
           throw new PlanInvariantError(
             `session of ${item.plannedDurationMin} min exceeds the hard limit of ${v.minutes} min`,

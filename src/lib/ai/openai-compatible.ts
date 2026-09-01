@@ -112,6 +112,13 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
 
     // AbortController rather than a client timeout option: fetch has no other
     // way to stop, and a request nobody is waiting for still costs the quota.
+    //
+    // The timer stays armed until the body has been read, not just until the
+    // headers arrive. It used to be cleared in the `finally` of the fetch
+    // block, which meant a provider could answer 200 and then never finish
+    // sending — common on a degraded free tier — and `await response.text()`
+    // would wait for ever with nothing left to interrupt it. The documented
+    // `timeout` failure never fired and the page load simply hung.
     const abort = new AbortController()
     const timer = setTimeout(() => abort.abort(), this.config.timeoutMs)
 
@@ -145,22 +152,38 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
         return { ok: false, reason: 'timeout', detail: `no response within ${this.config.timeoutMs} ms` }
       }
       return { ok: false, reason: 'api_error', detail: String(error).slice(0, 200) }
+    }
+
+    // Reading the body is inside the timeout too. `text()` on an aborted
+    // stream rejects, which is how a stalled body now becomes the timeout it
+    // always claimed to be rather than an unbounded wait.
+    let raw: string
+    try {
+      raw = await response.text()
+    } catch (error) {
+      if (abort.signal.aborted) {
+        return {
+          ok: false,
+          reason: 'timeout',
+          detail: `headers arrived but the body stalled past ${this.config.timeoutMs} ms`,
+        }
+      }
+      return { ok: false, reason: 'api_error', detail: String(error).slice(0, 200) }
     } finally {
       clearTimeout(timer)
     }
 
     if (!response.ok) {
-      const body = await response.text().catch(() => '')
       return {
         ok: false,
-        reason: rejectedKey(response.status, body) ? 'no_api_key' : 'api_error',
-        detail: `${response.status}: ${body.slice(0, 200)}`,
+        reason: rejectedKey(response.status, raw) ? 'no_api_key' : 'api_error',
+        detail: `${response.status}: ${raw.slice(0, 200)}`,
       }
     }
 
     let payload: ChatCompletion
     try {
-      payload = (await response.json()) as ChatCompletion
+      payload = JSON.parse(raw) as ChatCompletion
     } catch {
       return { ok: false, reason: 'invalid_json', detail: 'response body was not JSON' }
     }

@@ -18,7 +18,6 @@ import { createClient } from '@/lib/supabase/server'
 import { classifyGoal } from '@/lib/ai'
 import { adapterFor, mayUseAi } from '@/lib/ai/consent'
 import { askIntakeQuestions } from './intake-questions'
-import { clearProposal } from './propose'
 import { loadPlanInput } from './plan-input'
 import type { IntakeQuestion } from '@/lib/ai/schemas'
 import type { AiFailure } from '@/lib/ai'
@@ -69,10 +68,16 @@ async function run(profileId: string, today: string): Promise<AiRestart> {
     .maybeSingle()
   if (!goal.data) return NOTHING
 
-  // Both stamps, so the goal counts as never asked again. clearProposal alone
-  // would leave intake_asked_at set for a goal that was created after the
-  // questions shipped, and the questions would be skipped silently.
-  await clearProposal(profileId)
+  // Only the question stamp is cleared here, and deliberately not the proposal.
+  //
+  // Clearing `ai_proposal` before asking is destroy-then-build: a provider that
+  // is down in between takes a working proposal with it, unrecoverably, and the
+  // screen can only report that the model gave nothing. `refreshProposal`
+  // replaces it at the end instead, once there is something to replace it with.
+  //
+  // Clearing `intake_asked_at` costs nothing — it holds no answer, only the
+  // fact that asking already happened — and without it the questions would be
+  // skipped in silence.
   await supabase
     .from('goals')
     .update({ intake_asked_at: null })

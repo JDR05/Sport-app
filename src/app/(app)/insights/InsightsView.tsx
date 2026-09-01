@@ -119,8 +119,9 @@ export function InsightsView({ data }: { data: InsightsData }) {
                 {data.note.question}
               </p>
             )}
-            <p className="label mt-3 text-[10px] text-faint">
-              Aus deinen Daten dieser Woche · {data.note.evidence.length} Belege
+            <p className="mt-3 text-xs text-faint">
+              Aus deinen Daten dieser Woche · <span className="num">{data.note.evidence.length}</span>{' '}
+              Belege
             </p>
           </Card>
         </>
@@ -155,10 +156,14 @@ export function InsightsView({ data }: { data: InsightsData }) {
                   </div>
                 ))}
               </div>
-              <p className="label mt-3 text-[10px] text-faint">
+              {/* Set as prose, not as a label. `.label` is uppercase mono for
+                  headings and tags; a 46-character German sentence in it fills
+                  the whole width of a phone card in shouting caps. ui.tsx
+                  records this exact mistake being fixed once already. */}
+              <p className="mt-3 text-xs text-faint">
                 {data.ai.proposal.mode === 'takeover'
-                  ? 'Diese Aktionen sind deine Zielspur'
-                  : 'Zusätzlich zu dem, was der Archetyp geplant hat'}
+                  ? 'Diese Aktionen sind deine Zielspur.'
+                  : 'Zusätzlich zu dem, was der Archetyp geplant hat.'}
               </p>
             </Card>
           ) : (

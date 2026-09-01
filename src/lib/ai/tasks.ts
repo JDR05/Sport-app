@@ -322,10 +322,25 @@ function answered(input: PlanInput): string[] {
  * signal survives the redaction.
  */
 function coarsenRoutine(label: string): string {
-  const trimmed = label.trim().slice(0, 60)
-  return trimmed.replace(/\b([01]?\d|2[0-3])[:.][0-5]\d\b/g, (_match, hour: string) =>
-    partOfDay(Number(hour)),
-  )
+  const PART = '(?:um|gegen|ab|nach|vor)?\\s*'
+  const replace = (text: string, body: string) =>
+    text.replace(new RegExp(`\\b${PART}${body}`, 'gi'), (match, hour: string) => {
+      // Keep the leading space the preposition group may have eaten, or
+      // "Aufstehen 6:45" becomes "Aufstehenmorgens".
+      const lead = /^\s/.test(match) ? ' ' : ''
+      return `${lead}${partOfDay(Number(hour))}`
+    })
+
+  // Order matters. "um 22.30" has to meet the minutes pattern first, or the
+  // bare-hour pattern eats "um 22" and leaves a stray ".30" behind.
+  let out = label.trim().slice(0, 60)
+  out = replace(out, '([01]?\\d|2[0-3])[:.][0-5]\\d\\b')
+  out = replace(out, '([01]?\\d|2[0-3])\\s*Uhr\\b')
+  // A bare number only counts as a clock time behind a preposition, so
+  // "3 Sätze" and "20 Minuten" survive as themselves.
+  out = out.replace(/\b(?:um|gegen|ab|nach|vor)\s+([01]?\d|2[0-3])\b(?!\s*(?:min|minuten|km|kg|x|×|%))/gi,
+    (_m, hour: string) => partOfDay(Number(hour)))
+  return out.replace(/\s{2,}/g, ' ').trim()
 }
 
 function partOfDay(hour: number): string {
