@@ -18,6 +18,7 @@ import { Button, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } f
 import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
 import { formatGermanDate } from '@/lib/engine/dates'
 import type { Insight } from '@/lib/adaptive'
+import type { AiProposal } from '@/lib/domain/types'
 
 export type InsightsData = {
   today: string
@@ -53,6 +54,22 @@ export type InsightsData = {
     question: string | null
     evidence: string[]
   } | null
+  /**
+   * Everything the model contributed, gathered in one place.
+   *
+   * Here rather than in a tab of its own. This screen is already "what the app
+   * has worked out about you", and the product's whole claim is that the model
+   * and the deterministic detection are one picture of a person — two tabs
+   * would make them two features.
+   */
+  ai: {
+    /** Null when no provider is configured. Then there is nothing to show. */
+    provider: string | null
+    granted: boolean
+    proposal: AiProposal | null
+    /** Questions the model asked and the person skipped. */
+    openQuestions: string[]
+  }
 }
 
 export function InsightsView({ data }: { data: InsightsData }) {
@@ -106,6 +123,87 @@ export function InsightsView({ data }: { data: InsightsData }) {
               Aus deinen Daten dieser Woche · {data.note.evidence.length} Belege
             </p>
           </Card>
+        </>
+      )}
+
+      {/* What the model actually did, in the person's own plan.
+          
+          Until now its work was invisible: the actions were mixed into the
+          plan with everything else, so the honest question "does the AI do
+          anything for me" had no answer anywhere in the app. Naming the
+          contribution is also what makes it reviewable — an action nobody can
+          trace to a source is one nobody can disagree with. */}
+      {data.ai.provider !== null && (
+        <>
+          <SectionHeading>Was die KI beiträgt</SectionHeading>
+          {data.ai.proposal ? (
+            <Card>
+              <p className="text-sm font-semibold leading-snug text-ink">
+                {data.ai.proposal.headline}
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                {data.ai.proposal.reasoning}
+              </p>
+              <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
+                {data.ai.proposal.actions.map((action) => (
+                  <div key={action.title}>
+                    <p className="text-sm font-medium text-ink">{action.title}</p>
+                    <p className="num mt-0.5 text-xs text-faint">
+                      {action.minutes} min · {action.timesPerWeek}×/Woche
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">{action.reasoning}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="label mt-3 text-[10px] text-faint">
+                {data.ai.proposal.mode === 'takeover'
+                  ? 'Diese Aktionen sind deine Zielspur'
+                  : 'Zusätzlich zu dem, was der Archetyp geplant hat'}
+              </p>
+            </Card>
+          ) : (
+            <EmptyState
+              title={data.ai.granted ? 'Noch nichts von der KI' : 'KI nicht erlaubt'}
+              body={
+                data.ai.granted
+                  ? 'Dein Ziel wurde noch nicht von einem Modell angesehen — oder es hatte nichts beizutragen. Der Plan steht trotzdem, er ist deterministisch gebaut.'
+                  : 'Ohne dein Häkchen wird nichts an ein Modell geschickt. Der Plan wird deterministisch gebaut und funktioniert vollständig.'
+              }
+            />
+          )}
+
+          {data.ai.openQuestions.length > 0 && (
+            <div className="mt-3">
+              <Card>
+                <p className="text-sm font-semibold text-ink">
+                  Das wollte die KI noch wissen
+                </p>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {data.ai.openQuestions.map((question) => (
+                    <li key={question} className="text-sm leading-relaxed text-muted">
+                      {question}
+                    </li>
+                  ))}
+                </ul>
+                {/* Übersprungen ist nicht Nein. Sichtbar zu lassen, was die App
+                    noch nicht weiß, ist ehrlicher, als es still abzulegen. */}
+                <p className="mt-2 text-xs leading-relaxed text-faint">
+                  Du hast das übersprungen — völlig in Ordnung. Beantwortest du es später,
+                  wird der nächste Plan genauer.
+                </p>
+              </Card>
+            </div>
+          )}
+
+          <div className="mt-3">
+            <Link href="/ai">
+              <Button variant="quiet">Ziel von der KI ansehen lassen</Button>
+            </Link>
+          </div>
+          <Note>
+            Die KI entwirft, was zu tun ist. Wann etwas stattfindet, entscheidet die App —
+            sie kennt als Einzige deine freien Zeitfenster, Ruhetage und Grenzen.
+          </Note>
         </>
       )}
 

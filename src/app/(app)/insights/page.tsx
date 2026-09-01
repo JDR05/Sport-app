@@ -6,6 +6,9 @@ import { serverToday } from '@/lib/db/today'
 import { weeklyReview } from '@/lib/db/analysis'
 import { concludeIfDue, loadRunningExperiment } from '@/lib/db/experiments'
 import { ensureWeeklyNote } from '@/lib/db/weekly-note'
+import { loadPlanInput } from '@/lib/db/plan-input'
+import { providerName } from '@/lib/ai'
+import { readConsent } from '@/lib/ai/consent'
 import { InsightsView, type InsightsData } from './InsightsView'
 
 export default async function InsightsPage() {
@@ -25,6 +28,15 @@ export default async function InsightsPage() {
   // normal answer for a quiet week, for no key, and for an answer that did not
   // survive the safety checks. Never throws — nothing here is worth a screen.
   const note = await ensureWeeklyNote(user.id, today)
+
+  // Everything the model has contributed, in one place.
+  //
+  // Insights rather than a sixth tab: this screen is already "what the app has
+  // worked out about you", and the product's claim is that the model and the
+  // deterministic detection are one picture of a person rather than two
+  // features side by side. Splitting them across two tabs would contradict the
+  // thing the app is for — and a mobile bottom bar is full at five.
+  const [answers, consent] = await Promise.all([loadPlanInput(user.id), readConsent(user.id)])
 
   const { analysis } = review
 
@@ -66,6 +78,17 @@ export default async function InsightsPage() {
     removalCount: analysis.patch.removals.length,
     weeksWithData: review.weeksWithData,
     note,
+    ai: {
+      provider: providerName(),
+      granted: consent.granted,
+      proposal: answers?.aiProposal ?? null,
+      // Questions the model asked and the person skipped. Kept visible because
+      // a skipped answer is `unknown`, not "no" — and the app should be able to
+      // say what it still does not know rather than quietly filing it away.
+      openQuestions: (answers?.intakeAnswers ?? [])
+        .filter((a) => a.answer === null)
+        .map((a) => a.question),
+    },
   }
 
   return <InsightsView data={data} />

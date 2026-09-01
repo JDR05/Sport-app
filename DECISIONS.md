@@ -7,6 +7,50 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-089: Die KI bekommt einen sichtbaren Ort — auf Insights, nicht in der Leiste
+
+**Entscheidung:** Alles, was das Modell beiträgt, steht auf **Insights**: der Wochenimpuls (war
+schon da), die Aktionen, die es zum Ziel entworfen hat, mit Begründung, die Rückfragen, die
+offen geblieben sind, und der Einstieg zum Neu-Fragen. **Kein sechster Tab.** Entscheidung des
+Product Owners nach Abwägung.
+
+**Begründung:** Der Anstoß war eine berechtigte Beobachtung: „es soll nicht meine Idee
+aufnehmen sondern selbstständig anpassen und fragen stellen" — und als Alternative ein eigener
+KI-Punkt in der Tab-Leiste. Der unmittelbare Anlass war ein Fehler (ADR-088, das zu knappe
+Budget für die Rückfragen), aber dahinter lag ein echter Mangel: **die Arbeit des Modells war
+unsichtbar.** Die Aktionen lagen im Plan zwischen allen anderen, der Vorschlag stand in einer
+Datenbankspalte, und die ehrliche Frage „bringt mir die KI überhaupt etwas" hatte nirgends in
+der App eine Antwort.
+
+**Warum Insights und nicht ein eigener Tab:**
+
+- Dieser Bildschirm *ist* schon „was die App über dich herausgefunden hat". Der Wochenimpuls
+  steht dort seit ADR-082.
+- Die Kernbehauptung des Produkts ist, dass Modell und deterministische Mustererkennung **ein**
+  Bild dieses Menschen ergeben, nicht zwei Funktionen nebeneinander. Zwei Tabs würden genau das
+  Gegenteil behaupten — die Navigation würde der Produktthese widersprechen.
+- Eine Handy-Leiste ist bei fünf Symbolen voll. Der sechste kostet jeden anderen Platz, dauerhaft,
+  für ein Thema, das kein täglicher Einstieg ist.
+
+**Was die Sektion zeigt und warum genau das:**
+
+- **Die Aktionen mit Begründung.** Eine Empfehlung, die man nicht auf ihre Quelle zurückführen
+  kann, existiert für den Nutzer nicht (Prinzip 4) — und sie ist auch nicht überprüfbar. Erst
+  benannt kann man ihr widersprechen.
+- **Ob es Zielspur oder Ergänzung ist** (`takeover` gegen `augment`), weil das der Unterschied
+  zwischen „das ist dein Plan" und „das kommt obendrauf" ist.
+- **Die übersprungenen Rückfragen.** Übersprungen ist nicht Nein, sondern `unknown`. Sichtbar zu
+  lassen, was die App noch nicht weiß, ist ehrlicher, als es still abzulegen — und es ist die
+  einzige Stelle, an der jemand von selbst darauf zurückkommen kann.
+- **Kein Vorschlag ist ein eigener Zustand**, nicht ein leerer Kasten: mit Häkchen heißt es
+  „noch nicht angesehen oder nichts beizutragen", ohne Häkchen „es wird nichts geschickt". Beide
+  sagen dazu, dass der Plan trotzdem steht.
+
+Ist kein Anbieter konfiguriert, erscheint die ganze Sektion nicht. Ein Bereich, der erklärt,
+dass es ihn nicht gibt, ist die Kartenflut, die die UX-Prinzipien ausschließen.
+
+---
+
 ## 2026-09-01 — ADR-088: Zwei Fehler, die nur ein echter Anbieter zeigen konnte
 
 **Entscheidung:** `AiAdapter` bekommt `usesModel`, und `classifyGoal` entscheidet daran statt am
