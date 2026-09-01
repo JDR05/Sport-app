@@ -24,13 +24,12 @@
 // scripts/check-nonces.mjs now fails the build if any prerendered page ships a
 // script without a nonce, so the hydration problem cannot come back quietly.
 
-import Link from 'next/link'
 import { requireUser } from '@/lib/auth/session'
 import { providerName } from '@/lib/ai'
 import { readConsent } from '@/lib/ai/consent'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { serverToday } from '@/lib/db/today'
-import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
+import { Card, LinkButton, Screen, ScreenTitle } from '@/components/ui'
 import { OnboardingForm } from './OnboardingForm'
 
 export default async function OnboardingPage({ searchParams }: PageProps<'/onboarding'>) {
@@ -51,19 +50,15 @@ export default async function OnboardingPage({ searchParams }: PageProps<'/onboa
         />
 
         <Card tone="accent">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Dein Ziel</p>
+          <p className="label text-[10px] text-accent">Dein Ziel</p>
           <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
             {existing.goal.rawText}
           </p>
         </Card>
 
         <div className="mt-6 flex flex-col gap-3">
-          <Link href="/today">
-            <Button>Zurück zu Heute</Button>
-          </Link>
-          <Link href="/onboarding?reset=1">
-            <Button variant="quiet">Ziel neu definieren</Button>
-          </Link>
+          <LinkButton href="/today">Zurück zu Heute</LinkButton>
+          <LinkButton href="/onboarding?reset=1" variant="quiet">Ziel neu definieren</LinkButton>
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-muted">

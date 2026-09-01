@@ -215,7 +215,7 @@ export function StepProgress({ step, total }: { step: number; total: number }) {
         {Array.from({ length: total }, (_, i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-accent' : 'bg-sunken'}`}
+            className={`h-1 flex-1 rounded-[2px] ${i <= step ? 'bg-accent' : 'bg-sunken'}`}
           />
         ))}
       </div>

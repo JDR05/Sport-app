@@ -14,10 +14,9 @@
 // or waiting for something. So each state says what it knows and offers the
 // one thing that helps.
 
-import Link from 'next/link'
 import { usePlan, type StoredWeek } from '@/components/PlanProvider'
 import { ScreenSkeleton } from '@/components/Skeleton'
-import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
+import { Button, Card, LinkButton, Screen, ScreenTitle } from '@/components/ui'
 
 export function RequirePlan({ children }: { children: (week: StoredWeek) => React.ReactNode }) {
   const { state, week, planError, retry } = usePlan()
@@ -38,9 +37,7 @@ export function RequirePlan({ children }: { children: (week: StoredWeek) => Reac
             out from here the person is stuck: the only route back to the
             onboarding used to sit inside this very guard. */}
         <div className="mt-4">
-          <Link href="/onboarding">
-            <Button variant="quiet">Angaben ändern</Button>
-          </Link>
+          <LinkButton href="/onboarding" variant="quiet">Angaben ändern</LinkButton>
         </div>
       </Screen>
     )
@@ -57,9 +54,7 @@ export function RequirePlan({ children }: { children: (week: StoredWeek) => Reac
           </p>
         </Card>
         <div className="mt-4">
-          <Link href="/onboarding">
-            <Button>Ziel festlegen</Button>
-          </Link>
+          <LinkButton href="/onboarding">Ziel festlegen</LinkButton>
         </div>
       </Screen>
     )

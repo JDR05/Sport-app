@@ -59,8 +59,8 @@ export function ProfileView({
               <dl className="mt-3 space-y-2 text-sm">
                 {weight && (
                   <>
-                    <Row label="Aktuell" value={`${weight.startValue} ${weight.unit}`} />
-                    <Row label="Ziel" value={`${weight.targetValue} ${weight.unit}`} />
+                    <Row label="Aktuell" value={`${weight.startValue} ${weight.unit}`} numeric />
+                    <Row label="Ziel" value={`${weight.targetValue} ${weight.unit}`} numeric />
                   </>
                 )}
                 <Row label="Zielspur" value={week.strategy.goalTrack.headline} />
@@ -162,11 +162,20 @@ export function ProfileView({
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  /** A measurement, so it is set in the face that measures. */
+  numeric = false,
+}: {
+  label: string
+  value: string
+  numeric?: boolean
+}) {
   return (
     <div className="flex items-baseline justify-between gap-4">
       <dt className="text-muted">{label}</dt>
-      <dd className="text-right font-medium text-ink">{value}</dd>
+      <dd className={`text-right font-medium text-ink${numeric ? ' num' : ''}`}>{value}</dd>
     </div>
   )
 }

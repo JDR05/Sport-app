@@ -541,7 +541,7 @@ export function OnboardingForm({
             onClick={() => setStep(visibleSteps.length - 1)}
             className="mt-1 text-center text-xs font-medium text-faint underline underline-offset-4"
           >
-            Rest überspringen – die App nimmt vorsichtige Annahmen
+            Rest überspringen – die App trifft dann vorsichtige Annahmen.
           </button>
         )}
       </div>

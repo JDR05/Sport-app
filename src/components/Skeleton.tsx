@@ -10,7 +10,7 @@
 // is about to have says "it is coming, and here is where".
 
 export function Line({ w, h = 'h-4' }: { w: string; h?: string }) {
-  return <div className={`${h} ${w} animate-pulse rounded-md bg-sunken`} />
+  return <div className={`${h} ${w} animate-pulse rounded-[3px] bg-sunken`} />
 }
 
 function CardSkeleton() {

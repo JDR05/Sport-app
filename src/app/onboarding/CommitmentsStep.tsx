@@ -96,14 +96,15 @@ export function CommitmentsStep({
                 <div>
                   <p className="text-[15px] font-semibold text-ink">{group.label}</p>
                   <p className="mt-0.5 text-sm text-muted">
-                    {group.days.map((d) => WEEKDAY_SHORT[d]).join(', ')} · {group.start} ·{' '}
-                    {group.minutes} Min
+                    {group.days.map((d) => WEEKDAY_SHORT[d]).join(', ')} ·{' '}
+                    <span className="num">{group.start}</span> ·{' '}
+                    <span className="num">{group.minutes}</span> Min
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onChange(value.filter((c) => c.label !== group.label))}
-                  className="shrink-0 rounded-lg px-2 py-1 text-sm font-medium text-muted active:bg-sunken"
+                  className="shrink-0 min-h-11 rounded-[2px] px-3 py-2 text-sm font-medium text-muted active:bg-sunken"
                 >
                   Entfernen
                 </button>

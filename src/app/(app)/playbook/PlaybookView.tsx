@@ -75,7 +75,7 @@ export function PlaybookView({
                   <p className="text-sm leading-relaxed text-ink">{describe(rule)}</p>
                   <p className="mt-2 text-xs text-faint">
                     Aus einem abgeschlossenen Experiment. Sicherheit{' '}
-                    {Math.round(rule.confidence * 100)} % — sie kann wieder sinken, wenn es
+                    <span className="num">{Math.round(rule.confidence * 100)}</span> % — sie kann wieder sinken, wenn es
                     später anders läuft.
                   </p>
                 </Card>
@@ -110,7 +110,7 @@ export function PlaybookView({
                 <p className="mt-1 text-sm leading-relaxed text-muted">
                   Erfüllungsquote von 20 % auf 80 %, bestätigt über drei Wochen.
                 </p>
-                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-faint">
+                <p className="label mt-2 text-[10px] text-faint">
                   Beispiel
                 </p>
               </Card>

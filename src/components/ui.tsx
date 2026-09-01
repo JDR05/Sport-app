@@ -3,6 +3,7 @@
 // Kept small on purpose: the brief rules out twenty cards per screen, so the
 // component set stays narrow enough that every screen looks like the same app.
 
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { PlanDomain } from '@/lib/domain/types'
 
@@ -141,6 +142,15 @@ export function StatTile({ label, value, hint }: { label: string; value: string;
   )
 }
 
+const BUTTON_BASE =
+  'inline-flex w-full items-center justify-center rounded-[2px] px-4 py-3 text-sm font-semibold transition disabled:opacity-40'
+
+function buttonLook(variant: 'primary' | 'quiet'): string {
+  return variant === 'primary'
+    ? 'bg-accent text-accent-ink active:brightness-95'
+    : 'border border-line bg-surface text-ink active:bg-sunken'
+}
+
 export function Button({
   children,
   onClick,
@@ -154,16 +164,44 @@ export function Button({
   type?: 'button' | 'submit'
   disabled?: boolean
 }) {
-  const base =
-    'inline-flex w-full items-center justify-center rounded-[2px] px-4 py-3 text-sm font-semibold transition disabled:opacity-40'
-  const look =
-    variant === 'primary'
-      ? 'bg-accent text-accent-ink active:brightness-95'
-      : 'border border-line bg-surface text-ink active:bg-sunken'
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${look}`}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`${BUTTON_BASE} ${buttonLook(variant)}`}
+    >
       {children}
     </button>
+  )
+}
+
+/**
+ * A link that looks like a button — one element, not two.
+ *
+ * The app used to write `<Link><Button>…</Button></Link>`, which renders a
+ * `<button>` inside an `<a>`. That is invalid HTML and it is not a
+ * technicality: it produces two tab stops for one destination and a nested
+ * control announcement on VoiceOver and TalkBack. It mattered most on
+ * RequirePlan, whose two links are the only way out when somebody is stuck on
+ * a plan that was refused.
+ *
+ * Deliberately shares BUTTON_BASE with Button rather than copying the classes,
+ * so the two cannot drift into looking almost the same.
+ */
+export function LinkButton({
+  href,
+  children,
+  variant = 'primary',
+}: {
+  href: string
+  children: ReactNode
+  variant?: 'primary' | 'quiet'
+}) {
+  return (
+    <Link href={href} className={`${BUTTON_BASE} ${buttonLook(variant)}`}>
+      {children}
+    </Link>
   )
 }
 

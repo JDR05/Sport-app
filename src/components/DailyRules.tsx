@@ -49,7 +49,7 @@ export function DailyRules({
         <div className="min-w-0 flex-1 pt-1">
           <h3 className="text-[15px] font-semibold leading-snug text-ink">Jeden Tag</h3>
           <p className="mt-1 text-xs text-faint">
-            {done} von {items.length} · {items.map((i) => DOMAIN_LABEL[i.domain]).filter((v, idx, a) => a.indexOf(v) === idx).join(' · ')}
+            <span className="num">{done}</span> von <span className="num">{items.length}</span> · {items.map((i) => DOMAIN_LABEL[i.domain]).filter((v, idx, a) => a.indexOf(v) === idx).join(' · ')}
           </p>
         </div>
 

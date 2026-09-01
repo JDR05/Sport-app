@@ -14,7 +14,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { applyCorrections, respondToExperiment } from '@/app/(app)/actions'
-import { Button, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { Button, Card, EmptyState, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
 import { formatGermanDate } from '@/lib/engine/dates'
 import type { Insight } from '@/lib/adaptive'
@@ -190,8 +190,8 @@ export function InsightsView({ data }: { data: InsightsData }) {
                     </li>
                   ))}
                 </ul>
-                {/* Übersprungen ist nicht Nein. Sichtbar zu lassen, was die App
-                    noch nicht weiß, ist ehrlicher, als es still abzulegen. */}
+                {/* Skipped is not no. Leaving visible what the app still does
+                    not know is more honest than filing it away. */}
                 <p className="mt-2 text-xs leading-relaxed text-faint">
                   Du hast das übersprungen — völlig in Ordnung. Beantwortest du es später,
                   wird der nächste Plan genauer.
@@ -201,9 +201,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
           )}
 
           <div className="mt-3">
-            <Link href="/ai">
-              <Button variant="quiet">Ziel von der KI ansehen lassen</Button>
-            </Link>
+            <LinkButton href="/ai" variant="quiet">Ziel von der KI ansehen lassen</LinkButton>
           </div>
           <Note>
             Die KI entwirft, was zu tun ist. Wann etwas stattfindet, entscheidet die App —
@@ -274,7 +272,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
       <SectionHeading>Laufende Experimente</SectionHeading>
       {data.running !== null ? (
         <Card tone="accent">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Läuft</p>
+          <p className="label text-[10px] text-accent">Läuft</p>
           <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
             {data.running.hypothesis}
           </p>
@@ -293,7 +291,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
         />
       ) : (
         <Card tone="accent">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Vorschlag</p>
+          <p className="label text-[10px] text-accent">Vorschlag</p>
           <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
             {data.experiment.hypothesis}
           </p>

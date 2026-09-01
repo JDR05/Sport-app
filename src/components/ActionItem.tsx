@@ -134,7 +134,7 @@ export function ActionItem({
                 type="button"
                 aria-pressed={status === option.status}
                 onClick={() => onStatus(status === option.status ? 'unknown' : option.status)}
-                className={`label rounded-[2px] border px-2.5 py-1.5 text-[10px] font-semibold transition-colors duration-[var(--motion-tap)] ${
+                className={`label rounded-[2px] border min-h-11 px-3 py-2 text-[11px] font-semibold transition-colors duration-[var(--motion-tap)] ${
                   status === option.status
                     ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
                     : 'border-line bg-surface text-muted active:bg-sunken'

@@ -261,7 +261,7 @@ function Scale({
                 : 'border-line bg-surface text-muted'
             }`}
           >
-            {n}
+            <span className="num">{n}</span>
           </button>
         ))}
       </div>
@@ -291,7 +291,7 @@ function Steps({
         {label}
         {value !== null && (
           <span className="ml-2 font-normal text-muted">
-            {format(value)} {suffix}
+            <span className="num">{format(value)}</span> {suffix}
           </span>
         )}
       </p>
@@ -309,7 +309,7 @@ function Steps({
                 : 'border-line bg-surface text-muted'
             }`}
           >
-            {format(n)}
+            <span className="num">{format(n)}</span>
           </button>
         ))}
       </div>

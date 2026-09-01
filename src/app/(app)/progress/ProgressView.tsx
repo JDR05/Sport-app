@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { RequirePlan } from '@/components/RequirePlan'
 import { MetricEntry, type MetricSpec } from '@/components/MetricEntry'
 import { ScoreRing } from '@/components/ScoreRing'
-import { DOMAIN_LABEL, Button, Card, EmptyState, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
+import { Card, DOMAIN_LABEL, EmptyState, LinkButton, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
 import { formatGermanDateShort } from '@/lib/engine/dates'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
 import type { WeekScores } from '@/lib/adaptive/scores'
@@ -37,7 +37,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
                 a week already promised is not taken away from them. */}
             {data.reached && (
               <Card tone="accent">
-                <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                <p className="label text-[10px] text-accent">
                   Ziel erreicht
                 </p>
                 <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
@@ -48,9 +48,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
                   kommt. Nichts von dem, was du dir aufgebaut hast, geht dabei verloren.
                 </p>
                 <div className="mt-3">
-                  <Link href="/onboarding">
-                    <Button>Nächstes Ziel festlegen</Button>
-                  </Link>
+                  <LinkButton href="/onboarding">Nächstes Ziel festlegen</LinkButton>
                 </div>
               </Card>
             )}
@@ -114,7 +112,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
 
 
             <Card tone="accent">
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+              <p className="label text-[10px] text-accent">
                 Deine Zielspur
               </p>
               <p className="mt-1 text-[15px] font-semibold text-ink">{s.goalTrack.headline}</p>
