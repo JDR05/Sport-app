@@ -87,8 +87,17 @@ export class ClaudeAdapter implements AiAdapter {
         {
           model: args.model,
           max_tokens: args.maxTokens,
-          // The system prompt is identical on every call, so caching it makes
-          // repeated requests cost a tenth of the input price.
+          // Marked cacheable, and honest about what that is worth here:
+          // almost nothing. The app asks the model twice per goal — once to
+          // classify it, once to propose actions — and those two calls use
+          // different system prompts and are usually minutes or days apart,
+          // well past the five-minute cache TTL. The classify prompt is also
+          // under the 512-token minimum Opus 5 needs before a prefix caches
+          // at all, so that one is inert either way.
+          //
+          // Left in place because it costs nothing and becomes correct the
+          // moment a prompt grows or the call pattern changes. It is not a
+          // saving anybody should count on today.
           system: [{ type: 'text', text: args.system, cache_control: { type: 'ephemeral' } }],
           output_config: { effort: args.effort },
           messages: [{ role: 'user', content: args.user }],
