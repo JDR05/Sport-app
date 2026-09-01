@@ -45,7 +45,7 @@ export function AuthForm({
           inputMode="email"
           autoCapitalize="none"
           spellCheck={false}
-          className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
+          className="mt-2 w-full rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
         />
       </div>
 
@@ -60,12 +60,12 @@ export function AuthForm({
           type="password"
           required
           autoComplete={autoComplete}
-          className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-accent"
+          className="mt-2 w-full rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-accent"
         />
       </div>
 
       {state.error && (
-        <p role="alert" className="mb-4 rounded-xl bg-warn-soft px-3 py-2.5 text-sm text-ink">
+        <p role="alert" className="mb-4 rounded-[2px] bg-warn-soft px-3 py-2.5 text-sm text-ink">
           {state.error}
         </p>
       )}

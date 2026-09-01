@@ -86,7 +86,7 @@ export default function PlanPage() {
                             onStatus={(status) => setStatus(item.id, status)}
                           />
                         ) : (
-                          <div key={item.id} className="rounded-xl border border-line bg-surface p-3">
+                          <div key={item.id} className="rounded-[2px] border border-line bg-surface p-3">
                             <div className="flex items-start justify-between gap-3">
                               <p className="text-sm font-medium text-ink">{item.title}</p>
                               <DomainBadge domain={item.domain} track={item.track} />

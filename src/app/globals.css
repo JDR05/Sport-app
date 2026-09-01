@@ -1,16 +1,44 @@
 @import "tailwindcss";
 
 /*
- * Cadence — design tokens.
+ * Trace — design tokens.
  *
- * The name is the brief: the rhythm you can hold, not the pace you can manage
- * once. Everything here is chosen so the app feels like something you keep
- * open for months rather than something that shouts for a week.
+ * The name is the brief twice over: the trace you leave behind, and the trace
+ * a measuring instrument draws. Both are what this app does — it records what
+ * actually happened and plots it against what was planned.
  *
- * Warm paper, near-black ink, one muted accent. The playbook rules out
- * "generische Health-App-Optik", so: no neon, no gradients, no confetti, no
- * progress rings that fill up. Each domain gets its own restrained hue so a
- * glance at Today says what kind of action something is without reading.
+ * So the surface is an instrument, not a wellness app. That is a deliberate
+ * break from what was here before, and the previous version is worth naming
+ * because it is what everything drifts towards: warm beige paper, muted sage
+ * green, everything rounded to 16 px, one typeface for every job, soft
+ * shadows under every card. Each of those is a defensible choice and together
+ * they are the default look of a generated app — pleasant, and with nothing
+ * to recognise.
+ *
+ * What replaces it, and the rules that keep it:
+ *
+ *   1. WHITE, NOT PAPER. No warmth in the neutrals. The ground is white, the
+ *      ink is near-black with a faint blue cast, and nothing in between is
+ *      beige. Warmth in this product comes from the sentences, not the walls.
+ *
+ *   2. EDGES, NOT PILLOWS. 3 px on a card, 2 px on a control, and the pill is
+ *      gone entirely. Roundness reads as softness and softness reads as an app
+ *      that is being careful with you.
+ *
+ *   3. LINES, NOT SHADOWS. Structure comes from hairlines. There is not one
+ *      box-shadow in the app; a card is a rectangle with a border, which is
+ *      what a printed instrument panel is.
+ *
+ *   4. TWO TYPEFACES WITH DIFFERENT JOBS. Barlow says things, IBM Plex Mono
+ *      measures them. Every number the app is willing to be held to — a time,
+ *      a rate, a count, a date — is set in the mono. That is the single most
+ *      visible signature here and it is not decoration: it marks the
+ *      difference between what the app claims and what it measured.
+ *
+ *   5. ONE SIGNAL COLOUR, USED SPARINGLY. Electric blue, and only for the
+ *      thing that is live: the current day, the active tab, a completed ring.
+ *      The domain hues stay, because which domain an action belongs to is real
+ *      information — but they are inks now, not pastels.
  *
  * Full rationale and usage rules: docs/DESIGN_SYSTEM.md.
  */
@@ -33,38 +61,52 @@
   /* `light dark` means: follow the system unless something says otherwise. */
   color-scheme: light dark;
 
-  --paper: light-dark(#faf9f7, #131211);
-  --surface: light-dark(#ffffff, #1c1b19);
-  --surface-sunken: light-dark(#f2f0ec, #232220);
-  --ink: light-dark(#1b1a18, #edebe7);
-  --ink-muted: light-dark(#6b6862, #a5a099);
-  --ink-faint: light-dark(#97938c, #7c7871);
-  --line: light-dark(#e6e3dd, #2e2c29);
-  --accent: light-dark(#3f6b52, #7aa98b);
-  --accent-ink: light-dark(#ffffff, #12211a);
-  --accent-soft: light-dark(#e8efe9, #22302a);
+  /* Neutrals with a blue cast, not a warm one. The dark side is a true dark
+     grey rather than a brown-black, so the blue signal stays a signal. */
+  --paper: light-dark(#ffffff, #0e1013);
+  --surface: light-dark(#ffffff, #16191e);
+  --surface-sunken: light-dark(#f3f5f7, #1d2127);
+  --ink: light-dark(#0b0c0e, #e8eaee);
+  --ink-muted: light-dark(#5d646d, #9aa2ad);
+  --ink-faint: light-dark(#8c939c, #6d7480);
+  --line: light-dark(#e2e5e9, #262b32);
+  /* The one live colour. Bright enough on white to read as an instrument
+     signal; lifted on the dark ground so it does not turn into navy. */
+  --accent: light-dark(#0047d6, #6d9bff);
+  --accent-ink: light-dark(#ffffff, #0b1220);
+  --accent-soft: light-dark(#e6ecfc, #172234);
 
-  --training: light-dark(#3f6b52, #7aa98b);
-  --training-soft: light-dark(#e8efe9, #22302a);
-  --nutrition: light-dark(#9a6428, #cc9a5e);
-  --nutrition-soft: light-dark(#f6eee2, #322920);
-  --movement: light-dark(#47617d, #8aa8c6);
-  --movement-soft: light-dark(#e7edf3, #212a33);
+  /* Domain inks. Which domain an action belongs to is real information, so
+     these stay — but they are inks at full strength now rather than the
+     pastels they were. A tag is a hairline box, not a coloured pill. */
+  --training: light-dark(#0047d6, #6d9bff);
+  --training-soft: light-dark(#e6ecfc, #172234);
+  --nutrition: light-dark(#8a4a12, #d9a06a);
+  --nutrition-soft: light-dark(#f8efe5, #2b2119);
+  --movement: light-dark(#0f6b5c, #4fb8a4);
+  --movement-soft: light-dark(#e2f1ee, #122623);
   /* Sleep and mind used to borrow the movement hue, which made a sleep goal
      look like a walking goal at a glance — the one thing the colour is for. */
-  --sleep: light-dark(#5b5a8c, #9a99cc);
-  --sleep-soft: light-dark(#eaeaf3, #262633);
-  --mind: light-dark(#7a5570, #c095b4);
-  --mind-soft: light-dark(#f2eaf0, #302530);
+  --sleep: light-dark(#4b3fa8, #a99bf5);
+  --sleep-soft: light-dark(#eceaf8, #1e1b30);
+  --mind: light-dark(#93286a, #e28ac0);
+  --mind-soft: light-dark(#f9e8f2, #2c1a26);
 
-  --warn: light-dark(#8a4b2a, #d09070);
-  --warn-soft: light-dark(#f7ebe4, #33241d);
+  --warn: light-dark(#a8321e, #f08a72);
+  --warn-soft: light-dark(#fbe9e5, #2e1a16);
 
   /* -------------------------------------------------------------- shape --
-     Three radii, not seven. A card, a control, a pill. */
-  --radius-card: 1rem;
-  --radius-control: 0.75rem;
-  --radius-pill: 999px;
+     Two radii and no pill. 3 px reads as a cut edge rather than a rounded
+     corner; the difference between this and 16 px is most of what made the
+     old surface look soft. The pill token is deliberately gone so nothing can
+     quietly bring the roundness back. */
+  --radius-card: 3px;
+  --radius-control: 2px;
+
+  /* --------------------------------------------------------------- rules --
+     A hairline is the only structural device. Stated as a token so a second
+     border weight cannot creep in. */
+  --hairline: 1px;
 
   /* ------------------------------------------------------------- motion --
      Short and few. Movement should confirm a tap, never perform. Anything
@@ -103,7 +145,8 @@
   --color-mind-soft: var(--mind-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono-raw);
 
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
@@ -113,7 +156,7 @@
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -122,11 +165,28 @@
     overscroll-behavior-y: none;
   }
 
-  /* Numbers are read in columns — a weight series, a completion rate. Tabular
-     figures stop them shifting sideways as the digits change. */
-  .tnum {
+  /* Every number the app is willing to be held to.
+     
+     A time, a rate, a count, a date, a duration — all of it set in the mono at
+     tabular width. This is the app's signature and it is not decoration: it
+     marks the line between what the app *says* and what it *measured*. Prose
+     is Barlow; anything you could check with a stopwatch or a scale is Plex
+     Mono, and looks it. */
+  .num {
+    font-family: var(--font-mono-raw), ui-monospace, SFMono-Regular, monospace;
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'zero' 1;
+    letter-spacing: -0.01em;
   }
+
+  /* A small uppercase label: section headings, tags, the nav. Set in the mono
+     too, so the instrument reading extends to the furniture. */
+  .label {
+    font-family: var(--font-mono-raw), ui-monospace, SFMono-Regular, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
 
   /* Someone who asked their system for less movement means it. */
   @media (prefers-reduced-motion: reduce) {

@@ -15,13 +15,21 @@ export const DOMAIN_LABEL: Record<PlanDomain, string> = {
   priority: 'Fokus',
 }
 
+/**
+ * The domain, as an ink rather than a pastel.
+ *
+ * A tag used to be a filled pill in a washed-out tint, which is what a health
+ * app looks like. It is a hairline box in the domain's own ink now — the same
+ * device as every other border in the app, so a screen reads as one surface.
+ * Sleep and mind get their own hues rather than borrowing movement's.
+ */
 const DOMAIN_CLASS: Record<PlanDomain, string> = {
-  training: 'bg-training-soft text-training',
-  nutrition: 'bg-nutrition-soft text-nutrition',
-  movement: 'bg-movement-soft text-movement',
-  sleep: 'bg-movement-soft text-movement',
-  self_improvement: 'bg-accent-soft text-accent',
-  priority: 'bg-accent-soft text-accent',
+  training: 'border-training/35 text-training',
+  nutrition: 'border-nutrition/35 text-nutrition',
+  movement: 'border-movement/35 text-movement',
+  sleep: 'border-sleep/35 text-sleep',
+  self_improvement: 'border-mind/35 text-mind',
+  priority: 'border-accent/35 text-accent',
 }
 
 export function Screen({ children }: { children: ReactNode }) {
@@ -35,38 +43,54 @@ export function Screen({ children }: { children: ReactNode }) {
  * whole answer to "where am I", and 24px with default tracking read as a
  * paragraph heading rather than as a screen.
  */
-export function ScreenTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+export function ScreenTitle({
+  title,
+  subtitle,
+  subtitleClass,
+}: {
+  title: string
+  subtitle?: string
+  /** For a subtitle that is a measurement rather than a sentence — a date, a range. */
+  subtitleClass?: string
+}) {
   return (
     <header className="mb-6">
-      <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink">
+      <h1 className="text-[30px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink">
         {title}
       </h1>
-      {subtitle && <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{subtitle}</p>}
+      {subtitle && (
+        <p className={`mt-2 leading-relaxed text-muted ${subtitleClass ?? 'text-[15px]'}`}>
+          {subtitle}
+        </p>
+      )}
     </header>
   )
 }
 
 export function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h2 className="mb-2.5 mt-8 text-[11px] font-semibold uppercase tracking-[0.09em] text-faint">
+    <h2 className="label mb-2.5 mt-8 text-[10px] font-semibold text-faint">
       {children}
     </h2>
   )
 }
 
 /**
- * Cards sit on warm paper, so they need a shadow rather than only a border to
- * read as surfaces. It is one step, barely there — enough to separate, not
- * enough to look like a stack of floating panels.
+ * A card is a rectangle with a hairline. No shadow, anywhere in the app.
+ *
+ * The old one carried a soft drop shadow so it would lift off the warm paper.
+ * On white there is nothing to lift off, and a stack of floating panels is
+ * half of what made the surface read as generated. Separation comes from the
+ * line, the way it does on a printed panel.
  */
 export function Card({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'accent' | 'warn' }) {
   const toneClass =
     tone === 'accent'
-      ? 'bg-accent-soft border-accent/15'
+      ? 'border-accent/25 bg-accent-soft'
       : tone === 'warn'
-        ? 'bg-warn-soft border-warn/15'
-        : 'bg-surface border-line shadow-[0_1px_2px_rgba(27,26,24,0.04)]'
-  return <div className={`rounded-2xl border ${toneClass} p-4`}>{children}</div>
+        ? 'border-warn/25 bg-warn-soft'
+        : 'border-line bg-surface'
+  return <div className={`rounded-[3px] border ${toneClass} p-4`}>{children}</div>
 }
 
 export function DomainBadge({ domain, track }: { domain: PlanDomain; track?: 'goal' | 'baseline' }) {
@@ -75,9 +99,11 @@ export function DomainBadge({ domain, track }: { domain: PlanDomain; track?: 'go
       {track === 'baseline' && (
         // The baseline runs under every goal. Marking it keeps the distinction
         // visible without giving it a second colour system.
-        <span className="text-[10px] font-medium uppercase tracking-wide text-faint">Basis</span>
+        <span className="label text-[10px] font-semibold text-faint">Basis</span>
       )}
-      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${DOMAIN_CLASS[domain]}`}>
+      <span
+        className={`label rounded-[2px] border px-1.5 py-px text-[10px] font-semibold ${DOMAIN_CLASS[domain]}`}
+      >
         {DOMAIN_LABEL[domain]}
       </span>
     </span>
@@ -102,10 +128,15 @@ export function Reasoning({ children }: { children: ReactNode }) {
 
 export function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-faint">{label}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums text-ink">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-muted">{hint}</div>}
+    <div className="rounded-[3px] border border-line bg-surface p-4">
+      <div className="label text-[10px] font-semibold text-faint">{label}</div>
+      {/* 22px of mono broke "14. November" across two lines and left the tile
+          looking like a layout bug. The mono is the point, so the size gives
+          way rather than the typeface. */}
+      <div className="num mt-1.5 text-[17px] font-medium leading-tight text-ink">{value}</div>
+      {/* The hint is a sentence, so it is set like one. Uppercase mono here
+          made every tile shout a caption at the reader. */}
+      {hint && <div className="mt-1 text-[11px] leading-snug text-muted">{hint}</div>}
     </div>
   )
 }
@@ -124,7 +155,7 @@ export function Button({
   disabled?: boolean
 }) {
   const base =
-    'inline-flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition disabled:opacity-40'
+    'inline-flex w-full items-center justify-center rounded-[2px] px-4 py-3 text-sm font-semibold transition disabled:opacity-40'
   const look =
     variant === 'primary'
       ? 'bg-accent text-accent-ink active:brightness-95'
@@ -155,14 +186,15 @@ export function EmptyState({
       <p className="mt-1 text-sm leading-relaxed text-muted">{body}</p>
       {progress && (
         <div className="mt-3">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+          <div className="h-[3px] w-full overflow-hidden bg-sunken">
             <div
-              className="h-full rounded-full bg-accent transition-all"
+              className="h-full bg-accent"
               style={{ width: `${Math.min(100, (progress.done / progress.needed) * 100)}%` }}
             />
           </div>
-          <p className="mt-1.5 text-xs text-faint">
-            {progress.done} von {progress.needed} {progress.unit}
+          <p className="mt-2 text-xs text-faint">
+            <span className="num">{progress.done}</span> von{' '}
+            <span className="num">{progress.needed}</span> {progress.unit}
           </p>
         </div>
       )}

@@ -148,7 +148,7 @@ export function MetricChart({
         <span className="text-xs text-faint">
           {active === null ? 'Zuletzt' : formatDate(shown.date)}
         </span>
-        <span className="tnum text-sm font-semibold text-ink">
+        <span className="num text-sm font-semibold text-ink">
           {formatNumber(shown.value)} {unit}
         </span>
       </div>

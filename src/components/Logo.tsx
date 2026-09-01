@@ -1,22 +1,27 @@
-// The Cadence mark.
+// The Trace mark.
 //
-// An open ring with one beat sitting outside it.
+// Two strokes on a shared baseline, unequal in height.
 //
-// The ring is the week — the same progress ring the app draws on Progress and
-// Today, so the logo is not a decoration bolted on but the thing the product
-// actually shows you. The gap makes it read as a C, and the accented beat is
-// the one that left the loop: the change the app tried because the original
-// rhythm never worked for this person.
+// That is the product, not a metaphor about it: every plan this app builds has
+// two tracks — the health baseline that runs under every goal, and the goal
+// track on top of it. The short stroke is the baseline, the tall one is the
+// goal, and the goal is the one in the signal colour because it is the thing
+// that changes. Nothing here needs a paragraph to be understood, which is the
+// test the previous mark failed: an open ring with a dot meant something only
+// to whoever wrote the comment under it.
 //
-// That is the whole product in a glyph, and it still resolves at 16 pixels,
-// which rules out anything cleverer.
-//
-// Geometry note: the arc runs clockwise from the lower terminal (50°) to the
-// upper one (-62°) the long way round, so the opening faces right. Writing the
-// two gap ends the other way round draws the short arc instead, which produces
-// a crescent — worth stating, because it is not obvious from the numbers.
+// It also survives being small, which is the other test. At 16 px a ring with
+// a gap becomes a circle and a crescent becomes a smudge; two vertical strokes
+// stay two vertical strokes.
 
-const RING = 'M17.40 18.43 A8.4 8.4 0 1 1 15.94 4.58'
+/** The bar geometry, shared by the mark and the app icon so they cannot drift. */
+export const BARS = {
+  // Short, and always there.
+  baseline: { x: 6, y1: 20, y2: 13 },
+  // Tall, and the one that grows — so it carries the live colour.
+  goal: { x: 14, y1: 20, y2: 5 },
+  width: 3.2,
+} as const
 
 export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
@@ -26,12 +31,26 @@ export function LogoMark({ size = 24, className }: { size?: number; className?: 
       viewBox="0 0 24 24"
       fill="none"
       role="img"
-      aria-label="Cadence"
+      aria-label="Trace"
       className={className}
     >
-      <path d={RING} stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      {/* The beat that moved. */}
-      <circle cx="20.31" cy="7.2" r="2.8" className="fill-accent" />
+      {/* The health baseline: always there, always shorter, never the loud one. */}
+      <path
+        d={`M${BARS.baseline.x} ${BARS.baseline.y1}V${BARS.baseline.y2}`}
+        stroke="currentColor"
+        strokeWidth={BARS.width}
+        strokeLinecap="square"
+      />
+      {/* The goal track: taller, and in the live colour because it is the part
+          that moves. Having these two the wrong way round says the opposite
+          about the product, which is why the geometry is named rather than
+          written inline. */}
+      <path
+        d={`M${BARS.goal.x} ${BARS.goal.y1}V${BARS.goal.y2}`}
+        className="stroke-accent"
+        strokeWidth={BARS.width}
+        strokeLinecap="square"
+      />
     </svg>
   )
 }
@@ -39,8 +58,9 @@ export function LogoMark({ size = 24, className }: { size?: number; className?: 
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 text-ink ${className ?? ''}`}>
-      <LogoMark size={20} />
-      <span className="text-[17px] font-semibold tracking-tight">Cadence</span>
+      <LogoMark size={18} />
+      {/* Set in the mono, uppercase, wide. The wordmark is a readout. */}
+      <span className="label text-[13px] font-semibold">Trace</span>
     </span>
   )
 }

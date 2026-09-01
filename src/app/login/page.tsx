@@ -20,13 +20,13 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <ScreenTitle title="Willkommen zurück" subtitle="Dein Plan wartet." />
 
       {justConfirmed && (
-        <p className="rounded-xl bg-accent-soft px-3 py-2.5 text-sm text-ink">
+        <p className="rounded-[2px] bg-accent-soft px-3 py-2.5 text-sm text-ink">
           E-Mail bestätigt. Melde dich jetzt einmal an — danach bleibst du angemeldet.
         </p>
       )}
 
       {linkBroken && (
-        <p role="alert" className="rounded-xl bg-warn-soft px-3 py-2.5 text-sm text-ink">
+        <p role="alert" className="rounded-[2px] bg-warn-soft px-3 py-2.5 text-sm text-ink">
           Der Bestätigungslink war ungültig oder abgelaufen. Melde dich an oder fordere einen
           neuen an.
         </p>

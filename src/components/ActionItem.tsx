@@ -43,8 +43,26 @@ export function ActionItem({
 
   return (
     <article
-      className={`rounded-2xl border border-line bg-surface transition-opacity ${settled ? 'opacity-65' : ''}`}
+      className={`relative overflow-hidden rounded-[3px] border border-line bg-surface pl-1 transition-opacity ${
+        settled ? 'opacity-60' : ''
+      }`}
     >
+      {/* The mark, on every action.
+          
+          The logo is two strokes of unequal height: the health baseline that
+          runs under every goal, and the goal track on top of it. Here that
+          same pair becomes the left edge of the card, and it carries real
+          information rather than decorating — a full bar in the live colour is
+          a goal action, a short muted one is the baseline. So the thing the
+          product is actually about is legible at a glance on every screen, and
+          the identity is the information rather than a badge stuck beside it. */}
+      <span
+        aria-hidden
+        className={`absolute bottom-0 left-0 w-1 ${
+          item.track === 'goal' ? 'top-0 bg-accent' : 'h-2/5 bg-ink/25'
+        }`}
+      />
+
       <div className="flex items-start gap-3 p-3.5">
         <CheckRing
           status={status}
@@ -63,9 +81,9 @@ export function ActionItem({
           <div className="mt-1 flex items-center gap-2">
             <DomainBadge domain={item.domain} />
             {item.plannedDurationMin && (
-              <span className="text-xs tabular-nums text-faint">
-                {item.plannedDurationMin} Min
-              </span>
+              // Measured, so it is set in the mono like every other number the
+              // app is willing to be held to.
+              <span className="num text-[11px] text-faint">{item.plannedDurationMin} min</span>
             )}
           </div>
         </div>
@@ -106,7 +124,7 @@ export function ActionItem({
                 type="button"
                 aria-pressed={status === option.status}
                 onClick={() => onStatus(status === option.status ? 'unknown' : option.status)}
-                className={`rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors duration-[var(--motion-tap)] ${
+                className={`label rounded-[2px] border px-2.5 py-1.5 text-[10px] font-semibold transition-colors duration-[var(--motion-tap)] ${
                   status === option.status
                     ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
                     : 'border-line bg-surface text-muted active:bg-sunken'

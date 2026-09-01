@@ -20,14 +20,14 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-paper/90 backdrop-blur">
       <div className="mx-auto flex max-w-md items-center gap-2 px-5 py-3">
-        <LogoMark size={18} className="shrink-0 text-ink" />
-        <span className="text-[15px] font-semibold tracking-tight text-ink">Cadence</span>
+        <LogoMark size={17} className="shrink-0 text-ink" />
+        <span className="label text-[12px] font-semibold text-ink">Trace</span>
         {screen && (
           <>
-            <span aria-hidden className="text-faint">
-              ·
-            </span>
-            <span className="text-[15px] text-muted">{screen}</span>
+            {/* A rule rather than a middot. The header reads as a scale with a
+                position on it, which is what the app is about. */}
+            <span aria-hidden className="h-px w-3 shrink-0 bg-line" />
+            <span className="label text-[12px] text-muted">{screen}</span>
           </>
         )}
       </div>

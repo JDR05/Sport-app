@@ -215,7 +215,7 @@ export function CheckInCard({
           placeholder="Was ist dir aufgefallen?"
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => save(values, note)}
-          className="mt-2 w-full resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
+          className="mt-2 w-full resize-none rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
         />
 
         <p className="mt-2 text-xs text-faint">
@@ -303,7 +303,7 @@ function Steps({
             aria-pressed={value === n}
             aria-label={`${format(n)} ${suffix}`}
             onClick={() => onChange(value === n ? null : n)}
-            className={`shrink-0 snap-start rounded-pill border px-3.5 py-2 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
+            className={`shrink-0 snap-start rounded-[2px] border px-3.5 py-2 text-sm transition-[background-color,border-color] duration-[var(--motion-tap)] ${
               value === n
                 ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
                 : 'border-line bg-surface text-muted'

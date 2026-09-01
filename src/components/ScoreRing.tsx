@@ -72,7 +72,7 @@ export function ScoreRing({
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span
-            className={`tnum font-semibold text-ink ${size >= 96 ? 'text-xl' : 'text-sm'}`}
+            className={`num font-semibold text-ink ${size >= 96 ? 'text-xl' : 'text-sm'}`}
           >
             {rate === null ? '–' : `${Math.round(rate * 100)}`}
             {rate !== null && <span className="text-[0.7em] font-medium text-muted">%</span>}

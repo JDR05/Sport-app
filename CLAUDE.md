@@ -99,6 +99,12 @@ Diese Regeln sind deterministischer Code, keine Prompt-Anweisungen:
 
 ## UX-Prinzipien
 
+Die App heißt **Trace** und sieht aus wie ein Messgerät, nicht wie eine Gesundheits-App:
+Weiß statt warmem Papier, Haarlinien statt Schatten, 3 px statt 16 px Radius, zwei Schriften
+mit getrennten Aufgaben (Barlow spricht, IBM Plex Mono misst), eine Signalfarbe. Die Regeln
+stehen in `docs/DESIGN_SYSTEM.md` und sind verbindlich — sie existieren, weil eine Oberfläche
+sonst in genau den generischen Look zurückdriftet, aus dem sie kam (ADR-079).
+
 Mobile-first und extrem übersichtlich. Auf jedem Screen muss erkennbar sein: **Was ist heute
 wichtig? Warum? Was kommt als Nächstes?** Keine Datenüberflutung, keine zwanzig Karten pro
 Screen, keine unnötige Gamification, keine generische Health-App-Optik. „Heute" ist wichtiger

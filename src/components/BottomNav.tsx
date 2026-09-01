@@ -40,12 +40,18 @@ function TabContent({
 
   return (
     <span
-      className={`flex flex-col items-center gap-1 transition-colors duration-100 ${
+      className={`relative flex w-full flex-col items-center gap-1 transition-colors duration-100 ${
         lit ? 'text-accent' : 'text-faint'
       }`}
     >
+      {/* A rule above the live tab, not a rounded highlight behind it. The bar
+          reads as a scale with a position marked on it. */}
+      <span
+        aria-hidden
+        className={`absolute -top-2.5 h-[2px] w-7 ${lit ? 'bg-accent' : 'bg-transparent'}`}
+      />
       <Icon />
-      {label}
+      <span className="label text-[9px] font-semibold">{label}</span>
     </span>
   )
 }
@@ -63,7 +69,7 @@ export function BottomNav() {
               <Link
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className="flex flex-col items-center px-1 pb-3 pt-2.5 text-[10px] font-medium"
+                className="flex flex-col items-center px-1 pb-3 pt-3"
               >
                 <TabContent label={tab.label} Icon={tab.Icon} active={active} />
               </Link>

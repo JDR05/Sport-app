@@ -31,6 +31,7 @@ export default function TodayPage() {
             <ScreenTitle
               title={WEEKDAY_LONG[weekdayOf(today)]}
               subtitle={formatGermanDate(today)}
+              subtitleClass="num text-[13px]"
             />
 
             {/* The goal, as one line under the date rather than a card of its
@@ -50,7 +51,7 @@ export default function TodayPage() {
             {all.length > 0 && (
               <div className="mb-2.5 flex items-baseline justify-between">
                 <SectionHeading>Heute</SectionHeading>
-                <span className="text-[11px] font-medium tabular-nums text-faint">
+                <span className="num text-[11px] text-faint">
                   {all.filter((i) => i.status === 'done').length}/{all.length}
                 </span>
               </div>

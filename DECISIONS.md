@@ -7,6 +7,41 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-08-24 — ADR-079: Die App heißt Trace und sieht aus wie ein Messgerät
+
+**Entscheidung:** Der Name wird **Trace**. Das Erscheinungsbild wechselt von warmem Papier mit
+gedämpftem Grün zu Weiß, Haarlinien, harten Kanten und einer Signalfarbe. Zwei Schriften mit
+getrennten Aufgaben: **Barlow** für Sprache, **IBM Plex Mono** für jede Zahl, an der sich die
+App messen lassen muss. Das Zeichen sind die zwei Spuren, die jeder Plan hat. Vollständige
+Regeln in `docs/DESIGN_SYSTEM.md`.
+
+**Begründung:** Der Product Owner: „das Logo sowie der Name und das Design in der app sieht
+alles ki generiert aus". Das stimmt, und es ist konkret benennbar. „Cadence" liegt im Cluster,
+den Sprachmodelle ausgeben — Cadence, Momentum, Compass, Tempo, Anchor. Warmes Papierweiß mit
+Salbeigrün ist die Standardpalette für achtsame Gesundheits-Apps. Ein offener Ring mit Punkt
+ist die am häufigsten generierte Markenform überhaupt. Inter ist die Schrift, die man wählt,
+wenn man nicht auffallen will. Jede Einzelentscheidung war vertretbar — die Summe hatte keinen
+Standpunkt.
+
+Ausdrücklich abgelehnt wurde: „beige sanft und alles so rund immer die selbe Schrift". Genau
+diese vier Punkte sind die Regeln in `DESIGN_SYSTEM.md` geworden, damit die Oberfläche nicht
+wieder dorthin zurückdriftet: kein warmer Neutralton, 3 px statt 16 px und die Pille ersatzlos
+gestrichen, kein einziger `box-shadow`, zwei Schriften mit klar verschiedenen Aufgaben.
+
+**Trace** trägt beide Bedeutungen, die das Produkt braucht: die Spur, die jemand hinterlässt,
+und die Messkurve, die ein Instrument zeichnet. Beides ist, was die App tut.
+
+Das Zeichen ist keine Metapher über das Produkt, sondern das Produkt: zwei Striche ungleicher
+Höhe — die Gesundheitsbasis, die unter jedem Ziel mitläuft, und die Zielspur darüber, die als
+einzige die Signalfarbe trägt, weil sie der Teil ist, der sich bewegt. Dieselbe Geometrie ist
+die linke Kante jeder Aktionskarte, wo sie echte Information trägt statt zu dekorieren. Und
+sie übersteht 16 Pixel, was das alte Zeichen nicht tat.
+
+Die Mono-Ziffern sind die sichtbarste Entscheidung und die inhaltlich wichtigste: Sie
+markieren die Grenze zwischen dem, was die App behauptet, und dem, was sie gemessen hat.
+
+---
+
 ## 2026-08-23 — ADR-078: Die englische Fassung ist ein eigener Schritt, nicht ein Nebenbei
 
 **Entscheidung:** Die App bleibt vorerst durchgehend deutsch. Die englische Fassung — komplett,
