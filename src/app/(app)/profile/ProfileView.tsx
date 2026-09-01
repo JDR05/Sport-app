@@ -118,7 +118,23 @@ export function ProfileView({
                 </p>
               </Card>
             ) : (
-              <AiConsent initial={consent} provider={provider} />
+              <>
+                <AiConsent initial={consent} provider={provider} />
+                {consent.granted && (
+                  <div className="mt-3">
+                    <Button variant="quiet" onClick={() => router.push('/ai')}>
+                      {answers.goal.classifiedBy === 'ai'
+                        ? 'Ziel noch einmal von der KI ansehen lassen'
+                        : 'Ziel jetzt von der KI ansehen lassen'}
+                    </Button>
+                    <Note>
+                      {answers.goal.classifiedBy === 'ai'
+                        ? 'Sie liest dein Ziel neu, fragt nach, was ihr fehlt, und entwirft die Aktionen noch einmal.'
+                        : 'Dein Ziel wurde ohne KI eingeordnet — vermutlich, weil es entstand, bevor ein Anbieter eingerichtet war. Das Häkchen allein holt das nicht nach.'}
+                    </Note>
+                  </div>
+                )}
+              </>
             )}
 
             <SectionHeading>Darstellung</SectionHeading>

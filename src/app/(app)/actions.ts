@@ -17,6 +17,11 @@ import { acceptExperiment, concludeIfDue, declineExperiment } from '@/lib/db/exp
 import { weeklyReview } from '@/lib/db/analysis'
 import { applyPlanCare, type PlanCareResult } from '@/lib/db/plan-care'
 import { grantConsent, readConsent, withdrawConsent, type ConsentState } from '@/lib/ai/consent'
+import { restartAi, type AiRestart } from '@/lib/db/ai-restart'
+import { saveIntakeAnswers } from '@/lib/db/intake-questions'
+import { loadPlanInput } from '@/lib/db/plan-input'
+import { withProposal } from '@/lib/db/propose'
+import { serverToday } from '@/lib/db/today'
 
 // Shared with the onboarding: a shape check is not a value check.
 import { isoDate } from '@/lib/domain/isoDate'
@@ -197,4 +202,55 @@ export async function setAiConsent(granted: unknown): Promise<ConsentState> {
   // truth — the alternative is a ticked box over an account that never agreed,
   // which is the one error this whole module exists to prevent.
   return readConsent(user.id)
+}
+
+// ------------------------------------------------------ catching a goal up ---
+
+/**
+ * Re-opens a goal that was set up before there was a model to ask.
+ *
+ * `ai_proposal_at` is stamped whether or not a proposal came back — that is
+ * what stops the app re-asking on every page load — so a goal created before a
+ * key existed is marked "asked, nothing came back" permanently, and ticking
+ * the consent box later changes nothing. Redoing the onboarding would fix it
+ * and throw away the goal's tracking history to do so.
+ */
+export async function startAiForGoal(): Promise<AiRestart> {
+  const user = await requireUser()
+  return restartAi(user.id, await serverToday())
+}
+
+const intakeAnswerSchema = z.object({
+  question: z.string().trim().min(1).max(200),
+  answer: z.string().trim().max(300).nullable(),
+})
+
+/**
+ * Stores the answers and fetches the proposal.
+ *
+ * Does **not** rebuild the current week. The plan for a week is written once
+ * and the unique index means replacing it needs the successor's id before the
+ * successor exists — the standoff ADR-033 describes. More to the point, this
+ * week already carries answered actions, and a rebuild would leave two plans
+ * describing the same days, which is double the evidence for a week that was
+ * lived once. The proposal is stored and the next week is built from it.
+ */
+export async function finishAiForGoal(payload: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+
+  const parsed = z.array(intakeAnswerSchema).max(3).safeParse(payload)
+  if (!parsed.success) return { ok: false }
+
+  if (parsed.data.length > 0) await saveIntakeAnswers(user.id, parsed.data)
+
+  const input = await loadPlanInput(user.id)
+  if (!input) return { ok: false }
+
+  const today = await serverToday()
+  const withIt = await withProposal(user.id, { ...input, today })
+
+  revalidatePath('/', 'layout')
+  // Reports whether a proposal actually came back, so the screen can say "the
+  // model answered" or "it did not" rather than claiming success either way.
+  return { ok: withIt.aiProposal != null }
 }

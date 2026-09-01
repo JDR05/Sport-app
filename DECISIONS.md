@@ -7,6 +7,47 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-085: Ein Ziel holt die KI nach, ohne dass man von vorn anfängt
+
+**Entscheidung:** Ein eigener Bildschirm (`/ai`, verlinkt aus dem Profil) setzt für das
+**aktive** Ziel `ai_proposal_at` und `intake_asked_at` zurück, lässt das Modell das Ziel neu
+einordnen, stellt seine Rückfragen und holt den Vorschlag. Fortschritt, Check-ins und Verlauf
+bleiben unangetastet. Der neue Vorschlag wirkt sich **ab der nächsten Woche** aus.
+
+**Begründung:** `ai_proposal_at` wird gesetzt, ob ein Vorschlag kam oder nicht — genau das
+verhindert eine Wiederhol-Schleife bei jedem Seitenaufruf. Die Kehrseite ist, dass ein Ziel,
+das angelegt wurde, **bevor** ein Key konfiguriert war, dauerhaft als „gefragt, nichts
+gekommen" markiert ist. Das Häkchen später zu setzen ändert dann nichts, weil nie wieder
+gefragt wird.
+
+Genau das ist beim Product Owner eingetreten, und die Datenbank hat es bestätigt: Einwilligung
+erteilt, aktives Ziel vom 20.08., `classified_by: keywords`, `ai_proposal_at` gesetzt,
+`ai_proposal` null. Der einzige Ausweg wäre das Onboarding gewesen — das pausiert das Ziel und
+legt ein neues an, wirft also die daran hängende Tracking-Historie weg, um einen Zeitstempel zu
+reparieren. Das ist keine akzeptable Antwort auf „muss ich das neu machen".
+
+**Warum die laufende Woche nicht neu gebaut wird**, obwohl das naheliegt: Der partielle Unique
+Index lässt pro Woche und Ziel genau einen aktuellen Plan zu, und `superseded_by` zeigt auf den
+Nachfolger — der beim Ablösen noch nicht existiert. Genau die Pattsituation, die ADR-033
+beschreibt. Man käme mit einem selbstreferenzierenden Zwischenschritt daran vorbei, aber das
+eigentliche Argument ist inhaltlich: In dieser Woche sind bereits Aktionen bewertet, und zwei
+Pläne für dieselben Tage wären doppelte Spuren einer einmal gelebten Woche. `loadObservations`
+liest bewusst über Pläne und Ziele hinweg — „Verhalten ist Verhalten" — und würde beide zählen.
+Die Wochenzahlen wären ab dann falsch, dauerhaft. Der Vorschlag wird gespeichert, die nächste
+Woche wird daraus gebaut, und der Bildschirm sagt das, statt es zu verschweigen.
+
+**Warum die Neu-Einordnung zuerst kommt:** Der Archetyp entscheidet, welche Sicherheitsgrenzen
+gelten und woraus der Plan überhaupt besteht. Ein Vorschlag auf Basis einer Wortlisten-Vermutung
+steht auf dem falschen Fundament. Ändert das Modell den Archetyp, sagt der Bildschirm es
+ausdrücklich und verweist aufs Profil zum Korrigieren — eine stille Änderung daran wäre die
+folgenreichste unsichtbare Änderung, die die App machen könnte.
+
+**Nicht durch einen Test abgesichert.** Der ganze Pfad ist datenbankgebunden, und dieses Projekt
+hat bewusst nur reine Tests. Nachweisbar ist er an den Daten: nach dem Klick muss
+`classified_by` auf `ai` stehen und `ai_proposal` gefüllt sein.
+
+---
+
 ## 2026-09-01 — ADR-084: Das Modell darf nachfragen, bevor es plant — und meistens tut es das nicht
 
 **Entscheidung:** Nachdem das Intake gespeichert ist und bevor der Plan vorgeschlagen wird,
