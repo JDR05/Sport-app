@@ -6,6 +6,8 @@ import { AiConsent, type ConsentView } from '@/components/AiConsent'
 import { IntakeQuestionsStep } from '@/app/onboarding/IntakeQuestionsStep'
 import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { finishAiForGoal, startAiForGoal } from '../actions'
+import { AI_FAILURE_TEXT } from '@/lib/ai/failure-text'
+import type { AiFailure } from '@/lib/ai'
 import type { IntakeQuestion } from '@/lib/ai/schemas'
 import type { ClassifiedBy, GoalArchetype, IntakeAnswer } from '@/lib/domain/types'
 
@@ -23,7 +25,13 @@ type Phase =
   | { name: 'idle' }
   | { name: 'working' }
   | { name: 'asking'; questions: IntakeQuestion[]; reclassified: GoalArchetype | null }
-  | { name: 'done'; answered: boolean; reclassified: GoalArchetype | null }
+  | {
+      name: 'done'
+      answered: boolean
+      reclassified: GoalArchetype | null
+      /** Why it did not work, when it did not. Null on success. */
+      failure: AiFailure | null
+    }
 
 export function AiCatchUpView({
   goalText,
@@ -49,13 +57,27 @@ export function AiCatchUpView({
       setPhase({ name: 'asking', questions: result.questions, reclassified: result.reclassified })
       return
     }
-    await submit([], result.reclassified)
+    await submit([], result.reclassified, result.failure)
   }
 
-  const submit = async (answers: IntakeAnswer[], reclassified: GoalArchetype | null) => {
+  const submit = async (
+    answers: IntakeAnswer[],
+    reclassified: GoalArchetype | null,
+    /**
+     * The reason the *classification* failed, when it did.
+     *
+     * Shown here because both calls go to the same provider with the same
+     * model: if the classification could not get through, the proposal had no
+     * chance either, and that is the case worth explaining. When only the
+     * proposal fails the screen stays general and the specifics are in the
+     * server log — a schema or safety refusal is not something the person can
+     * fix from their phone anyway.
+     */
+    failure: AiFailure | null = null,
+  ) => {
     setPhase({ name: 'working' })
     const result = await finishAiForGoal(answers)
-    setPhase({ name: 'done', answered: result.ok, reclassified })
+    setPhase({ name: 'done', answered: result.ok, reclassified, failure: result.ok ? null : failure })
     router.refresh()
   }
 
@@ -119,7 +141,8 @@ export function AiCatchUpView({
             <p className="mt-1 text-sm leading-relaxed text-muted">
               {phase.answered
                 ? 'Ihr Vorschlag ist gespeichert und fließt in den Plan der nächsten Woche ein. Diese Woche bleibt, wie sie ist — sie ist schon halb gelebt, und zwei Pläne für dieselben Tage wären doppelte Spuren von einer Woche.'
-                : 'Kein Grund zur Sorge: der Plan wird deterministisch gebaut, wie bisher. Wenn das öfter passiert, stimmt etwas mit dem Anbieter oder dem Modell nicht — prüf es mit npm run ai:check.'}
+                : (phase.failure !== null && AI_FAILURE_TEXT[phase.failure]) ||
+                  'Der Plan wird weiter deterministisch gebaut, wie bisher.'}
             </p>
             {phase.reclassified && (
               <p className="mt-2 text-sm leading-relaxed text-muted">

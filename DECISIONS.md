@@ -7,6 +7,48 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-086: Ein gescheiterter Modellaufruf hinterlässt eine Spur
+
+**Entscheidung:** Jeder fehlgeschlagene Modellaufruf wird serverseitig einmal protokolliert —
+Adapter, Aufgabe, Modell, Grund und der Anfang dessen, was der Anbieter geantwortet hat.
+**Nie der Schlüssel, nie der Prompt.** Zusätzlich nennt der Bildschirm den Grund in einem Satz,
+der den nächsten Schritt beschreibt statt der Diagnose.
+
+**Begründung:** Der Product Owner hat auf „KI dazuholen" getippt und bekam „Die KI hat nichts
+geliefert." Die Vercel-Logs zeigten: `POST /ai` → **200, in unter einer Sekunde**, keine
+Fehlerzeile. Damit waren ein falscher Schlüssel, ein falscher Modellname, ein Timeout und eine
+abgelehnte Antwort **von außen nicht unterscheidbar** — weder für ihn noch für mich.
+
+Das ist die Rechnung für eine sonst richtige Entscheidung: In dieser App ist jeder KI-Fehler
+ein *Wert*, keine Exception, damit keine Aufrufstelle vergessen kann, ihn zu behandeln
+(ADR-041). Der Preis war, dass er auch spurlos verschwindet. Ein Teilsystem, das nicht laut
+scheitern kann, lässt sich nicht reparieren.
+
+Drei Entscheidungen darin:
+
+- **Gewrappt statt an jedem `return`.** Der kompatible Adapter hat acht Rückgabepunkte; die
+  eine Stelle, an der jemand das Logging vergisst, ist genau die, die zählt. `call()` ruft
+  jetzt `attempt()` und protokolliert dessen Ergebnis, einmal.
+- **Die Worte des Anbieters wandern mit.** Der Grund allein trennt „falscher Schlüssel" nicht
+  von „falscher Modellname" — beide sind von außen ein 4xx. `404: models/… is not found` ist
+  die Zeile, die den Abend rettet.
+- **`warn`, nicht `error`.** Ein Modell, das ablehnt, ist ein funktionierendes System auf dem
+  dokumentierten Rückfallpfad. Dafür jemanden zu wecken wäre falsch. Information ist es aber
+  auch nicht: irgendetwas, das ein Mensch konfiguriert hat, tut nicht das, was er denkt.
+
+**Der Text auf dem Bildschirm nennt den nächsten Schritt, nicht den Befund.** „Der Anbieter hat
+den Schlüssel abgelehnt" ist für sich wertlos; *welche Variable in Vercel* ist die ganze
+Nachricht. Bei `api_error` nennt der Text ausdrücklich die wahrscheinlichste Ursache — ein
+Modellname, den es beim Anbieter nicht gibt — weil `gemini-2.5-flash` gegen „Gemini 2.5 Flash"
+nichts ist, worauf jemand von selbst kommt. `Record<AiFailure, string>` erzwingt, dass ein neuer
+Fehlergrund nicht ohne Text bleiben kann; das ist stärker als ein Test.
+
+**Geprüft:** vier neue Tests am kompatiblen Adapter — je eine Zeile bei abgelehntem Schlüssel,
+unbekanntem Modell und Anbieterausfall; die Zeile nennt die Aufgabe; sie enthält **weder den
+Schlüssel noch den Prompt**; und bei einem erfolgreichen Aufruf bleibt es still.
+
+---
+
 ## 2026-09-01 — ADR-085: Ein Ziel holt die KI nach, ohne dass man von vorn anfängt
 
 **Entscheidung:** Ein eigener Bildschirm (`/ai`, verlinkt aus dem Profil) setzt für das

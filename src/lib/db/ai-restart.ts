@@ -21,15 +21,25 @@ import { askIntakeQuestions } from './intake-questions'
 import { clearProposal } from './propose'
 import { loadPlanInput } from './plan-input'
 import type { IntakeQuestion } from '@/lib/ai/schemas'
+import type { AiFailure } from '@/lib/ai'
 import type { GoalArchetype } from '@/lib/domain/types'
 
 export type AiRestart = {
   questions: IntakeQuestion[]
   /** Set when the model read the goal differently than the word list did. */
   reclassified: GoalArchetype | null
+  /**
+   * Why the classification did not come from the model, when it did not.
+   *
+   * Carried to the screen rather than only to the log. A person looking at
+   * "the model gave nothing" cannot act on it; "the provider rejected the key"
+   * and "the answer failed the safety check" lead to two completely different
+   * next steps, and only one of them is theirs to take.
+   */
+  failure: AiFailure | null
 }
 
-const NOTHING: AiRestart = { questions: [], reclassified: null }
+const NOTHING: AiRestart = { questions: [], reclassified: null, failure: null }
 
 /**
  * Re-opens the active goal to the model: classification, then questions.
@@ -71,7 +81,7 @@ async function run(profileId: string, today: string): Promise<AiRestart> {
   // the plan is even made of, so a proposal built on a word-list guess is
   // built on the wrong foundation. This is the one goal in the database that
   // was never seen by a model.
-  const reclassified = await reclassify(profileId, goal.data.id, {
+  const classified = await reclassify(profileId, goal.data.id, {
     rawText: goal.data.raw_text,
     archetype: goal.data.archetype,
   })
@@ -80,10 +90,10 @@ async function run(profileId: string, today: string): Promise<AiRestart> {
   // model what it is missing for the *old* one would be asking about a goal
   // the app no longer holds.
   const input = await loadPlanInput(profileId)
-  if (!input) return { questions: [], reclassified }
+  if (!input) return { ...NOTHING, ...classified }
 
   const questions = await askIntakeQuestions(profileId, { ...input, today })
-  return { questions, reclassified }
+  return { questions, ...classified }
 }
 
 /**
@@ -97,12 +107,15 @@ async function reclassify(
   profileId: string,
   goalId: string,
   goal: { rawText: string; archetype: GoalArchetype },
-): Promise<GoalArchetype | null> {
+): Promise<{ reclassified: GoalArchetype | null; failure: AiFailure | null }> {
   const classified = await classifyGoal(goal.rawText, await adapterFor(profileId))
 
   // `source` is 'fallback' when the deterministic classifier answered — which
-  // is what the goal already holds, so there is nothing to write.
-  if (classified.source !== 'ai') return null
+  // is what the goal already holds, so there is nothing to write. The reason
+  // travels on, because that is the one thing the screen can act on.
+  if (classified.source !== 'ai') {
+    return { reclassified: null, failure: classified.fallbackReason ?? 'api_error' }
+  }
 
   const archetype = classified.value.archetype as GoalArchetype
   const supabase = await createClient()
@@ -112,5 +125,5 @@ async function reclassify(
     .eq('id', goalId)
     .eq('profile_id', profileId)
 
-  return archetype === goal.archetype ? null : archetype
+  return { reclassified: archetype === goal.archetype ? null : archetype, failure: null }
 }

@@ -240,3 +240,74 @@ describe('half a configuration is no configuration', () => {
     expect(one?.proposeModel).toBe('m')
   })
 })
+
+describe('a failure that leaves a trace', () => {
+  // The reason this exists. When the model stopped working in production the
+  // screen said "the model gave nothing", the request returned 200 in under a
+  // second, and the log was empty — so a wrong key, a wrong model name and a
+  // refused answer were indistinguishable from the outside. A subsystem that
+  // cannot fail loudly cannot be fixed.
+
+  /** Captures console.warn for one call and always restores it. */
+  async function warningsFrom(run: () => Promise<unknown>): Promise<string[]> {
+    const lines: string[] = []
+    const original = console.warn
+    console.warn = (...args: unknown[]) => void lines.push(args.map(String).join(' '))
+    try {
+      await run()
+    } finally {
+      console.warn = original
+    }
+    return lines
+  }
+
+  it.each([
+    ['a rejected key', { status: 401, body: 'invalid api key' }],
+    ['an unknown model', { status: 404, body: 'models/wrong-name is not found' }],
+    ['a provider outage', { status: 503, body: 'service unavailable' }],
+  ])('writes one line for %s', async (_case, provider) => {
+    const adapter = new OpenAiCompatibleAdapter(config, async () =>
+      new Response(provider.body, { status: provider.status }),
+    )
+
+    const lines = await warningsFrom(() => adapter.classifyGoal('Ich will besser schlafen'))
+
+    expect(lines).toHaveLength(1)
+    // The provider's own words, because the reason alone does not separate a
+    // wrong key from a wrong model name — both look like one 4xx.
+    expect(lines[0]).toContain(provider.body)
+    expect(lines[0]).toContain('classify')
+  })
+
+  it('names the task, so it is clear which of the four calls broke', async () => {
+    const adapter = new OpenAiCompatibleAdapter(config, async () =>
+      new Response('nope', { status: 500 }),
+    )
+
+    const lines = await warningsFrom(() =>
+      adapter.askQuestions(makeInput(PROFILES[0], GOALS[0])),
+    )
+    expect(lines[0]).toContain('questions')
+  })
+
+  it('never writes the key or the prompt', async () => {
+    // The prompt is somebody's goal, sleep and eating habits. A log line is
+    // exactly the wrong place for it, and the key must not be anywhere at all.
+    const adapter = new OpenAiCompatibleAdapter(config, async () =>
+      new Response('bad request', { status: 400 }),
+    )
+
+    const lines = await warningsFrom(() =>
+      adapter.proposePlan(makeInput(PROFILES[0], GOALS[0])),
+    )
+
+    expect(lines[0]).not.toContain(config.apiKey)
+    expect(lines[0]).not.toContain('Ziel in eigenen Worten')
+  })
+
+  it('stays quiet when the call worked', async () => {
+    const adapter = new OpenAiCompatibleAdapter(config, answering(valid))
+    const lines = await warningsFrom(() => adapter.classifyGoal('Ich will besser schlafen'))
+    expect(lines).toEqual([])
+  })
+})

@@ -23,6 +23,8 @@ export type ParseResult<T> =
   | { ok: false; detail: string; implausible?: boolean }
 
 export type AiTask<T> = {
+  /** Which of the four calls this is. Only used to label a failure in the log. */
+  name: string
   /** System prompt, identical for every provider. */
   system: string
   /**
@@ -35,6 +37,7 @@ export type AiTask<T> = {
 }
 
 export const classifyTask: AiTask<GoalClassification> = {
+  name: 'classify',
   system: CLASSIFY_SYSTEM,
   // A small, well-defined job: cheap and fast without costing accuracy.
   effort: 'low',
@@ -51,6 +54,7 @@ export const classifyTask: AiTask<GoalClassification> = {
 }
 
 export const proposeTask: AiTask<PlanProposal> = {
+  name: 'propose',
   system: PROPOSE_SYSTEM,
   // The hardest thing the model is asked to do, and the one whose quality the
   // user feels most directly.
@@ -68,6 +72,7 @@ export const proposeTask: AiTask<PlanProposal> = {
 }
 
 export const weeklyNoteTask: AiTask<WeeklyNote> = {
+  name: 'weekly-note',
   system: WEEKLY_NOTE_SYSTEM,
   // Reading a week and finding the one thing worth saying is the harder half
   // of this feature; the writing is the easy part.
@@ -155,6 +160,7 @@ export function weeklyNoteUserMessage(ctx: WeeklyNoteContext): string {
  */
 export function questionsTask(known: string[]): AiTask<IntakeQuestions> {
   return {
+    name: 'questions',
     system: QUESTIONS_SYSTEM,
     // Deciding what is missing from an intake is a judgement, and the whole
     // value of the step is that the judgement is good enough to be worth

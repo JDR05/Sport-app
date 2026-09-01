@@ -16,6 +16,7 @@ import {
   weeklyNoteTask, weeklyNoteUserMessage,
   type AiTask, type WeeklyNoteContext,
 } from './tasks'
+import { logAiFailure } from './log'
 import type { AiAdapter, AiConfig, AiResult } from './types'
 import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
@@ -50,7 +51,22 @@ export class ClaudeAdapter implements AiAdapter {
     )
   }
 
-  private async call<T>(
+  /** Wrapped so every failure is written down once. See log.ts. */
+  private async call<T>(task: AiTask<T>, model: string, user: string): Promise<AiResult<T>> {
+    const result = await this.attempt(task, model, user)
+    if (!result.ok) {
+      logAiFailure({
+        adapter: this.name,
+        task: task.name,
+        model,
+        reason: result.reason,
+        detail: result.detail,
+      })
+    }
+    return result
+  }
+
+  private async attempt<T>(
     task: AiTask<T>,
     model: string,
     user: string,

@@ -138,7 +138,15 @@ export type Classified = {
   value: GoalClassification
   /** Shown to the user, so the app is honest about where the answer came from. */
   source: 'ai' | 'fallback'
-  fallbackReason?: string
+  /**
+   * Why the model did not answer, when it did not.
+   *
+   * Typed as the failure union rather than a loose string so a screen can
+   * branch on it. "The provider rejected the key" and "the answer failed the
+   * safety check" lead to two different next steps, and only one of them is
+   * the person's to take.
+   */
+  fallbackReason?: AiFailure
 }
 
 /**
