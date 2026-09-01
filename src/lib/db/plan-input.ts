@@ -101,7 +101,14 @@ export const loadPlanInput = cache(async function loadPlanInput(
   // A failed read is reported, never interpreted. This also covers the case
   // where two goals are somehow active at once: maybeSingle() errors on two
   // rows, and treating that as "no goal" would have quietly started a third.
-  const failed = [profileRow, goalRow, metricRows, scheduleRow, constraintRows, ruleRows]
+  // measurementRows belongs in this list. Without it a transient error read as
+  // "no measurements", every currentValue stayed null, and the plan was built
+  // from the goal's *start* value — the exact regression ADR-077 was written to
+  // fix, reachable again through an unreported error instead of a missing
+  // feature.
+  const failed = [
+    profileRow, goalRow, metricRows, scheduleRow, constraintRows, ruleRows, measurementRows,
+  ]
     .map((r) => r.error)
     .find((e) => e !== null)
   if (failed) throw new PlanInputUnavailableError(failed.message)

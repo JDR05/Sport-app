@@ -55,7 +55,25 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   if (!goalId) return { ok: false, reason: 'no_goal' }
 
   const existing = await readWeek(profileId, weekStart, goalId)
-  if (existing) return { ok: true, week: existing }
+  // An existing week with no actions in it is not a week, it is wreckage.
+  //
+  // writeWeek inserts the plan row and then its items, and undoes the plan row
+  // if the item insert *returns* an error. A process that dies between the two
+  // — a serverless timeout is entirely ordinary — leaves the plan row with
+  // nothing under it. readWeek then reports a valid empty week for ever, and
+  // the partial unique index forbids building another one for that week and
+  // goal: the standoff ADR-033 describes, now permanent.
+  //
+  // Deleting is safe precisely because it is empty: there are no statuses to
+  // lose, so nothing of the person's is thrown away. A week that is
+  // legitimately empty — signing up late in the week, where materialise drops
+  // the days before someone's first — simply gets rebuilt to the same empty
+  // result, which costs one insert and is correct either way.
+  if (existing && existing.items.length === 0) {
+    await discardEmptyWeek(profileId, existing.planId)
+  } else if (existing) {
+    return { ok: true, week: existing }
+  }
 
   const loaded = await loadPlanInput(profileId)
   if (!loaded) return { ok: false, reason: 'no_goal' }
@@ -113,6 +131,18 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   return raced
     ? { ok: true, week: raced }
     : { ok: false, reason: 'unsafe', message: 'Plan konnte nicht gespeichert werden.' }
+}
+
+/**
+ * Removes a plan row that never got its actions.
+ *
+ * Scoped to the profile as well as the id: row level security already refuses
+ * somebody else's row, but a delete that relies on being refused is one
+ * refactor away from not being.
+ */
+async function discardEmptyWeek(profileId: string, planId: string): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('plans').delete().eq('id', planId).eq('profile_id', profileId)
 }
 
 async function activeGoalId(profileId: string): Promise<string | null> {
@@ -194,9 +224,16 @@ async function writeWeek(
   const rows = materialise(plan.items, weekStart, from)
 
   if (rows.length > 0) {
+    // try/catch as well as the returned error: a thrown insert would otherwise
+    // skip the compensating delete entirely and leave exactly the orphaned
+    // plan row this block exists to prevent.
     const inserted = await supabase
       .from('plan_items')
       .insert(rows.map((item) => toInsert(item, planRow.data.id, profileId)))
+      .then(
+        (r) => r,
+        (error: unknown) => ({ error: { message: String(error) } }),
+      )
 
     // Take the plan row back out. Leaving it was the whole bug: the caller
     // re-reads after a null, finds the row this function just wrote, and hands

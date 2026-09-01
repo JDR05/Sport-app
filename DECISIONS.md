@@ -90,6 +90,49 @@ in Vercel lag. Vor dem nächsten Schritt an der KI gehört er lokal in `.env.loc
 
 ---
 
+## 2026-09-01 — ADR-090: Vier Prüfagenten, und was sie gefunden haben
+
+**Entscheidung:** Vier parallele Prüfungen über getrennte Bereiche — KI-Schicht, Datenschicht,
+Oberfläche, Engine — mit der Auflage, jeden Befund **laufend zu belegen** statt ihn aus dem
+Lesen abzuleiten. Alles Gefundene wurde behoben; die Lücken sind als Tests festgenagelt.
+
+**Begründung:** Die Suite war grün — 1295 Tests — und hat trotzdem einen Sicherheitsfehler
+durchgelassen, der in einer Gesundheits-App nicht durchgehen darf. Das ist der eigentliche
+Befund dieses Schritts: **grün heißt „was geprüft wird, stimmt", nicht „es stimmt".**
+
+Der schwerste Fund, und der Grund, warum diese Runde sich gelohnt hat:
+
+**Jede Belastungsgrenze der Engine las `domain === 'training'`.** Die Domain ist ein Etikett,
+das das Modell vergibt; `movement` war bei allen sieben Archetypen offen, und `movement` ist
+das naheliegende Wort für einen Lauf. Gemessen: **1213 Minuten Belastung als regelkonform
+abgenommen**, bei einem Einsteiger, sechs anstrengende Tage von sieben — und die
+Zehn-Prozent-Regel meldete 8,8 km für eine Woche mit 22 zusätzlichen Stunden Bergläufen. Auch
+die **selbstgesetzten harten Grenzen** gingen so verloren: „nie mittwochs trainieren" wurde nur
+gegen Items mit dem Etikett `training` durchgesetzt.
+
+Was ihn unsichtbar hielt: der vorhandene Test für feindliche KI benutzte durchgehend
+`domain: 'training'` — also genau die Domain, die bei den drei Archetypen mit echten Grenzen
+verworfen wird. Er prüfte Sicherheitseigenschaften eines Plans, den die KI nie berührt hatte.
+
+Dieselbe Form in der KI-Schicht: „Nie weniger Schlaf empfehlen" — die **einzige Regel, die
+CLAUDE.md absolut formuliert** — traf nur direkt benachbarte Wortpaare. Neun Sätze wie
+„Reduziere deinen Schlaf" liefen durch. Die drei Tests dieser Familie benutzten alle die zwei
+Formulierungen, die zufällig passten. Und `additive_only` übersah das bloße `kein` —
+einschließlich exakt des Gegenbeispiels, das der Prompt dem Modell selbst nennt.
+
+**Das gemeinsame Muster ist wichtiger als die einzelnen Fehler:** Jede dieser Prüfungen wurde
+gegen das Beispiel geschrieben, das sie ausgelöst hat. Deutsch lässt dieselbe Anweisung auf
+zehn andere Arten sagen, und ein Etikett ist keine Eigenschaft. Deshalb zählen die Grenzen
+jetzt **was eine Aktion ist**, nicht wie sie heißt, und die Sicherheitsfamilien werden über
+eine Liste von **Fluchtwegen** getestet statt über ihren Glücksfall — mit Gegenprobe, denn eine
+Regel, die alles verwirft, besteht jeden Test, den man für sie schreibt.
+
+**Was die Prüfung nicht leisten konnte:** Kein Agent konnte die App im Browser bedienen — die
+Egress-Richtlinie beantwortet das Deployment mit 403 und blockt Supabase. Die Screens werden
+jetzt wenigstens gerendert und behauptet, was in ihnen stehen muss; Layout bleibt ungeprüft.
+
+---
+
 ## 2026-09-01 — ADR-087: Eine kaputte Konfiguration darf nicht wie ein Anbieterfehler aussehen
 
 **Entscheidung:** `AI_TIMEOUT_MS` wird validiert, statt durch `Number()` gereicht zu werden. Ein
