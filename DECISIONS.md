@@ -137,6 +137,55 @@ Marathontraining nichts über ein Schlafziel ein halbes Jahr später sagt.
 
 ---
 
+## 2026-09-01 — ADR-092: Der Scheduler setzt durch, die Invariante prüft nach
+
+**Entscheidung:** Was eine Aktion an Erholung braucht, entscheidet der Scheduler anhand der
+Dauer — nicht die Invariante anhand der Domain. Trimmer und Invariante teilen sich **ein**
+Prädikat. Der Belastungs-Schwellwert ist geteilt: 45 Minuten für Engine-Aktionen, 30 für
+vorgeschlagene.
+
+**Begründung:** Die dritte Prüfrunde hat gezeigt, dass die Korrektur aus ADR-090 zwar ihr Loch
+schloss, dabei aber ein schlimmeres aufriss — und das ist die eigentliche Lehre dieser Runden:
+**eine Sicherheitskorrektur, die nicht gegengeprüft wird, ist eine Änderung mit unbekanntem
+Vorzeichen.**
+
+**Der Rückschritt:** Weil die Invariante das Etikett eines vorgeschlagenen Items nicht mehr
+las, `scheduleProposed` aber weiterhin nur bei `domain === 'training'` den Erholungsabstand
+einhielt, liefen die beiden Hälften auseinander. Eine völlig gewöhnliche Aktion — „30 Minuten
+Meal-Prep, 3× die Woche", die Standardausgabe des Prompts — landete auf aufeinanderfolgenden
+Tagen und wurde dann als aufeinanderfolgende Trainingstage gezählt. `generatePlan` warf,
+`RequirePlan` zeigte auf **allen** Bildschirmen „Plan nicht möglich", bei jedem Aufruf,
+dauerhaft — mit „5 consecutive training days" darunter. Dem Menschen war gesagt worden, er
+solle kochen. 17 der 630 geprüften Kombinationen waren betroffen.
+
+Und der gesenkte Schwellwert von 45 auf 30 machte den bewusst sanften 30-Minuten-Gang der
+Gesundheitsbasis zum Trainingstag, wodurch eine normale Woche als sechs Tage am Stück galt.
+
+**Die Regel, die daraus folgt:** Eine Invariante darf nie die erste Stelle sein, die etwas
+bemerkt. Sie prüft nach, was der Scheduler bereits nicht gebaut hat. Ist sie die erste, ist
+sie kein Wächter, sondern ein Absturz.
+
+**Zwei Kopien einer Regel sind eine zu viel.** `withinExertionCeiling` und `isExertion` waren
+getrennt geschrieben und drifteten in dem Moment auseinander, in dem eine von beiden aufhörte,
+der Domain zu glauben: der Trimmer rechnete für vier von sechs Domains 0 aus, gab die Spur
+unverändert zurück, und die Invariante lehnte die Woche ab — das genaue Gegenteil dessen, was
+im Kommentar des Trimmers steht. Sie teilen sich jetzt eine Funktion.
+
+**Und die Sicherheitsfamilien, dritte Fassung.** Die zweite benutzte feste Slot-Zahlen, also
+brach ein einziges Adverb sie („Schlaf **einfach** eine Stunde weniger" — 14 von 14 Sätzen
+entkamen), und sie versuchte, bei `streichen` das *sichere* Objekt auszuschließen. Deutsche
+Wortstellung läuft darum herum: das Objekt steht vorn, das Verb hinten, also fiel „das
+Training streichen" genau zwischen die beiden Fenster — und ein angehängtes „…, dann läuft
+dein Training besser" hebelte die Regel bei jeder Einschränkung aus.
+
+Die Umkehr ist der Kern: **das geschützte Objekt matchen, nicht das erlaubte ausschließen.**
+Lebensmittel sind eine kleine, geschlossene Liste; die Verben, die etwas wegnehmen, sind es
+nicht. Eine Einheit darf jederzeit gestrichen werden. Insgesamt hatte die zweite Fassung
+**14 von 30 legitimen Sätzen** verworfen — lautlos, denn die Notiz wird dann einfach nicht
+angezeigt.
+
+---
+
 ## 2026-09-01 — ADR-090: Vier Prüfagenten, und was sie gefunden haben
 
 **Entscheidung:** Vier parallele Prüfungen über getrennte Bereiche — KI-Schicht, Datenschicht,

@@ -6,6 +6,7 @@
 // crowd the goal track out of the day.
 
 import { MAX_ITEMS_PER_DAY, MAX_WEEKLY_EXERTION_MIN } from './constants'
+import { isExertion, weeklyMinutes } from './safety'
 import { buildContext, type PlanContext } from './context'
 import { planBaseline } from './baseline'
 import { strategyFor } from './archetypes'
@@ -80,10 +81,14 @@ export function buildStrategy(input: PlanInput): StrategyResult {
  * either shrink the model's room for nothing or leave the invariant to fire.
  */
 function withinExertionCeiling(track: GoalTrack, baseline: BaselineTrack): GoalTrack {
-  const minutesOf = (item: PlannedItem) =>
-    (item.domain === 'training' || item.domain === 'movement') && (item.plannedDurationMin ?? 0) > 0
-      ? (item.plannedDurationMin ?? 0) * (item.cadence === 'daily' ? 7 : 1)
-      : 0
+  // The same predicate the invariant uses, imported rather than restated.
+  //
+  // These two were written separately and drifted apart the moment one of them
+  // stopped trusting the domain: the trimmer computed 0 for four of the six
+  // domains, returned the track untouched, and the invariant then refused the
+  // whole week — the exact opposite of this function's stated contract. Two
+  // copies of one rule is one copy too many.
+  const minutesOf = (item: PlannedItem) => (isExertion(item) ? weeklyMinutes(item) : 0)
 
   let total =
     track.items.reduce((sum, i) => sum + minutesOf(i), 0) +

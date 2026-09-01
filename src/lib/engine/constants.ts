@@ -54,7 +54,22 @@ export const MAX_WEEKLY_EXERTION_MIN = 600
  * most ordinary number a model writes — landed underneath without trying.
  * Four consecutive days of it were accepted for a 58-year-old beginner.
  */
-export const STRENUOUS_MINUTES = 30
+export const STRENUOUS_MINUTES = 45
+
+/**
+ * The same line, drawn lower for an action the model proposed.
+ *
+ * Two numbers because the two cases are not alike. An engine-authored
+ * `movement` item is a walk the baseline deliberately kept gentle — thirty
+ * minutes of it is not a day a body has to recover from, and counting it as
+ * one made every ordinary week look like six consecutive training days.
+ *
+ * A proposed item is different: `checkProposal` refuses anything over 45, so a
+ * threshold at 45 could only ever fire on that single value, and "40 Minuten
+ * locker laufen" — the most ordinary number a model writes — slid underneath.
+ * The lower bar applies exactly where the label cannot be trusted.
+ */
+export const PROPOSED_STRENUOUS_MINUTES = 30
 
 /** A slot shorter than this cannot hold a useful session. */
 export const MIN_VIABLE_SESSION_MINUTES = 20

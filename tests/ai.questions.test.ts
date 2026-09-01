@@ -126,8 +126,15 @@ describe('the gap list handed to the model', () => {
     // The other end, and the one that matters more: on a complete intake the
     // list has to be empty, or the model is invited to ask about a field that
     // is already filled in.
-    const complete = ALL_COMBINATIONS.map((c) => openFields(c.input))
-    expect(complete.some((open) => open.length === 0)).toBe(true)
+    //
+    // Was `.some()`, which 6 of 70 combinations satisfied — the other 69 could
+    // all have regressed and it stayed green. A test whose bar is "at least one
+    // case works" is a test that cannot fail.
+    const complete = ALL_COMBINATIONS.filter((c) => c.input.profile.sport.experience !== null)
+    expect(complete.length).toBeGreaterThan(50)
+    for (const { name, input } of complete) {
+      expect(openFields(input), name).not.toContain('Leistungsstand')
+    }
   })
 
   it('never sends an exact time, in any of the ways people write one', () => {

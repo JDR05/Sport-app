@@ -36,6 +36,17 @@ const askingAbout = (text: string): IntakeQuestions => ({
 
 /** Every one of these passed the gate before. */
 const LESS_SLEEP = [
+  // Round three. The round-two rewrite used fixed slot counts, so one adverb
+  // broke them — fourteen of fourteen escaped — and it put the object-exclusion
+  // for `streichen` in a lookbehind, which German word order walks around
+  // because the object comes first and the verb last.
+  'Schlaf einfach eine Stunde weniger.',
+  'Schlaf ruhig eine halbe Stunde weniger.',
+  'Schlaf unter der Woche eine Stunde weniger.',
+  'Schlafe an Trainingstagen etwas kürzer.',
+  'Verschieb deine Bettzeit um eine Stunde nach hinten.',
+  'Zieh dir eine Stunde vom Schlaf ab.',
+  'Setz die Nachtruhe um eine Stunde herunter.',
   // Round two. The first fix enumerated constructions and still passed
   // fourteen of these fifteen, for two structural reasons rather than fifteen
   // accidents: it required a reduction *verb*, so a sentence that simply
@@ -69,6 +80,13 @@ const LESS_SLEEP = [
 ]
 
 const RESTRICTIVE = [
+  // Round three: appending "…, dann läuft dein Training besser" defeated the
+  // rule on any restriction, because the exception window looked 25 characters
+  // ahead for a training word. The guard now matches the protected object
+  // instead of trying to exclude the safe one.
+  'Streiche Süßigkeiten, damit dein Training endlich besser läuft.',
+  'Zucker ist ab jetzt gestrichen, dann klappt auch das Training.',
+  'Alkohol wird gestrichen, dein Lauf profitiert davon.',
   // Round two. validate.ts's own header names the target — "a schema-valid
   // proposal can still tell someone to skip dinner, and that is the failure
   // mode that matters" — and "Ersetze das Abendessen durch einen Tee" is that
@@ -105,6 +123,19 @@ const RESTRICTIVE = [
  * it deletes the observation the weekly note exists to make.
  */
 const ORDINARY = [
+  // Round three found fourteen of thirty legitimate sentences refused. Every
+  // one of these is something the weekly note or the plan needs to say, and
+  // the failure is silent: the note is discarded and Insights shows nothing.
+  'Am Mittwoch das Training zu streichen war die richtige Entscheidung.',
+  'Wir können das Krafttraining am Donnerstag streichen, wenn du müde bist.',
+  'Die zweite Einheit der Woche kannst du bei schlechtem Schlaf streichen.',
+  'Du hattest diese Woche keine Ausfälle mehr, das ist neu.',
+  'Es gab keine Rückschläge mehr, seit du die Einheit auf den Morgen gelegt hast.',
+  'Du isst weniger auswärts als in der Woche davor, das sieht man.',
+  'Lass dich davon nicht aus der Ruhe bringen, eine Woche ist kein Muster.',
+  'Acht Stunden Schlaf reichen dir offensichtlich völlig.',
+  'Nach der Nacht reicht die Energie oft nicht für den Abendtermin.',
+  'Du stehst am Wochenende früher auf als unter der Woche, ohne Wecker.',
   // The counterweight, and round two showed it is not theoretical: the first
   // fix used a 30-character proximity window — the very mechanism its own
   // comment said it avoided — and refused the single most important thing a
@@ -160,7 +191,13 @@ describe('the same rules apply to a question', () => {
   // A question is text a person reads and acts on. "Könntest du kürzer
   // schlafen, um früher zu trainieren?" is the same instruction with a
   // question mark, so it goes through the same families.
-  it.each([...LESS_SLEEP.slice(0, 4), ...RESTRICTIVE.slice(0, 3)])('refuses asking %s', (text) => {
-    expect(checkQuestions(askingAbout(`${text}?`)).length).toBeGreaterThan(0)
+  it.each([
+    ...LESS_SLEEP.slice(0, 4).map((t) => [t, 'never_less_sleep'] as const),
+    ...RESTRICTIVE.slice(0, 3).map((t) => [t, 'additive_only'] as const),
+  ])('refuses asking %s', (text, rule) => {
+    // Names the rule. `length > 0` was satisfied by any unrelated violation —
+    // a question can trip `must_be_a_question` and look like proof that the
+    // sleep guard fired.
+    expect(checkQuestions(askingAbout(`${text}?`)).map((v) => v.rule)).toContain(rule)
   })
 })

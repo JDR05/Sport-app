@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/auth/session'
 import { serverToday } from '@/lib/db/today'
 import { weeklyReview } from '@/lib/db/analysis'
-import { concludeIfDue, declinedRuleKeys, loadRunningExperiment } from '@/lib/db/experiments'
+import {
+  concludeIfDue, declinedRules, fingerprint, loadRunningExperiment,
+} from '@/lib/db/experiments'
 import { ensureWeeklyNote } from '@/lib/db/weekly-note'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { providerName } from '@/lib/ai'
@@ -23,7 +25,7 @@ export default async function InsightsPage() {
   // What this person has already turned down for this goal. Re-offering it is
   // how "deine Antwort wird gespeichert" becomes a sentence the screen
   // disproves one render later.
-  const declined = await declinedRuleKeys(user.id)
+  const declined = await declinedRules(user.id)
 
   const review = await weeklyReview(user.id, today)
   if (!review) redirect('/onboarding')
@@ -53,7 +55,15 @@ export default async function InsightsPage() {
     // While one is running, no second proposal is shown. One variable at a
     // time is what makes either result readable.
     insights: analysis.insights.filter((i) => i.kind !== 'progress'),
-    experiment: running || (analysis.experiment && declined.includes(analysis.experiment.proposedRule.ruleKey))
+    experiment:
+      running ||
+      (analysis.experiment &&
+        declined.includes(
+          fingerprint(
+            analysis.experiment.proposedRule.ruleKey,
+            analysis.experiment.proposedRule.ruleValue,
+          ),
+        ))
       ? null
       : analysis.experiment
       ? {

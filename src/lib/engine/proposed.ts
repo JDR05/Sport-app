@@ -12,7 +12,11 @@
 // to be able to see that.
 
 import { dateOf, pickDays, slotOf, spreadAcrossWeek, type PlanContext } from './context'
-import { MIN_REST_DAYS, MIN_VIABLE_SESSION_MINUTES } from './constants'
+import {
+  MIN_REST_DAYS,
+  MIN_VIABLE_SESSION_MINUTES,
+  PROPOSED_STRENUOUS_MINUTES,
+} from './constants'
 import { weekdayOf } from './dates'
 import type {
   GoalArchetype, PlanDomain, PlannedItem, ProposedAction, TimeSlot, Weekday,
@@ -101,10 +105,25 @@ export function scheduleProposed(
     // available, which is right for a reminder and wrong for a session — it
     // would put training on a day the person said never works. With no usable
     // day, the action is dropped rather than moved somewhere forbidden.
-    const days =
-      action.domain === 'training'
-        ? trainingDays.slice(0, action.timesPerWeek)
-        : pickDays(ctx, action.timesPerWeek)
+    // The recovery spread applies by duration, not by label.
+    //
+    // This asked `domain === 'training'`, and once the invariants stopped
+    // trusting a proposed item's domain the two halves disagreed: the
+    // scheduler placed a 30-minute "nutrition" action on consecutive days
+    // because nothing labelled `training` was involved, and the invariant then
+    // counted those days as consecutive training days and refused the whole
+    // week. An ordinary proposal — "30 Minuten Meal-Prep, 3× die Woche" — left
+    // people looking at "Plan nicht möglich" on every screen, permanently, and
+    // told them it was because of five consecutive training days.
+    //
+    // The scheduler is the right place for it: an invariant should verify what
+    // the scheduler already refused to build, never be the first thing to
+    // notice. Below the strenuous threshold an action is a reminder or a short
+    // habit, and those may sit on consecutive days.
+    const needsRecovery = action.minutes >= PROPOSED_STRENUOUS_MINUTES
+    const days = needsRecovery
+      ? trainingDays.slice(0, action.timesPerWeek)
+      : pickDays(ctx, action.timesPerWeek)
 
     if (days.length === 0) continue
 

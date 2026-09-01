@@ -9,6 +9,7 @@ import {
   MAX_CONSECUTIVE_TRAINING_DAYS,
   MAX_ITEMS_PER_DAY,
   MAX_WEEKLY_EXERTION_MIN,
+  PROPOSED_STRENUOUS_MINUTES,
   STRENUOUS_MINUTES,
 } from './constants'
 import { longestRun } from './context'
@@ -50,11 +51,11 @@ export function assertPlanInvariants(plan: PlanResult, input: PlanInput): void {
  *
  * No list of domains can be walked around, because there is no list.
  */
-function isProposed(item: PlanResult['items'][number]): boolean {
+export function isProposed(item: PlanResult['items'][number]): boolean {
   return item.details.kind === 'ai_proposed'
 }
 
-function isExertion(item: PlanResult['items'][number]): boolean {
+export function isExertion(item: PlanResult['items'][number]): boolean {
   if ((item.plannedDurationMin ?? 0) <= 0) return false
   if (isProposed(item)) return true
   return item.domain === 'training' || item.domain === 'movement'
@@ -62,13 +63,16 @@ function isExertion(item: PlanResult['items'][number]): boolean {
 
 /** Exertion a body has to recover from, as opposed to a walk. */
 function isStrenuous(item: PlanResult['items'][number]): boolean {
-  if (isProposed(item)) return (item.plannedDurationMin ?? 0) >= STRENUOUS_MINUTES
+  // The lower bar applies only where the label cannot be trusted. Applying it
+  // to engine-authored items turned the baseline's gentle 30-minute walk into
+  // a training day and made an ordinary week read as six consecutive ones.
+  if (isProposed(item)) return (item.plannedDurationMin ?? 0) >= PROPOSED_STRENUOUS_MINUTES
   if (item.domain === 'training') return true
   return item.domain === 'movement' && (item.plannedDurationMin ?? 0) >= STRENUOUS_MINUTES
 }
 
 /** Weekly items are one occurrence; a daily rule is seven. */
-function weeklyMinutes(item: PlanResult['items'][number]): number {
+export function weeklyMinutes(item: PlanResult['items'][number]): number {
   return (item.plannedDurationMin ?? 0) * (item.cadence === 'daily' ? 7 : 1)
 }
 

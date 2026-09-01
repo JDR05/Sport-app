@@ -108,12 +108,29 @@ function splitFor(rule: PersonalRule, observations: Observation[]): Split {
       // they were missed again, and detection re-proposed the same experiment.
       // A loop, not a model — and the exact error ADR-061 fixed inside
       // detectAlong, reintroduced one module over.
-      const baseline = observations.filter((o) => o.track === 'baseline')
-      return {
-        on: baseline.filter((o) => weekdayOf(o.scheduledOn) === day),
-        rest: baseline.filter((o) => weekdayOf(o.scheduledOn) !== day),
-        claim: 'worse',
+      // Whichever track has evidence on both sides — but never the two mixed.
+      //
+      // Baseline-only was right about the comparison and wrong about its
+      // reach: 21 of 70 plans place no baseline item on the avoided day at all,
+      // so `resolved` was 0 for ever and the rule kept shaping plans with no
+      // evidence able to reach it. Trading a feedback loop for a permanent
+      // freeze in a third of cases is not an improvement.
+      //
+      // Comparing like with like is what matters, not which track it is. If
+      // the goal track still lands on the avoided day — which happens while a
+      // rule is only a trial, or where the archetype schedules there anyway —
+      // then goal-against-goal is an honest comparison too.
+      const byTrack = (track: 'baseline' | 'goal') => {
+        const scoped = observations.filter((o) => o.track === track)
+        return {
+          on: scoped.filter((o) => weekdayOf(o.scheduledOn) === day),
+          rest: scoped.filter((o) => weekdayOf(o.scheduledOn) !== day),
+          claim: 'worse' as const,
+        }
       }
+
+      const baseline = byTrack('baseline')
+      return baseline.on.length > 0 ? baseline : byTrack('goal')
     }
 
     case 'prefer_time_slot': {

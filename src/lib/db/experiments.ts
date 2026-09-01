@@ -378,7 +378,7 @@ export async function loadPersonalRules(profileId: string): Promise<LearnedRule[
  * training for a marathon says nothing about whether it is right for a sleep
  * goal six months later.
  */
-export async function declinedRuleKeys(profileId: string): Promise<string[]> {
+export async function declinedRules(profileId: string): Promise<string[]> {
   const supabase = await createClient()
   const goal = await supabase
     .from('goals')
@@ -396,8 +396,31 @@ export async function declinedRuleKeys(profileId: string): Promise<string[]> {
     .eq('status', 'rejected')
 
   return (data ?? []).flatMap((row) => {
-    const proposed = (row.baseline as Record<string, unknown> | null)?.proposedRule
-    const key = (proposed as Record<string, unknown> | null)?.ruleKey
-    return typeof key === 'string' ? [key] : []
+    const proposed = (row.baseline as Record<string, unknown> | null)?.proposedRule as
+      | Record<string, unknown>
+      | null
+      | undefined
+    const key = proposed?.ruleKey
+    return typeof key === 'string' ? [fingerprint(key, proposed?.ruleValue)] : []
   })
+}
+
+/**
+ * Key and value together, because the key alone suppresses too much.
+ *
+ * Turning down "meide Mittwoch" said nothing about Freitag, and matching on
+ * `avoid_weekday` alone silenced every future weekday finding for the life of
+ * the goal — while `analyze()` returns exactly one experiment per cycle, so
+ * the person was left with nothing at all whenever that deviation stayed the
+ * strongest.
+ */
+export function fingerprint(ruleKey: string, ruleValue: unknown): string {
+  const value =
+    ruleValue && typeof ruleValue === 'object'
+      ? Object.entries(ruleValue as Record<string, unknown>)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}=${String(v)}`)
+          .join(',')
+      : ''
+  return `${ruleKey}:${value}`
 }

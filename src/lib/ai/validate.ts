@@ -28,17 +28,34 @@ const RESTRICTIVE = [
   /\bverzicht/i, /\bverbot/i, /\bweglassen\b/i,
   // Striking food is a restriction; striking a session after a bad night is
   // the safe advice a sleep-aware planner must be able to give.
-  /(?<!\b(training|einheit|sport|session|lauf)\w{0,10}\s{0,3})\b(streich|gestrichen)\w*\b(?![^.!?]{0,25}\b(training|einheit|sport|session|lauf)\w*\b)/i,
+  // Requires the object, rather than trying to exclude the safe one.
+  //
+  // Two attempts failed the other way round. A bare /streich/ refused "das
+  // Training streichen", which is the correct advice after a bad night. A
+  // lookbehind-plus-lookahead was worse: German puts the object first and the
+  // verb last, so the commonest safe sentence fell in the dead zone between
+  // the two windows — and appending "…, dann läuft dein Training besser"
+  // defeated the rule on any restriction.
+  //
+  // What the rule is actually about is removing *food*. Food words are a small
+  // closed list; the verbs that remove things are open. So the closed half is
+  // what gets matched, in either order, and a session may be cut freely.
+  /\b(streich|gestrichen|weglass|weggelassen)\w*\b[^.!?]{0,40}\b\w*(zucker|s(ü|ue)(ß|ss)|kohlenhydrat|brot|alkohol|snack|chips|nudeln|reis|essen|mahlzeit|kalorien|fett|limo|dessert|nachtisch)\w*/i,
+  /\b\w*(zucker|s(ü|ue)(ß|ss)|kohlenhydrat|brot|alkohol|snack|chips|nudeln|reis|essen|mahlzeit|dessert|nachtisch)\w*\b[^.!?]{0,40}\b(streich|gestrichen|weglass|weggelassen)\w*/i,
   /\bvermeide\b/i, /\breduzier\w*\s+(dein|deinen|deine|den|die)?\s*\w*(konsum|zucker|alkohol|portion|menge)/i,
   /\bhalbier\w*/i, /\bschr(ä|ae)nk\w*\b[^.!?]{0,25}\bein\b/i, /\beinschr(ä|ae)nk\w*/i,
   /\bersetz\w*\b[^.!?]{0,30}\bdurch\b/i,
   /\bnur\s+noch\s+\w+(mal)?\s+(am tag|t(ä|ae)glich|pro tag)\b/i,
   /\bfinger\s+weg\b/i, /\bvom\s+speiseplan\b/i,
-  /\blass\w*\b[^.!?]{0,35}\b(weg|aus)\b/i,
-  /\b(trink|iss|esse)\w*\s+weniger\b/i,
+  /\blass\w*\b[^.!?]{0,35}\b\w*(zucker|s(ü|ue)(ß|ss)|kohlenhydrat|brot|alkohol|snack|chips|nudeln|reis|dessert)\w*\b[^.!?]{0,20}\b(weg|aus)\b/i,
+  /\b(trink|iss|esse)\w*\s+weniger\s+\w*(zucker|alkohol|s(ü|ue)(ß|ss)|kohlenhydrat|brot|fleisch|kalorien)/i,
   /\bweniger\s+(alkohol|zucker|s(ü|ue)(ß|ss)igkeiten|kohlenhydrate|brot)\b/i,
   // "kein X mehr" — but not the observations, which are about capacity, not food
-  /\bkeine?[nrs]?\s+(?!zeit|energie|kraft|lust|motivation|einheit|luft|ausrede|sport|training|aktion|plan|termin|gelegenheit)\S+\s+mehr\b/i,
+  // Also object-first rather than exception-list-first. A stop list was always
+  // going to be incomplete: it refused "du hattest diese Woche keine Ausfälle
+  // mehr, das ist neu" and "es gab keine Rückschläge mehr" — sentences the
+  // weekly note exists to be able to say.
+  /\bkeine?[nrs]?\s+\w*(zucker|s(ü|ue)(ß|ss)|kohlenhydrat|brot|alkohol|snack|chips|nudeln|reis|kaffee|koffein|handy|bildschirm|nikotin|zigarett)\w*\s+mehr\b/i,
   /\bnichts? mehr\s+(essen|trinken|naschen)\b/i,
   /\b(iss|trink|esse|trinke)\b[^.!?]{0,20}\bnichts mehr\b/i,
   /\bnicht mehr essen\b/i, /\btabu\b/i, /\bfasten\b/i, /\bcheat.?day\b/i,
@@ -76,17 +93,36 @@ const SLEEP_REDUCTION = [
   /\b(k(ü|ue)rz|verk(ü|ue)rz|reduzier|opfer|beschneid)\w*\s+(deine[nr]?\s+|den\s+|die\s+|etwas\s+)?(schlaf|nachtruhe|nacht\b)/i,
   /\b(deine[nr]?|den|die|dein)\s+(schlaf|nachtruhe)\w*\s+(etwas\s+|ein\s+bisschen\s+|deutlich\s+)?(k(ü|ue)rzen|reduzieren|opfern|verk(ü|ue)rzen)/i,
   /\b(stunde|stunden|minuten|zeit)\s+weniger\s+(zu\s+)?schlaf/i,
-  /\bschlaf\w*\s+\S+\s+(stunde|stunden|minuten)\s+weniger\b/i,
+  // Was a fixed four-slot pattern, so "Schlaf einfach eine Stunde weniger"
+  // broke it with one adverb. The gap is elastic now, and bounded by clause.
+  /\bschlaf\w*\b[^.!?]{0,30}\b(stunde|stunden|minuten)\b[^.!?]{0,10}\bweniger\b/i,
+  // The reduction word has to end its clause, or the sleep noun is not what it
+  // governs: in "an den Tagen mit schlechtem Schlaf hast du weniger umgesetzt"
+  // the object of `weniger` is the doing, and that sentence is an observation
+  // the weekly note exists to make.
+  /\bschlaf\w*\b[^.!?]{0,25}\b(k(ü|ue)rzer|weniger)\b(?=\s*[.,!?;]|\s+(und|als|dafür)\b|\s*$)/i,
+  // Verb-last forms, which is how German actually says it.
+  /\b(bettzeit|schlafenszeit|nachtruhe)\b[^.!?]{0,40}\b(nach hinten|sp(ä|ae)ter|verschieb|k(ü|ue)rz|herunter|reduzier)/i,
+  /\b(verschieb|zieh|setz|nimm)\w*\b[^.!?]{0,40}\b(vom|die|deine)?\s*(schlaf|nachtruhe|bettzeit)\w*\b[^.!?]{0,25}\b(ab|herunter|nach hinten|weg)\b/i,
   /\b(stunde|stunden|minuten)\s+(schlaf|nachtruhe)\w*\s+weniger\b/i,
   /\b(vom|von deinem|beim)\s+schlaf\b[^.!?]{0,30}\b(nehmen|nimm|abzwack|abknapp|hol)/i,
   /\b(nimm|nehmen|hol|klau|zwack|knaps)\w*\b[^.!?]{0,40}\b(vom|von deinem|beim)\s+schlaf/i,
   // prescribing a number of hours below the floor
   /\b(vier|f(ü|ue)nf|sechs|4|5|6)\s*(bis\s+\w+\s*)?stunden?\b[^.!?]{0,25}\b(schlaf|nacht)/i,
-  /\b(schlaf|nachtruhe|nacht)\w*\b[^.!?]{0,25}\b(reich(en|t)|gen(ü|ue)g(en|t))\b/i,
+  // Gated on the number, because the sentence is only unsafe when the number
+  // is. "Acht Stunden Schlaf reichen dir offensichtlich völlig" is an
+  // observation the note should be able to make, and "nach der Nacht reicht
+  // die Energie nicht" is about energy, not about sleeping less.
+  /\b(vier|f(ü|ue)nf|sechs|4|5|6)\s+stunden?\b[^.!?]{0,25}\b(reich(en|t)|gen(ü|ue)g(en|t))\b/i,
+  /\b(reich(en|t)|gen(ü|ue)g(en|t))\b[^.!?]{0,25}\b(vier|f(ü|ue)nf|sechs)\s+stunden?\b/i,
   /\bbegn(ü|ue)g\w*\b[^.!?]{0,30}\b(stunden|schlaf|nachtruhe)/i,
   /\bbrauchst\s+(du\s+)?nicht\s+so\s+viel\s+schlaf/i,
   // separable verbs, which is how an imperative is actually written
-  /\bsteh\w*\b[^.!?]{0,30}\bfr(ü|ue)her\b[^.!?]{0,15}\bauf\b/i,
+  // `steh`, not `steh\w*`: the imperative "Steh früher auf" is advice, while
+  // the indicative "Du stehst am Wochenende früher auf" is an observation
+  // about this person that the note is there to make.
+  /\bsteh\b[^.!?]{0,30}\bfr(ü|ue)her\b[^.!?]{0,15}\bauf\b/i,
+  /\bm(u|ü)sst\s+du\b[^.!?]{0,25}\bfr(ü|ue)her\b[^.!?]{0,15}\bauf\b/i,
   /\bfr(ü|ue)her\s+auf(stehen|zustehen)\b/i,
   /\bwecker\b[^.!?]{0,30}\bfr(ü|ue)her/i,
   // Bare "später ins Bett" would also refuse the observation "du kommst
