@@ -8,8 +8,10 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  classifyGoal, createAdapter, MockAdapter, providerName, readConfig, timeoutFrom, WithheldAdapter,
+  classifyGoal, createAdapter, MockAdapter, proposePlan, providerName, readConfig, timeoutFrom,
+  WithheldAdapter,
 } from '@/lib/ai'
+import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
 import type { AiAdapter } from '@/lib/ai'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -241,5 +243,79 @@ describe('who counts as having used the model', () => {
     // person is looking at.
     const classified = await classifyGoal('Ich will 10 km laufen', new MockAdapter())
     expect(classified.source).toBe('fallback')
+  })
+})
+
+describe('the never-throws contract, enforced rather than trusted', () => {
+  // AiResult says a failed call is a value so no call site can forget to
+  // handle one. Nothing enforced that at the boundary, so the promise held
+  // only while every adapter stayed internally disciplined — and an adapter
+  // that throws takes the screen down with it, which is the one thing this
+  // design exists to prevent.
+  const throwing: AiAdapter = {
+    name: 'broken',
+    usesModel: true,
+    classifyGoal: async () => {
+      throw new Error('boom')
+    },
+    proposePlan: async () => {
+      throw new Error('boom')
+    },
+    weeklyNote: async () => {
+      throw new Error('boom')
+    },
+    askQuestions: async () => {
+      throw new Error('boom')
+    },
+  }
+
+  it('still classifies when the adapter throws', async () => {
+    const classified = await classifyGoal('Ich will 10 km laufen', throwing)
+    expect(classified.value.archetype).toBe('endurance')
+    expect(classified.source).toBe('fallback')
+  })
+
+  it('still returns a value when proposePlan throws', async () => {
+    const { proposal, source } = await proposePlan(makeInput(PROFILES[0], GOALS[0]), throwing)
+    expect(proposal).toBeNull()
+    expect(source).toBe('none')
+  })
+})
+
+describe('an answer the model itself does not believe', () => {
+  const sure = (confidence: number): AiAdapter => ({
+    name: 'gemini',
+    usesModel: true,
+    classifyGoal: async () => ({
+      ok: true as const,
+      source: 'ai' as const,
+      value: {
+        archetype: 'sleep_recovery',
+        confidence,
+        metricKey: 'sleep_hours',
+        unit: 'h',
+        restated: 'Besser schlafen',
+        reasoning: 'Der Zieltext nennt Schlaf.',
+      },
+    }),
+    proposePlan: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+    weeklyNote: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+    askQuestions: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+  })
+
+  it('falls back when the model reports low confidence', async () => {
+    // The schema has documented this since it was written and nothing read the
+    // field, so a model answering 0.05 was adopted and stored as
+    // model-classified. The archetype decides which safety limits apply — a
+    // coin flip is worse than the word list, which is at least reproducible.
+    const classified = await classifyGoal('irgendwas mit Gesundheit', sure(0.05))
+    expect(classified.source).toBe('fallback')
+    expect(classified.fallbackDetail).toContain('confidence')
+  })
+
+  it('accepts it when the model is sure', async () => {
+    const classified = await classifyGoal('Ich will besser schlafen', sure(0.9))
+    expect(classified.source).toBe('ai')
+    expect(classified.value.archetype).toBe('sleep_recovery')
   })
 })

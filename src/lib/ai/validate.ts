@@ -228,10 +228,14 @@ export function checkClassification(value: GoalClassification): Violation[] {
  * The promise has to be enforced on the way out too, not only on the way in.
  */
 const IDENTITY = [
-  /\bwie hei(ß|ss)t du\b/i, /\bdein\w*\s+(name|nachname|vorname)\b/i,
+  /\bwie hei(ß|ss)t du\b/i, /\b(name|nachname|vorname)n?\b/i,
+  /\bwie (darf|soll|kann) ich dich (nennen|ansprechen)\b/i,
   /\be-?mail/i, /\btelefon/i, /\bhandynummer\b/i, /\badresse\b/i,
-  /\bwo (wohnst|lebst) du\b/i, /\bgeburtsdatum\b/i, /\bgeboren\b/i,
-  /\bpostleitzahl\b/i, /\bversicher(t|ung)\b/i,
+  /\bwo (wohnst|lebst|arbeitest) du\b/i,
+  // "In welcher Stadt lebst du?" walked past a list that only knew "wo".
+  /\bwelche[rmn]?\s+(stadt|ort|land|region|plz)\b/i,
+  /\bgeburtsdatum\b/i, /\bgeboren\b/i, /\bwie alt bist du\b/i,
+  /\bpostleitzahl\b/i, /\bversicher(t|ung)\b/i, /\barbeitgeber\b/i,
 ]
 
 /**
@@ -243,10 +247,18 @@ const IDENTITY = [
  * vocabulary; these catch the question forms that avoid it.
  */
 const MEDICAL_QUESTION = [
-  /\b(hast|hattest) du (schon mal )?(eine|ein|einen)\s+\S*(störung|erkrankung|diagnose)/i,
-  /\bnimmst du\b.{0,30}\b(tabletten|medikamente|mittel)\b/i,
-  /\bbist du (schwanger|krank|depressiv|magersüchtig)\b/i,
+  // Anchored on the *subject*, not on one sentence frame. The first version
+  // keyed on "hast du … störung" and "nimmst du … medikamente", so
+  // "Leidest du unter einer Essstörung?" — the reworded form of the comment's
+  // own example — walked straight through, as did "Nimmst du Antidepressiva?".
+  /\b\w*(st(ö|oe)rung|erkrankung|krankheit|diagnose|syndrom)\b/i,
+  /\b(depress|angstzust|magersucht|bulimie|essst(ö|oe)rung|burnout|adhs|diabetes)/i,
+  /\b(antidepressiva|psychopharmaka|tabletten|medikament|arznei|therapeut)/i,
+  /\bleidest du\b/i,
+  /\bnimmst du\b[^.!?]{0,30}\b(ein|etwas|regelm(ä|ae)(ß|ss)ig)\b/i,
+  /\bbist du (schwanger|krank|depressiv|magers(ü|ue)chtig|in behandlung)\b/i,
   /\bin (therapie|behandlung)\b/i,
+  /\b(arzt|(ä|ae)rztin|klinik|rezept|befund)\b/i,
 ]
 
 /**
@@ -312,8 +324,21 @@ export function checkQuestions(value: IntakeQuestions, known: string[] = []): Vi
       violations.push({ rule: 'must_be_a_question', detail: `${where}: no question mark` })
     }
 
+    // Matched on what the field is about, not on its label.
+    //
+    // This used to be `asked.includes(field)`, so with "Schlafzeiten" already
+    // answered, "Wann gehst du normalerweise ins Bett?" counted as a new
+    // question — the one rewording anybody would actually write. A label is a
+    // string the app chose; the person asks in their own words and so does the
+    // model.
     const asked = q.question.toLowerCase()
-    const repeat = known.find((field) => asked.includes(field.toLowerCase()))
+    // The label OR the topic. Replacing the label check with a topic one lost
+    // the plainest case — a question that names the field outright — which is
+    // the kind of regression a widening is most likely to cause.
+    const repeat = known.find(
+      (field) =>
+        asked.includes(field.toLowerCase()) || (FIELD_TOPICS[field]?.test(asked) ?? false),
+    )
     if (repeat !== undefined) {
       violations.push({
         rule: 'asks_what_it_knows',
@@ -323,4 +348,27 @@ export function checkQuestions(value: IntakeQuestions, known: string[] = []): Vi
   }
 
   return violations
+}
+
+/**
+ * What each intake field is *about*, so a reworded question still counts as
+ * already answered.
+ *
+ * Keyed by the same German labels `openFields` produces, so the two cannot
+ * drift apart silently: a field with no entry here falls back to matching its
+ * own label, which is the old behaviour and no worse.
+ */
+const FIELD_TOPICS: Record<string, RegExp> = {
+  Leistungsstand: /\b(erfahr|anf(ä|ae)nger|fortgeschritten|leistungsstand|trainingsstand|wie lange trainierst)/i,
+  'bevorzugte Sportarten': /\b(sportart|welchen sport|welche sportarten|trainierst du gern|magst du.*sport)/i,
+  Arbeitsform: /\b(arbeit|beruf|job|schicht|homeoffice|b(ü|ue)ro|studium|studierst)/i,
+  'freie Zeitfenster': /\b(zeit hast|wann hast du|freie? (zeit|tage|abende)|zeitfenster|wie viel zeit)/i,
+  Kochen: /\b(koch|selbst zubereit|essen zubereit|am herd)/i,
+  Ernährungsform: /\b(ern(ä|ae)hr|vegan|vegetarisch|isst du fleisch|ern(ä|ae)hrungsform)/i,
+  Schlafzeiten: /\b(schlafzeit|schlafenszeit|ins bett|aufsteh|stehst du\b|wann.*schl(ä|ae)fst|weckerzeit|wecker)/i,
+  Schlafqualität: /\b(schl(ä|ae)fst du (gut|schlecht)|schlafqualit(ä|ae)t|durchschlaf|wachst du.*nachts)/i,
+  Bildschirmzeit: /\b(bildschirm|handy|display|screen|am telefon)/i,
+  Konzentration: /\b(konzentr|fokus|ablenk|aufmerksam)/i,
+  'bestehende Routinen': /\b(routine|gewohnheit|machst du (schon|bereits) (jeden|t(ä|ae)glich))/i,
+  Zieldatum: /\b(bis wann|zieldatum|deadline|frist|wann willst du.*erreicht)/i,
 }

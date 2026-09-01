@@ -7,12 +7,28 @@
 import { ClaudeAdapter } from './claude'
 import { OpenAiCompatibleAdapter, type CompatibleConfig } from './openai-compatible'
 import { MockAdapter, NullAdapter } from './mock'
-import type { AiAdapter, AiConfig, AiFailure } from './types'
+import type { AiAdapter, AiConfig, AiFailure, AiResult } from './types'
 import type { GoalClassification, PlanProposal } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** Sensible for a small app; a slow answer is worse than a deterministic one. */
 const DEFAULT_TIMEOUT_MS = 20_000
+
+/**
+ * Below this, the model's own answer is treated as no answer.
+ *
+ * The schema has documented this since it was written — "low confidence falls
+ * back to the keyword classifier" — and CLASSIFY_SYSTEM tells the model to go
+ * under 0.5 when a goal is genuinely ambiguous. Nothing read the field, so a
+ * model answering 0.05 was adopted and written to the database as
+ * model-classified. Either the number means something or it should not be
+ * asked for; this makes it mean something.
+ *
+ * The archetype decides which safety limits apply and what the plan is made
+ * of, so a coin flip from the model is worse than the word list: the word list
+ * is at least reproducible and its failure mode is known.
+ */
+const MIN_CONFIDENCE = 0.5
 
 /**
  * A timeout that a typo cannot turn into "never call the model".
@@ -170,6 +186,26 @@ export function providerName(env: NodeJS.ProcessEnv = process.env): string | nul
   return known ? known[1] : host
 }
 
+/**
+ * Turns a thrown adapter into the failure value the contract promises.
+ *
+ * `AiResult` says "never throws" and the two real adapters honour it, but
+ * nothing enforced it at the boundary — so the promise held only for as long
+ * as every adapter stayed internally disciplined. The test that was supposed
+ * to cover this handed in a fixture whose proposePlan was the one method that
+ * returned instead of throwing, so it passed without ever exercising a throw.
+ *
+ * A model layer that can throw takes the screen down with it, which is the one
+ * thing this design exists to prevent.
+ */
+async function attempt<T>(run: () => Promise<AiResult<T>>): Promise<AiResult<T>> {
+  try {
+    return await run()
+  } catch (error) {
+    return { ok: false, reason: 'api_error', detail: `adapter threw: ${String(error).slice(0, 200)}` }
+  }
+}
+
 export type Classified = {
   value: GoalClassification
   /** Shown to the user, so the app is honest about where the answer came from. */
@@ -202,9 +238,9 @@ export type Classified = {
  */
 export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promise<Classified> {
   const primary = adapter ?? createAdapter()
-  const result = await primary.classifyGoal(rawText)
+  const result = await attempt(() => primary.classifyGoal(rawText))
 
-  if (result.ok) {
+  if (result.ok && result.value.confidence >= MIN_CONFIDENCE) {
     // Asks what the adapter is, not what it is called. This read
     // `primary.name === 'claude'`, from when Claude was the only real adapter
     // — so a successful Gemini classification was reported as a fallback, the
@@ -213,14 +249,16 @@ export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promis
     return { value: result.value, source: primary.usesModel ? 'ai' : 'fallback' }
   }
 
+  // An answer the model itself is unsure of falls through to the word list,
+  // which is what the schema has always said happens.
+  const reason: AiFailure = result.ok ? 'implausible' : result.reason
+  const detail = result.ok
+    ? `confidence ${result.value.confidence} is below ${MIN_CONFIDENCE}`
+    : result.detail
+
   const fallback = await new MockAdapter().classifyGoal(rawText)
   if (!fallback.ok) throw new Error('the deterministic classifier must never fail')
-  return {
-    value: fallback.value,
-    source: 'fallback',
-    fallbackReason: result.reason,
-    fallbackDetail: result.detail,
-  }
+  return { value: fallback.value, source: 'fallback', fallbackReason: reason, fallbackDetail: detail }
 }
 
 /**
@@ -241,7 +279,7 @@ export async function proposePlan(
   input: PlanInput,
   adapter: AiAdapter = createAdapter(),
 ): Promise<Proposed> {
-  const result = await adapter.proposePlan(input)
+  const result = await attempt(() => adapter.proposePlan(input))
   return result.ok
     ? { proposal: result.value, source: 'ai' }
     : { proposal: null, source: 'none', reason: result.reason }

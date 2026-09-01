@@ -213,3 +213,44 @@ describe('the schema itself', () => {
     expect(parsed.success).toBe(false)
   })
 })
+
+describe('a reworded question is still a repeat', () => {
+  // `asks_what_it_knows` used to be a substring test on the German field
+  // label, so it caught only a question that happened to contain the app's own
+  // word for the thing. Every natural rewording walked past it — and a
+  // rewording is what a model writes, since it is asking a person, not filling
+  // in a form.
+  const asking = (question: string) => ({
+    needsMore: true,
+    questions: [
+      { question, why: 'Würde ändern, wie die Woche aufgebaut wird.', options: [] },
+    ],
+  })
+
+  it.each([
+    ['Schlafzeiten', 'Wann gehst du normalerweise ins Bett?'],
+    ['Schlafzeiten', 'Um wie viel Uhr stehst du werktags auf?'],
+    ['Kochen', 'Kochst du unter der Woche selbst?'],
+    ['Ernährungsform', 'Isst du Fleisch, oder ernährst du dich vegetarisch?'],
+    ['Bildschirmzeit', 'Wie lange bist du abends am Handy?'],
+    ['Arbeitsform', 'Arbeitest du im Büro oder im Homeoffice?'],
+    ['freie Zeitfenster', 'Wie viel Zeit hast du unter der Woche?'],
+    ['Zieldatum', 'Bis wann möchtest du das erreicht haben?'],
+    ['Konzentration', 'Wie leicht lässt du dich ablenken?'],
+    ['bestehende Routinen', 'Gibt es eine Gewohnheit, an die sich das anhängen lässt?'],
+  ])('refuses asking about %s: %s', (field, question) => {
+    expect(checkQuestions(asking(question), [field]).map((v) => v.rule)).toContain(
+      'asks_what_it_knows',
+    )
+  })
+
+  it.each([
+    ['Kochen', 'Wann gehst du normalerweise ins Bett?'],
+    ['Schlafzeiten', 'Kochst du unter der Woche selbst?'],
+  ])('still allows it when %s is the only known field: %s', (field, question) => {
+    // The counterweight. A matcher wide enough to catch every rewording is
+    // also wide enough to refuse every question, which would turn the feature
+    // off without anything failing.
+    expect(checkQuestions(asking(question), [field])).toEqual([])
+  })
+})
