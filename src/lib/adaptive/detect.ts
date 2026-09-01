@@ -102,8 +102,19 @@ function assess(
   const missRate = missedItems.length / inBucket.length
   if (missRate < MIN_MISS_RATE) return null
 
-  const comparisonMissRate =
-    rest.length === 0 ? 0 : rest.filter((o) => o.status === MISSED).length / rest.length
+  // Both sides need enough behind them, which recheckRules has always required
+  // and detection did not. Without it a single answered action could be the
+  // whole comparison group: four Wednesdays against one done Monday produced
+  // "Mittwoch kollidiert regelmäßig mit deinem Alltag" and a permanent rule,
+  // and flipping that one Monday to missed made the pattern disappear. A
+  // contrast measured against one action is not a contrast.
+  //
+  // `rest.length === 0` used to score an absent comparison group as a perfect
+  // zero percent miss rate — maximum contrast out of nothing. Requiring the
+  // minimum removes that branch rather than special-casing it.
+  if (rest.length < MIN_RESOLVED_INSTANCES) return null
+
+  const comparisonMissRate = rest.filter((o) => o.status === MISSED).length / rest.length
   if (missRate - comparisonMissRate < MIN_CONTRAST) return null
 
   // The misses themselves have to span weeks, not just the observations around

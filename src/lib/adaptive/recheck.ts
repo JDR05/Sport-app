@@ -90,12 +90,28 @@ function splitFor(rule: PersonalRule, observations: Observation[]): Split {
     case 'avoid_weekday': {
       const day = v.weekday
       if (typeof day !== 'string') return null
+
+      // Baseline against baseline, and that restriction is the whole point.
+      //
       // The health baseline still lands on an avoided day, which is the only
       // reason this rule can be re-checked at all: the goal track left, so
-      // without the baseline the day would carry no evidence for ever.
+      // without the baseline the day would carry no evidence for ever. But
+      // comparing *everything* then compares two different populations — the
+      // avoided day carries only easy daily routines, every other day carries
+      // those plus a session — so the avoided day looks better by construction,
+      // and the rule reads as contradicted by the very effect it produced.
+      //
+      // Measured: one person, six weeks, behaviour held identical, only the
+      // weekday of the session moved. Before the rule the verdict agreed; after
+      // it, the same behaviour disagreed, confidence fell 0.6 → 0.45 → 0.3 →
+      // 0.15, the planner stopped avoiding Wednesday, the sessions went back,
+      // they were missed again, and detection re-proposed the same experiment.
+      // A loop, not a model — and the exact error ADR-061 fixed inside
+      // detectAlong, reintroduced one module over.
+      const baseline = observations.filter((o) => o.track === 'baseline')
       return {
-        on: observations.filter((o) => weekdayOf(o.scheduledOn) === day),
-        rest: observations.filter((o) => weekdayOf(o.scheduledOn) !== day),
+        on: baseline.filter((o) => weekdayOf(o.scheduledOn) === day),
+        rest: baseline.filter((o) => weekdayOf(o.scheduledOn) !== day),
         claim: 'worse',
       }
     }

@@ -363,3 +363,41 @@ export async function loadPersonalRules(profileId: string): Promise<LearnedRule[
     createdAt: row.created_at,
   }))
 }
+
+/**
+ * Rules the person has already turned down for the current goal.
+ *
+ * `declineExperiment` wrote a `rejected` row and nothing ever read it, so the
+ * screen said "Ablehnen ist kein Nein zum Plan. Es ist selbst eine Information
+ * und wird gespeichert" and then re-offered the identical proposal on the very
+ * next render — `analyze` is a pure function of the observations, and the only
+ * suppression was for an experiment that is *running*. Each tap appended
+ * another row; nothing bounded it.
+ *
+ * Scoped to the active goal on purpose: turning down "avoid Wednesdays" while
+ * training for a marathon says nothing about whether it is right for a sleep
+ * goal six months later.
+ */
+export async function declinedRuleKeys(profileId: string): Promise<string[]> {
+  const supabase = await createClient()
+  const goal = await supabase
+    .from('goals')
+    .select('id')
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (!goal.data) return []
+
+  const { data } = await supabase
+    .from('experiments')
+    .select('baseline')
+    .eq('profile_id', profileId)
+    .eq('goal_id', goal.data.id)
+    .eq('status', 'rejected')
+
+  return (data ?? []).flatMap((row) => {
+    const proposed = (row.baseline as Record<string, unknown> | null)?.proposedRule
+    const key = (proposed as Record<string, unknown> | null)?.ruleKey
+    return typeof key === 'string' ? [key] : []
+  })
+}

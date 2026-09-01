@@ -90,6 +90,53 @@ in Vercel lag. Vor dem nächsten Schritt an der KI gehört er lokal in `.env.loc
 
 ---
 
+## 2026-09-01 — ADR-091: Die Lernschleife misst gegen echte Vergleichsgruppen
+
+**Entscheidung:** Drei Korrekturen an dem Teil des Produkts, der länger leben soll als jede
+einzelne Woche: Mustererkennung verlangt die Mindestzahl auf **beiden** Seiten, `avoid_weekday`
+wird ausschließlich an der Gesundheitsbasis nachgeprüft, und ein abgelehntes Experiment wird
+wieder gelesen.
+
+**Begründung:** Eine falsche Regel hier ist kein kosmetischer Fehler — sie verzerrt still und
+dauerhaft jeden folgenden Plan.
+
+**1. Eine Regel aus einer Vergleichsgruppe von eins.** `assess()` verlangte
+`MIN_RESOLVED_INSTANCES` für den Eimer und **gar nichts** für den Rest. Gemessen: vier
+Mittwoche gegen **eine** erledigte Montagsaktion ergaben „Mittwoch kollidiert regelmäßig mit
+deinem Alltag" und ein Experiment mit `ruleKey: avoid_weekday`. Diesen einen Montag auf
+`missed` gedreht, und das Muster verschwindet. Ein Kontrast gegen eine einzige Aktion ist kein
+Kontrast, und `MIN_CONTRAST` behauptete genau das zu prüfen. Dasselbe in `strengths.ts`: vier
+erledigte Samstage plus **ein** verpasster Montag ergaben „Samstags: 4 von 4 umgesetzt (100 %),
+sonst 0 %" — die Schmeichelei, die der Modulkopf ausschließt, als Messung verkleidet.
+`recheckRules` verlangte die Schwelle seit jeher auf beiden Seiten; die Erkennung nicht.
+
+**2. Eine funktionierende Regel hat sich selbst abgeschafft.** `applyDayRules` nimmt vom
+gemiedenen Tag nur die **Zielspur** weg; die täglichen Basisroutinen bleiben. Der Nachtest
+verglich danach *alles* gegen *alles* — also den Tag mit den leichten Routinen gegen die Tage
+mit Routinen **plus** Einheit. Der gemiedene Tag sieht damit konstruktionsbedingt besser aus.
+
+Gemessen: ein Mensch, sechs Wochen, Verhalten identisch, nur der Wochentag der Einheit
+verschoben. Vorher stimmte das Urteil zu, nachher widersprach es; die Konfidenz fiel
+0,6 → 0,45 → 0,3 → 0,15, der Planer hörte auf, den Mittwoch zu meiden, die Einheiten gingen
+zurück, wurden wieder verpasst, und die Erkennung schlug dasselbe Experiment erneut vor. **Eine
+Schleife, kein Modell** — und exakt der Fehler, den ADR-061 innerhalb von `detectAlong` behoben
+hat, ein Modul weiter wieder eingeführt.
+
+Jetzt wird Basis gegen Basis verglichen. Das ist die einzige Population, die auf beiden Seiten
+existiert, und damit die einzige ehrliche Frage: **ist dieser Tag für diesen Menschen immer
+noch der schwere?**
+
+**3. „Ablehnen wird gespeichert" war eine Behauptung, die der Bildschirm eine Sekunde später
+widerlegte.** `declineExperiment` schrieb eine `rejected`-Zeile, und **nichts** las sie je.
+`analyze()` ist eine reine Funktion der Beobachtungen, unterdrückt wurde nur ein *laufendes*
+Experiment — also erschien derselbe Vorschlag beim nächsten Rendern wieder, direkt unter dem
+Satz „Es ist selbst eine Information und wird gespeichert." Jeder Tipp hängte eine weitere
+Zeile an; nichts begrenzte das. Abgelehnte Regelschlüssel werden jetzt gelesen und für das
+aktive Ziel nicht erneut vorgeschlagen — pro Ziel, weil ein abgelehntes „meide Mittwoche" im
+Marathontraining nichts über ein Schlafziel ein halbes Jahr später sagt.
+
+---
+
 ## 2026-09-01 — ADR-090: Vier Prüfagenten, und was sie gefunden haben
 
 **Entscheidung:** Vier parallele Prüfungen über getrennte Bereiche — KI-Schicht, Datenschicht,

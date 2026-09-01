@@ -105,7 +105,11 @@ function assess(
   // Nothing to be better than. Someone who completes everything has no
   // strength on any particular axis — they simply do what they planned, and
   // telling them Saturdays are special would be inventing a distinction.
-  if (rest.length === 0) return null
+  // The same bar on both sides. One missed Monday used to be enough of a
+  // comparison group to produce "Samstags: 4 von 4 umgesetzt (100 %), sonst
+  // 0 %" — which is the flattery this module's header says it must not
+  // produce, dressed as a measurement.
+  if (rest.length < MIN_RESOLVED_INSTANCES) return null
 
   const comparisonRate = rest.filter((o) => o.status !== MISSED).length / rest.length
   if (rate - comparisonRate < MIN_CONTRAST) return null

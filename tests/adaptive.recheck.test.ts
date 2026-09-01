@@ -29,7 +29,11 @@ function on(
     itemId: `${dayOffset}-${i}-${status}-${extra.timeSlot ?? ''}-${extra.plannedDurationMin ?? ''}`,
     scheduledOn: addDays(MONDAY, dayOffset + i * 7),
     domain: 'training' as const,
-    track: 'goal' as const,
+    // Baseline, because that is what is actually left to observe once an
+    // avoid_weekday rule has taken effect: the goal track has left the day.
+    // These fixtures said `goal`, which described the world before the rule —
+    // the one situation in which the re-check is never run.
+    track: 'baseline' as const,
     title: 'Training',
     timeSlot: 'evening' as const,
     plannedDurationMin: 45,
@@ -206,5 +210,49 @@ describe('what a verdict carries', () => {
     ]
     const verdicts = recheckRules(rules, on(0, 4, 'done'))
     expect(verdicts.map((v) => v.ruleKey)).toEqual(['avoid_weekday', 'lighter_domain'])
+  })
+})
+
+describe('a rule must not be judged on the population it created', () => {
+  // The loop this closes: applyDayRules removes goal-track sessions from an
+  // avoided day but leaves the daily baseline routines. Comparing everything
+  // then compares easy-day against hard-day rather than day against day, so
+  // the avoided day looks better by construction and a correct rule reads as
+  // contradicted.
+  //
+  // Measured before the fix: identical behaviour over six weeks, only the
+  // weekday of the session moved, verdict flipped from agrees to disagrees,
+  // confidence fell 0.6 → 0.45 → 0.3 → 0.15, the planner stopped avoiding the
+  // day, the sessions went back, they were missed again, and detection
+  // re-proposed the same experiment.
+
+  /** A week where the baseline is kept everywhere and sessions are missed. */
+  const week = (offset: number): Observation[] => [
+    ...on(offset + 2, 1, 'done', { track: 'baseline', domain: 'movement' }),
+    ...on(offset + 0, 1, 'done', { track: 'baseline', domain: 'movement' }),
+    ...on(offset + 1, 1, 'done', { track: 'baseline', domain: 'movement' }),
+    ...on(offset + 3, 1, 'done', { track: 'baseline', domain: 'movement' }),
+    // The session, which now sits on Thursday because the rule moved it, and
+    // which this person misses wherever it is.
+    ...on(offset + 3, 1, 'missed', { track: 'goal' }),
+  ]
+
+  it('does not contradict itself because the sessions moved away', () => {
+    const observations = [0, 7, 14, 21].flatMap(week)
+    // The baseline is kept on every day including the avoided one, so there is
+    // no evidence the day got easier — and no verdict either way. Silence is
+    // the honest answer, not a fade.
+    expect(only(wednesdayRule, observations).agrees).not.toBe(false)
+  })
+
+  it('still fades when the baseline itself says the day is fine now', () => {
+    // The counterweight: the rule must remain unlearnable-from-nothing but
+    // still fadeable from real evidence. Here the avoided day is genuinely
+    // the best day, measured on the same kind of action as every other day.
+    const observations = [
+      ...on(2, MIN_RESOLVED_INSTANCES, 'done', { track: 'baseline' }),
+      ...on(0, MIN_RESOLVED_INSTANCES, 'missed', { track: 'baseline' }),
+    ]
+    expect(only(wednesdayRule, observations).agrees).toBe(false)
   })
 })
