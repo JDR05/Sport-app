@@ -7,6 +7,41 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-080: Ein Adapter für jeden OpenAI-kompatiblen Anbieter
+
+**Entscheidung:** Neben Claude gibt es `OpenAiCompatibleAdapter` — ein `fetch` gegen
+`/chat/completions`, konfiguriert über `AI_COMPAT_BASE_URL`, `AI_COMPAT_KEY` und
+`AI_COMPAT_MODEL`. Prompts, Schemas und Sicherheitsprüfungen liegen in `src/lib/ai/tasks.ts`
+und werden von **beiden** Adaptern benutzt. Entscheidung des Product Owners: „lass andere
+Anbieter nehmen bei denen es kostenlos".
+
+**Begründung:** Es gibt keine kostenlose Claude-API. Free Tiers gibt es bei Google AI Studio,
+Groq, OpenRouter, Mistral und Cerebras — und sie ändern sich laufend. Deshalb ist die Frage
+„welcher Anbieter ist gerade gratis" hier **Konfiguration und nicht Code**: alle sprechen
+dieselbe Schnittstelle, drei Variablen genügen zum Wechseln. Kein zweites SDK: es ist ein POST
+mit JSON-Body, und eine Client-Bibliothek kennt immer nur einen der Anbieter.
+
+Das eigentliche Risiko ist nicht die Anbindung, sondern die Qualität. Ein schwächeres Modell
+schreibt „verzichte auf Kohlenhydrate", erfindet Kalorienzahlen und empfiehlt weniger Schlaf
+**häufiger** als Claude, nicht seltener. Genau deshalb wurden Prompt, Schema und Prüfung aus
+dem Claude-Adapter herausgezogen, bevor der zweite entstand. Sie zu kopieren wäre der Weg, auf
+dem der Gratis-Pfad still schwächere Prüfungen bekommt als der bezahlte. Der Testfall dazu
+schickt eine **schema-gültige**, aber unsichere Antwort — die erste Fassung des Tests scheiterte
+schon am Schema und bestand damit aus dem falschen Grund.
+
+**Datenschutz, ausdrücklich festgehalten:** Gratis-Stufen finanzieren sich in aller Regel damit,
+dass Eingaben zum Training verwendet werden. Diese App schickt Gesundheitsdaten. Deshalb wurde
+`proposeUserMessage` gleichzeitig gröber gemacht: „geht spät ins Bett" statt `23:47`, „kocht
+selten" statt einer Zahl, Zeitfenster auf 30 Minuten gerundet, kein Zieldatum mehr. Der Plan
+wird davon nicht schlechter — die Arithmetik macht der Archetyp, das Modell wird gefragt *was*,
+nicht *wann*. Die exakten Werte bleiben in der Datenbank.
+
+Reihenfolge in `createAdapter`: explizites `AI_ADAPTER` gewinnt immer, dann Claude (dessen
+Ausgabequalität gegen diese Prompts gemessen wurde), dann der kompatible Anbieter, sonst
+deterministisch. `AI_ADAPTER=compat` erzwingt den Gratis-Weg auch bei vorhandenem Claude-Key.
+
+---
+
 ## 2026-08-24 — ADR-079: Die App heißt Trace und sieht aus wie ein Messgerät
 
 **Entscheidung:** Der Name wird **Trace**. Das Erscheinungsbild wechselt von warmem Papier mit

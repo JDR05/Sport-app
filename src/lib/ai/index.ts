@@ -5,6 +5,7 @@
 // AI call falls through to the deterministic path.
 
 import { ClaudeAdapter } from './claude'
+import { OpenAiCompatibleAdapter, type CompatibleConfig } from './openai-compatible'
 import { MockAdapter, NullAdapter } from './mock'
 import type { AiAdapter, AiConfig, AiFailure } from './types'
 import type { GoalClassification, PlanProposal } from './schemas'
@@ -29,6 +30,16 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
 }
 
 /**
+ * Which model, if any, answers.
+ *
+ * The order is deliberate. An explicit AI_ADAPTER always wins, so a broken
+ * provider can be switched off without touching keys. Claude is preferred when
+ * a key is present because it is the one whose output quality was measured
+ * against these prompts. A compatible endpoint — Groq, Google AI Studio,
+ * OpenRouter, Mistral, Cerebras, anything speaking chat-completions — is next.
+ * Nothing configured means the deterministic adapter, silently and by design:
+ * the product is fully usable in that state, and that is the whole point.
+ *
  * @param timeoutMs a smaller budget than the configured one, for a call that
  *   sits in front of a person waiting for a screen. The default is generous
  *   because the onboarding can afford to wait; a page load cannot.
@@ -42,9 +53,47 @@ export function createAdapter(
 
   const base = readConfig(env)
   const config = timeoutMs === undefined ? base : { ...base, timeoutMs }
-  // No key means the deterministic adapter, silently and by design. The product
-  // is fully usable in that state — that is the whole point.
-  return config.apiKey ? new ClaudeAdapter(config) : new MockAdapter()
+
+  const compatible = readCompatibleConfig(env, config.timeoutMs)
+  if (env.AI_ADAPTER === 'compat') {
+    return compatible ? new OpenAiCompatibleAdapter(compatible) : new MockAdapter()
+  }
+
+  if (config.apiKey) return new ClaudeAdapter(config)
+  if (compatible) return new OpenAiCompatibleAdapter(compatible)
+  return new MockAdapter()
+}
+
+/**
+ * Null unless both halves are present.
+ *
+ * A base URL without a key, or the other way round, is a half-finished setup
+ * rather than a request to call something — and guessing would mean every
+ * request failing against an endpoint nobody meant to configure.
+ */
+export function readCompatibleConfig(
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
+): CompatibleConfig | null {
+  const baseUrl = env.AI_COMPAT_BASE_URL?.trim()
+  const apiKey = env.AI_COMPAT_KEY?.trim()
+  if (!baseUrl || !apiKey) return null
+
+  const model = env.AI_COMPAT_MODEL?.trim()
+  if (!model) return null
+
+  return {
+    baseUrl,
+    apiKey,
+    // One model unless a second is named. Most free tiers have exactly one
+    // worth using, and two variables nobody sets is two ways to be wrong.
+    classifyModel: env.AI_COMPAT_CLASSIFY_MODEL?.trim() || model,
+    proposeModel: model,
+    timeoutMs,
+    // Shown to nobody, but it is what `source` reports internally, so it
+    // should say which machine actually answered.
+    label: env.AI_COMPAT_LABEL?.trim() || 'compatible',
+  }
 }
 
 export type Classified = {
@@ -97,6 +146,7 @@ export async function proposePlan(
 }
 
 export { MockAdapter, NullAdapter } from './mock'
+export { OpenAiCompatibleAdapter, type CompatibleConfig } from './openai-compatible'
 export { ClaudeAdapter } from './claude'
 export { checkClassification, checkProposal } from './validate'
 // Exported so tests can hold the contract itself to account, not just its
