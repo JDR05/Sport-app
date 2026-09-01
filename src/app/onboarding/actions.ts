@@ -18,6 +18,7 @@ import { isoDate } from '@/lib/domain/isoDate'
 import { requireUser } from '@/lib/auth/session'
 import { saveOnboarding } from '@/lib/db/save-onboarding'
 import { loadPlanInput } from '@/lib/db/plan-input'
+import { askIntakeQuestions, saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { withProposal } from '@/lib/db/propose'
 import { serverToday } from '@/lib/db/today'
 import {
@@ -25,6 +26,7 @@ import {
   nutritionSchema, sleepSchema, sportSchema,
 } from '@/lib/db/schemas'
 import { GOAL_ARCHETYPES } from '@/lib/domain/types'
+import type { IntakeQuestion } from '@/lib/ai/schemas'
 
 const onboardingSchema = z.object({
   profile: z.object({
@@ -77,7 +79,18 @@ const onboardingSchema = z.object({
     .max(30),
 })
 
-export type CompleteResult = { error: string } | never
+export type CompleteResult =
+  | { error: string }
+  /**
+   * Saved. `questions` is what the model would still like to know — usually
+   * empty, which is the outcome the prompt pushes towards.
+   *
+   * Deliberately does not redirect any more. The intake has to be stored
+   * before the model can be shown it, and the person has to be able to answer
+   * before the plan is built from those answers — so completion is two steps,
+   * and this is the first.
+   */
+  | { questions: IntakeQuestion[] }
 
 export async function completeOnboarding(payload: unknown): Promise<CompleteResult> {
   const user = await requireUser()
@@ -92,15 +105,52 @@ export async function completeOnboarding(payload: unknown): Promise<CompleteResu
     return { error: 'Speichern hat nicht geklappt. Versuch es bitte noch einmal.' }
   }
 
+  const input = await loadPlanInput(user.id)
+  if (!input) return { questions: [] }
+
+  // Never allowed to fail the onboarding: everything is already saved, and an
+  // empty list is the documented normal case anyway.
+  const questions = await askIntakeQuestions(user.id, {
+    ...input,
+    today: await serverToday(),
+  })
+  return { questions }
+}
+
+const answerSchema = z.object({
+  question: z.string().trim().min(1).max(200),
+  answer: z.string().trim().max(300).nullable(),
+})
+
+/**
+ * The second half: store the answers, ask for the proposal, go to Today.
+ *
+ * Also the path taken when there were no questions at all — with an empty
+ * array — so there is exactly one place where a plan comes into existence at
+ * the end of an onboarding, rather than two that can drift apart.
+ */
+export async function finishOnboarding(payload: unknown): Promise<CompleteResult> {
+  const user = await requireUser()
+
+  const parsed = z.array(answerSchema).max(3).safeParse(payload)
+  if (!parsed.success) {
+    return { error: 'Deine Antworten konnten nicht gespeichert werden. Versuch es noch einmal.' }
+  }
+
+  // A failure here loses three answers, not the intake. Worth continuing for:
+  // stopping would leave somebody with a saved profile and no plan, which is
+  // the one state the app has no screen for.
+  if (parsed.data.length > 0) await saveIntakeAnswers(user.id, parsed.data)
+
   // Ask the model here, not on the first page load.
   //
-  // It is the same ask — once per goal, ADR-041 — moved to the one moment the
-  // person is already waiting on purpose: the button says "Plan wird gebaut".
-  // Inside ensureWeekPlan it sat in front of a blank screen with the full
+  // It is the same ask — once per goal, ADR-041 — at the one moment the person
+  // is already waiting on purpose: the button says "Plan wird gebaut". Inside
+  // ensureWeekPlan it sat in front of a blank screen with the full
   // twenty-second budget, which is what made the app look like it had frozen.
   //
-  // Never allowed to fail the onboarding. Everything is already saved by this
-  // point, and a plan without a proposal is the documented, fully usable state.
+  // Never allowed to fail the onboarding. Everything is saved by this point,
+  // and a plan without a proposal is the documented, fully usable state.
   try {
     const input = await loadPlanInput(user.id)
     if (input) await withProposal(user.id, { ...input, today: await serverToday() })

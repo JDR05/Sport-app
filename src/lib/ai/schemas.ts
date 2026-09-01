@@ -93,3 +93,44 @@ export const weeklyNoteSchema = z.object({
 })
 
 export type WeeklyNote = z.infer<typeof weeklyNoteSchema>
+
+// -------------------------------------------------- asking before planning ---
+
+/**
+ * One thing the model wants to know before it proposes anything.
+ *
+ * `why` is not decoration. A question whose purpose is invisible reads as a
+ * form, and a form is the thing this app is not allowed to feel like — so the
+ * screen shows what the answer would change, and a model that cannot say what
+ * an answer would change has no business asking.
+ *
+ * `options` are tap-able answers, capped at four. This is a phone: three
+ * free-text boxes at the end of a ten-minute intake is where people leave.
+ * They are suggestions, never a closed list — typing something else is always
+ * possible, and skipping is always possible, because a missing answer is
+ * `unknown` and `unknown` is a supported state everywhere else in this product.
+ */
+export const intakeQuestionSchema = z.object({
+  question: z.string().min(10).max(160),
+  why: z.string().min(10).max(200),
+  options: z.array(z.string().min(1).max(40)).max(4),
+})
+
+/**
+ * What the model may ask before building a plan.
+ *
+ * `needsMore: false` is the expected answer for a complete intake, and it is
+ * load-bearing in the same way `hasSomethingToSay` is on the weekly note: a
+ * step that must produce questions produces filler ones, and a filler question
+ * costs the person time and buys the plan nothing.
+ *
+ * Three is the ceiling. The model is picking what it would most like to know,
+ * not conducting an interview.
+ */
+export const intakeQuestionsSchema = z.object({
+  needsMore: z.boolean(),
+  questions: z.array(intakeQuestionSchema).max(3),
+})
+
+export type IntakeQuestion = z.infer<typeof intakeQuestionSchema>
+export type IntakeQuestions = z.infer<typeof intakeQuestionsSchema>

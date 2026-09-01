@@ -273,6 +273,23 @@ export type PlanInput = {
   personalRules: PersonalRule[]
   /** Absent when no key is configured, or when the model failed or was refused. */
   aiProposal?: AiProposal | null
+  /**
+   * Answers to questions the model asked before planning.
+   *
+   * Sits on the input rather than beside it because it is exactly what the
+   * rest of this type is: things the person told the app. The engine ignores
+   * it — free text is not something a deterministic rule can schedule — but it
+   * is part of the intake, and keeping it here means the proposal is built
+   * from one object rather than two that could drift apart.
+   */
+  intakeAnswers?: IntakeAnswer[]
+}
+
+/** One question the model asked, and what came back. */
+export type IntakeAnswer = {
+  question: string
+  /** Null when the person skipped it. Skipping is allowed everywhere here. */
+  answer: string | null
 }
 
 // --------------------------------------------------------- the output ----

@@ -186,10 +186,12 @@ export async function proposePlan(
 export { MockAdapter, NullAdapter, WithheldAdapter } from './mock'
 export { OpenAiCompatibleAdapter, type CompatibleConfig } from './openai-compatible'
 export { ClaudeAdapter } from './claude'
-export { checkClassification, checkProposal, checkWeeklyNote } from './validate'
+export { checkClassification, checkProposal, checkQuestions, checkWeeklyNote } from './validate'
 // Exported so tests can hold the contract itself to account, not just its
 // consumers — the schema is the boundary, so it is worth asserting directly.
-export { goalClassificationSchema, planProposalSchema } from './schemas'
-export { CLASSIFY_PROMPT_VERSION, PROPOSE_PROMPT_VERSION } from './prompts'
+export { goalClassificationSchema, intakeQuestionsSchema, planProposalSchema } from './schemas'
+export { CLASSIFY_PROMPT_VERSION, PROPOSE_PROMPT_VERSION, QUESTIONS_PROMPT_VERSION } from './prompts'
 export type { AiAdapter, AiConfig, AiResult, AiFailure } from './types'
-export type { GoalClassification, PlanProposal, ProposedAction } from './schemas'
+export type {
+  GoalClassification, IntakeQuestion, IntakeQuestions, PlanProposal, ProposedAction,
+} from './schemas'

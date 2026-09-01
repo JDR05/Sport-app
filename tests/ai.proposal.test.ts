@@ -118,6 +118,9 @@ describe('without a model', () => {
       weeklyNote: async () => {
         throw new Error('nope')
       },
+      askQuestions: async () => {
+        throw new Error('nope')
+      },
       proposePlan: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
     }
     await expect(proposePlan(input, exploding)).resolves.toMatchObject({ proposal: null })

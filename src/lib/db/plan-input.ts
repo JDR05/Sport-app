@@ -23,7 +23,7 @@ import {
   readNutrition, readSexAtBirth, readSleep, readSport, readWorkPattern,
 } from './schemas'
 import type {
-  Constraint, Goal, GoalMetric, PersonalRule, PlanInput, Profile, Schedule,
+  Constraint, Goal, GoalMetric, IntakeAnswer, PersonalRule, PlanInput, Profile, Schedule,
 } from '@/lib/domain/types'
 
 
@@ -177,5 +177,24 @@ export const loadPlanInput = cache(async function loadPlanInput(
     schedule,
     personalRules,
     aiProposal: readAiProposal(g.ai_proposal),
+    intakeAnswers: readIntakeAnswers(g.intake_answers),
   }
 })
+
+/**
+ * Answers to the questions the model asked before planning.
+ *
+ * Parsed defensively rather than cast: this column is jsonb, so the database
+ * guarantees it is an array and nothing more. A malformed entry becomes no
+ * entry — a proposal built on a half-read answer would be worse than one built
+ * without it.
+ */
+function readIntakeAnswers(value: unknown): IntakeAnswer[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { question, answer } = entry as Record<string, unknown>
+    if (typeof question !== 'string' || question.length === 0) return []
+    return [{ question, answer: typeof answer === 'string' ? answer : null }]
+  })
+}

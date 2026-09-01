@@ -214,6 +214,8 @@ export type Database = {
         Row: {
           ai_proposal: Json | null
           ai_proposal_at: string | null
+          intake_answers: Json
+          intake_asked_at: string | null
           archetype: Database["public"]["Enums"]["goal_archetype"]
           classified_by: Database["public"]["Enums"]["goal_classified_by"]
           created_at: string
@@ -228,6 +230,8 @@ export type Database = {
         Insert: {
           ai_proposal?: Json | null
           ai_proposal_at?: string | null
+          intake_answers?: Json
+          intake_asked_at?: string | null
           archetype?: Database["public"]["Enums"]["goal_archetype"]
           classified_by?: Database["public"]["Enums"]["goal_classified_by"]
           created_at?: string
@@ -242,6 +246,8 @@ export type Database = {
         Update: {
           ai_proposal?: Json | null
           ai_proposal_at?: string | null
+          intake_answers?: Json
+          intake_asked_at?: string | null
           archetype?: Database["public"]["Enums"]["goal_archetype"]
           classified_by?: Database["public"]["Enums"]["goal_classified_by"]
           created_at?: string

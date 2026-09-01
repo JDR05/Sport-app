@@ -7,6 +7,67 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-084: Das Modell darf nachfragen, bevor es plant — und meistens tut es das nicht
+
+**Entscheidung:** Nachdem das Intake gespeichert ist und bevor der Plan vorgeschlagen wird,
+sieht das Modell das ganze Bild und darf **höchstens drei** Dinge nachfragen. Die Antworten
+gehen in den Planvorschlag ein. Jede Frage ist überspringbar. Der erwartete Normalfall ist
+`needsMore: false` mit leerer Liste — dann sieht der Mensch diesen Schritt nie.
+
+**Begründung:** Das Onboarding stellt allen dieselben Fragen, und das muss es: die Engine
+braucht dieselben Felder von jedem, und ein Formular, das pro Person die Form ändert, ist
+eines, das niemand testen kann. Die Folge ist aber, dass die App nur erfährt, was jemand
+vorher als wichtig aufgeschrieben hat. Für „5 kg abnehmen" reicht das. Für „ich will wieder
+zeichnen können, ohne dass mein Rücken nach zwanzig Minuten dicht macht" reicht es nicht, und
+kein festes Formular hätte die passende Frage vorgesehen. Das ist die Stelle, an der das feste
+Schema zum **Leitfaden** wird statt zur Grenze — der ausdrückliche Wunsch des Product Owners.
+
+**Die eigentliche Entscheidung ist wieder das Schweigen.** Ein Modell, dem man einen „du
+darfst fragen"-Platz hinstellt, füllt ihn. Drei Pflichtfragen am Ende eines zehnminütigen
+Formulars sind genau die Stelle, an der Leute aussteigen — der Schritt wäre also nicht
+neutral, sondern schädlich, wenn er immer erschiene. Deshalb:
+
+- Der Prompt macht die leere Antwort zur respektablen, und `checkQuestions` setzt es durch:
+  `needsMore: false` mit nichtleerer Liste **und** `needsMore: true` ohne Frage sind beide
+  ein `contradicts_itself` und verwerfen die ganze Antwort. Eine der beiden Hälften zu
+  glauben hieße, sich die genehme auszusuchen.
+- Das Schema deckelt bei drei Fragen und vier Antwortvorschlägen, damit ein Modell, das die
+  Anweisung ignoriert, vom Parser gestoppt wird und nicht von gar nichts.
+- Ohne Key, ohne Einwilligung, bei Fehler oder Timeout: leere Liste. Es gibt bewusst **keinen
+  deterministischen Ersatz** — eine feste Liste von Zusatzfragen ist genau das, was das
+  Onboarding schon ist, und dieselben drei Fragen an alle wären ein längeres Formular, kein
+  Modell, das eine Lücke bemerkt.
+
+**Was es nicht fragen darf**, deterministisch geprüft statt im Prompt erbeten:
+
+- **Identität und Kontakt.** Der Einwilligungstext (ADR-083) verspricht, dass Name, E-Mail
+  und Geburtsdatum die App nicht verlassen. Eine Frage ist die eine Stelle, an der das Modell
+  genau danach fragen könnte und der Mensch es selbst eintippt — und die Antwort geht mit der
+  nächsten Anfrage zurück. Das Versprechen muss auch auf dem Rückweg gelten. Geprüft wird
+  Frage, Begründung **und** jede Antwortmöglichkeit; eine Prüfung nur auf der Frage wäre
+  trivial zu umgehen.
+- **Medizinisches.** Diagnosen, Medikamente, Schwangerschaft, Therapie.
+- **Allgemeines.** „Was ist dein Ziel?" ist das Erste, was der Mensch getippt hat.
+- **Was schon beantwortet ist.** `openFields()` erzeugt die Lückenliste deterministisch und
+  `knownFields()` ist ihr Komplement; eine Frage, die ein bekanntes Feld nennt, fliegt raus.
+  Nötig, weil das Intake, das das Modell sieht, absichtlich vergröbert ist — und eine grobe
+  Angabe sieht aus wie eine fehlende.
+
+**Ein echter Fund unterwegs:** Der Test, der prüft, dass kein `HH:MM` in den Prompt gerät, hat
+eine Lücke aufgedeckt, die es schon vorher gab. `existingRoutines` ist Freitext, Leute
+schreiben „Kaffee um 6:45", und damit verließ ein exakter Tageszeitstempel die Maschine —
+entgegen dem, was der Kommentar über `proposeUserMessage` behauptete. Uhrzeiten in
+Routine-Labels werden jetzt durch „morgens/mittags/nachmittags/abends" ersetzt: das Signal,
+auf das es ankommt (es gibt einen Ankerpunkt am Morgen), bleibt, die Minute geht nicht raus.
+
+**Nicht geprüft:** wie oft ein reales Modell tatsächlich schweigt. Der Key liegt in Vercel,
+nicht lokal, also lässt sich das hier nicht messen. `npm run ai:check` hat dafür einen
+dritten Test bekommen, der beide Fälle nebeneinander stellt — vollständiges und abgebrochenes
+Onboarding. Ein Modell, das bei vollständigem Intake drei Fragen stellt, ist das falsche
+Modell für diese Aufgabe, wie gut die Fragen auch klingen.
+
+---
+
 ## 2026-09-01 — ADR-083: Ohne ausdrückliche Einwilligung verlässt nichts das Haus
 
 **Entscheidung:** Kein Modellaufruf ohne vorher erteilte, ausdrückliche Einwilligung. Sie

@@ -11,10 +11,10 @@
 // refused identically no matter who hosts it, and a cheaper model will produce
 // that sentence more often, not less.
 
-import { goalClassificationSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
-import { checkClassification, checkProposal, checkWeeklyNote } from './validate'
-import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
-import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
+import { goalClassificationSchema, intakeQuestionsSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
+import { checkClassification, checkProposal, checkQuestions, checkWeeklyNote } from './validate'
+import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
+import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** What a parse attempt can say. `implausible` means a safety rule fired. */
@@ -144,6 +144,99 @@ export function weeklyNoteUserMessage(ctx: WeeklyNoteContext): string {
   return lines.join('\n')
 }
 
+
+/**
+ * The one task where the model asks instead of answers.
+ *
+ * The task itself carries `known` into its parse step, which is unlike the
+ * others: whether a question is allowed depends on what this particular person
+ * already told us, so the gate is not a constant. Built per call rather than
+ * exported as a constant for exactly that reason.
+ */
+export function questionsTask(known: string[]): AiTask<IntakeQuestions> {
+  return {
+    system: QUESTIONS_SYSTEM,
+    // Deciding what is missing from an intake is a judgement, and the whole
+    // value of the step is that the judgement is good enough to be worth
+    // interrupting somebody for.
+    effort: 'high',
+    maxTokens: 1500,
+    parse: (json) => {
+      const parsed = intakeQuestionsSchema.safeParse(json)
+      if (!parsed.success) return { ok: false, detail: parsed.error.message }
+      const violations = checkQuestions(parsed.data, known)
+      if (violations.length > 0) {
+        return { ok: false, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+      }
+      return { ok: true, value: parsed.data }
+    },
+  }
+}
+
+/**
+ * What the person left blank, in the words the question step would use.
+ *
+ * Deterministic and handed to the model rather than left for it to infer,
+ * because the intake it is shown is deliberately coarsened (see
+ * `proposeUserMessage`) and a coarse answer looks exactly like a missing one.
+ * Without this list the most likely question is one whose answer is already in
+ * the database — which is the fastest way to make an app feel like it was not
+ * listening.
+ *
+ * Doubles as the gate: `checkQuestions` refuses any question mentioning a field
+ * that is *not* in here.
+ */
+export function openFields(input: PlanInput): string[] {
+  const p = input.profile
+  const open: string[] = []
+
+  if (p.sport.experience === null) open.push('Leistungsstand')
+  if (p.sport.preferredActivities.length === 0) open.push('bevorzugte Sportarten')
+  if (input.schedule.workPattern === null) open.push('Arbeitsform')
+  if (input.schedule.freeSlots.length === 0) open.push('freie Zeitfenster')
+  if (p.nutrition.cooksAtHome === null) open.push('Kochen')
+  if (p.nutrition.dietaryPattern === null) open.push('Ernährungsform')
+  if (p.sleep.usualBedtime === null) open.push('Schlafzeiten')
+  if (p.sleep.quality === null) open.push('Schlafqualität')
+  if (p.mind.screenTimeHoursPerDay === null) open.push('Bildschirmzeit')
+  if (p.mind.focusStruggle === null) open.push('Konzentration')
+  if (p.mind.existingRoutines.length === 0) open.push('bestehende Routinen')
+  if (input.goal.targetDate === null) open.push('Zieldatum')
+
+  return open
+}
+
+/** The mirror of openFields: everything the model must not ask about again. */
+export function knownFields(input: PlanInput): string[] {
+  const open = new Set(openFields(input))
+  return ALL_FIELDS.filter((field) => !open.has(field))
+}
+
+const ALL_FIELDS = [
+  'Leistungsstand', 'bevorzugte Sportarten', 'Arbeitsform', 'freie Zeitfenster',
+  'Kochen', 'Ernährungsform', 'Schlafzeiten', 'Schlafqualität',
+  'Bildschirmzeit', 'Konzentration', 'bestehende Routinen', 'Zieldatum',
+] as const
+
+export function questionsUserMessage(input: PlanInput): string {
+  const open = openFields(input)
+
+  return [
+    // The same coarsened picture the proposal gets. The question step must not
+    // be the back door through which exact times and counts leave the machine.
+    proposeUserMessage(input).replace(
+      'Entwirf zwei bis fünf Aktionen, die genau dieses Ziel bearbeiten. Keine Wochentage, keine Uhrzeiten.',
+      '',
+    ).trimEnd(),
+    '',
+    open.length > 0
+      ? `Offen geblieben ist: ${open.join(', ')}.`
+      : 'Er hat alles ausgefüllt, wonach das Onboarding fragt.',
+    '',
+    'Brauchst du etwas davon oder etwas ganz anderes, um für dieses Ziel besser zu planen? Wenn nicht, sag das — needsMore false, leere Liste.',
+  ].join('\n')
+}
+
 export function classifyUserMessage(rawText: string): string {
   return `Ziel des Nutzers: ${rawText.trim().slice(0, 500)}`
 }
@@ -176,11 +269,64 @@ export function proposeUserMessage(input: PlanInput): string {
     `- Schlaf: ${sleepPhrase(p.sleep.usualBedtime)}, Qualität ${p.sleep.quality ?? 'keine Angabe'}`,
     `- Kopf: Bildschirmzeit ${band(p.mind.screenTimeHoursPerDay, ['wenig', 'mittel', 'viel'], [3, 6])}, Fokus ${p.mind.focusStruggle ?? 'keine Angabe'}`,
     p.mind.existingRoutines.length > 0
-      ? `- Bestehende Routinen, an die sich anknüpfen lässt: ${p.mind.existingRoutines.join(', ')}`
+      ? `- Bestehende Routinen, an die sich anknüpfen lässt: ${p.mind.existingRoutines.map(coarsenRoutine).join(', ')}`
       : '- Keine bestehenden Routinen genannt.',
+    ...answered(input),
     '',
     'Entwirf zwei bis fünf Aktionen, die genau dieses Ziel bearbeiten. Keine Wochentage, keine Uhrzeiten.',
   ].join('\n')
+}
+
+/**
+ * What the model itself asked for, in its own words, with what came back.
+ *
+ * The point of the question step is lost if the answers do not reach the
+ * proposal — the person would have been interrupted for nothing. Skipped
+ * questions are included rather than dropped: "asked, chose not to say" tells
+ * the model something, and hiding it invites the same ground being covered
+ * again in the plan's reasoning.
+ */
+function answered(input: PlanInput): string[] {
+  const answers = input.intakeAnswers ?? []
+  if (answers.length === 0) return []
+
+  return [
+    '',
+    'Auf deine eigenen Rückfragen hat er geantwortet:',
+    ...answers.map((a) =>
+      a.answer === null
+        ? `- ${a.question} — übersprungen`
+        : `- ${a.question} — ${a.answer.slice(0, 200)}`,
+    ),
+  ]
+}
+
+
+/**
+ * A routine label with the clock taken out of it.
+ *
+ * The only free text in this message, and it was the one hole in the
+ * coarsening this file claims to do: people write "Kaffee um 6:45", and that
+ * is an exact daily timestamp leaving the machine — on a free tier, into
+ * somebody's training set. Caught by the test that asserts no `HH:MM` survives.
+ *
+ * The useful part is the anchor, not the minute: "there is a morning routine
+ * to hang something on" is what the model needs, and "6:45" tells it nothing
+ * more than "morgens" does. The hour is read before it is dropped, so the
+ * signal survives the redaction.
+ */
+function coarsenRoutine(label: string): string {
+  const trimmed = label.trim().slice(0, 60)
+  return trimmed.replace(/\b([01]?\d|2[0-3])[:.][0-5]\d\b/g, (_match, hour: string) =>
+    partOfDay(Number(hour)),
+  )
+}
+
+function partOfDay(hour: number): string {
+  if (hour < 11) return 'morgens'
+  if (hour < 15) return 'mittags'
+  if (hour < 19) return 'nachmittags'
+  return 'abends'
 }
 
 /** A number as one of three words, so no exact value leaves the machine. */

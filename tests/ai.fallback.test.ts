@@ -22,6 +22,9 @@ class FailingAdapter implements AiAdapter {
   async weeklyNote(): Promise<AiResult<never>> {
     return { ok: false, reason: this.reason, detail: 'simulated' }
   }
+  async askQuestions(): Promise<AiResult<never>> {
+    return { ok: false, reason: this.reason, detail: 'simulated' }
+  }
 }
 
 const FAILURES = ['timeout', 'invalid_json', 'schema_invalid', 'implausible', 'api_error'] as const

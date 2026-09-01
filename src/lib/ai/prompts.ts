@@ -7,6 +7,7 @@
 export const CLASSIFY_PROMPT_VERSION = 'classify-goal.v1'
 export const PROPOSE_PROMPT_VERSION = 'propose-plan.v1'
 export const WEEKLY_NOTE_PROMPT_VERSION = 'weekly-note.v1'
+export const QUESTIONS_PROMPT_VERSION = 'intake-questions.v1'
 
 export const CLASSIFY_SYSTEM = `Du ordnest Gesundheits- und Selbstverbesserungsziele einem von sieben Archetypen zu. Der Nutzer schreibt auf Deutsch, in eigenen Worten.
 
@@ -73,3 +74,34 @@ Harte Regeln. Eine Antwort, die eine davon verletzt, wird von der App verworfen:
 
 Format:
 {"hasSomethingToSay":true,"observation":"...","suggestion":"...","question":null,"basedOn":["checkin.note.2026-09-03","deviation.weekday.wed"]}`
+
+/**
+ * The one moment the model may ask instead of answer.
+ *
+ * Everything else in this file constrains what a model says. This constrains
+ * what it may *want to know* — and the hardest rule is the one telling it that
+ * asking nothing is the good outcome. A model handed a "you may ask questions"
+ * slot will fill it, so the prompt has to make the empty answer the
+ * respectable one and checkQuestions has to enforce it when the prompt fails.
+ */
+export const QUESTIONS_SYSTEM = `Bevor du fuer einen Menschen einen Plan entwirfst, darfst du hoechstens drei Dinge nachfragen. Du bekommst alles, was er im Onboarding angegeben hat, und eine Liste dessen, was er offen gelassen hat.
+
+Frag nur, was den Plan tatsaechlich veraendern wuerde. Der Normalfall ist, dass du nichts fragst: setz dann needsMore auf false und gib eine leere Liste. Eine Frage kostet diesen Menschen Aufmerksamkeit am Ende eines langen Formulars — sie muss sich lohnen.
+
+Harte Regeln. Eine Antwort, die eine davon verletzt, wird von der App verworfen:
+1. Antworte ausschliesslich mit JSON, ohne Text davor oder danach.
+2. Hoechstens drei Fragen. Weniger ist besser, keine ist oft am besten.
+3. Frag nie nach etwas, das in den gelieferten Angaben schon steht.
+4. Frag nie nach Name, Adresse, E-Mail, Telefonnummer, Geburtsdatum oder Versicherung. Die App gibt diese Daten nicht heraus, also darfst du sie auch nicht erfragen.
+5. Keine medizinischen Fragen: keine Diagnosen, keine Medikamente, keine Schwangerschaft, keine Therapie. Das aendert nichts an dem, was du planen darfst.
+6. Keine allgemeinen Fragen. "Was ist dein Ziel?", "Wie viel Zeit hast du?", "Wie wichtig ist dir das?" sind entweder schon beantwortet oder fuer jeden gleich.
+7. Zu jeder Frage sagst du in why, was die Antwort am Plan aendern wuerde. Faellt dir das nicht ein, ist es keine gute Frage.
+8. Gib zu jeder Frage bis zu vier kurze Antwortmoeglichkeiten zum Antippen. Das ist ein Handy. Sie sind Vorschlaege, keine abschliessende Liste.
+9. Jede Frage endet mit einem Fragezeichen und ist auf Deutsch, in Du-Form, in einem Satz.
+10. Frag nach Umstaenden und Vorlieben, nicht nach Zahlen. Rechnen macht die App.
+
+Format ohne Rueckfragen:
+{"needsMore":false,"questions":[]}
+
+Format mit Rueckfragen:
+{"needsMore":true,"questions":[{"question":"Hast du zu Hause Platz fuer eine Matte, oder faellt alles im Stehen an?","why":"Entscheidet, ob die Einheiten am Boden oder im Stehen aufgebaut werden.","options":["Platz fuer eine Matte","Nur im Stehen","Weiss nicht"]}]}`

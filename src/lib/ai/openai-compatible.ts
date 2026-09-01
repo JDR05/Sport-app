@@ -23,12 +23,13 @@
 // so the gate in front of it has to be exactly the same gate.
 
 import {
-  classifyTask, classifyUserMessage, proposeTask, proposeUserMessage, stripCodeFence,
+  classifyTask, classifyUserMessage, knownFields, proposeTask, proposeUserMessage,
+  questionsTask, questionsUserMessage, stripCodeFence,
   weeklyNoteTask, weeklyNoteUserMessage,
   type AiTask, type WeeklyNoteContext,
 } from './tasks'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
+import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 export type CompatibleConfig = {
@@ -71,6 +72,14 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
 
   async weeklyNote(context: WeeklyNoteContext): Promise<AiResult<WeeklyNote>> {
     return this.call(weeklyNoteTask, this.config.proposeModel, weeklyNoteUserMessage(context))
+  }
+
+  async askQuestions(input: PlanInput): Promise<AiResult<IntakeQuestions>> {
+    return this.call(
+      questionsTask(knownFields(input)),
+      this.config.proposeModel,
+      questionsUserMessage(input),
+    )
   }
 
   private async call<T>(task: AiTask<T>, model: string, user: string): Promise<AiResult<T>> {

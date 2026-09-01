@@ -12,9 +12,10 @@
 // AI layer classifies instead and this stays as the fallback.
 
 import { useMemo, useState } from 'react'
-import { completeOnboarding } from './actions'
+import { completeOnboarding, finishOnboarding } from './actions'
 import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { AiConsent, type ConsentView } from '@/components/AiConsent'
+import { IntakeQuestionsStep } from './IntakeQuestionsStep'
 import {
   ChoiceGroup, DateInput, Field, MultiChoice, NumberInput, StepProgress, TextArea, TimeInput,
 } from '@/components/form'
@@ -24,7 +25,8 @@ import { addDays } from '@/lib/engine/dates'
 import { EMPTY, SLOT_START, toDraft, type Draft } from './draft'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
 import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
-import type { GoalMetric, Weekday } from '@/lib/domain/types'
+import type { GoalMetric, IntakeAnswer, Weekday } from '@/lib/domain/types'
+import type { IntakeQuestion } from '@/lib/ai/schemas'
 
 const WEEKDAY_SHORT: Record<Weekday, string> = {
   mon: 'Mo', tue: 'Di', wed: 'Mi', thu: 'Do', fri: 'Fr', sat: 'Sa', sun: 'So',
@@ -167,6 +169,9 @@ export function OnboardingForm({
   // Mirrors what the server stored, so the step can say which classifier will
   // answer before anybody presses anything.
   const [ai, setAi] = useState({ granted: consent.granted, pending: false })
+  // Null until the intake has been saved and the model has been asked. An
+  // empty array never lands here — that path goes straight to the plan.
+  const [questions, setQuestions] = useState<IntakeQuestion[] | null>(null)
   const archetype = d.archetype ?? aiArchetype ?? detected.archetype
   const metricSpec = METRIC_FOR[archetype]
 
@@ -185,10 +190,33 @@ export function OnboardingForm({
       archetype,
       d.archetype !== null ? 'user' : aiArchetype ? 'ai' : 'keywords',
     )
-    // On success the action redirects, so nothing after this runs. A returned
-    // value means it refused, and the person stays on the last step with their
+    // Saves and asks the model what it still wants to know. A returned error
+    // means it refused, and the person stays on the last step with their
     // answers intact rather than losing ten minutes of typing.
     const result = await completeOnboarding(payload)
+    if ('error' in result) {
+      setSaving(false)
+      setSaveError(result.error)
+      return
+    }
+
+    // No questions is the normal case, and it must not cost an extra tap: go
+    // straight on to the plan, exactly as this button did before.
+    if (result.questions.length === 0) {
+      await submitAnswers([])
+      return
+    }
+
+    setSaving(false)
+    setQuestions(result.questions)
+  }
+
+  /** The second half. Also the path taken when there was nothing to ask. */
+  const submitAnswers = async (given: IntakeAnswer[]) => {
+    setSaving(true)
+    setSaveError(null)
+    // Redirects on success, so nothing after this runs.
+    const result = await finishOnboarding(given)
     setSaving(false)
     if (result && 'error' in result) setSaveError(result.error)
   }
@@ -228,6 +256,21 @@ export function OnboardingForm({
       setClassifying(false)
       setStep(step + 1)
     }
+  }
+
+  // Takes over the screen rather than becoming an eleventh step. The intake is
+  // already saved at this point, so the step counter would be lying, and going
+  // "back" from here would offer to re-run a form whose answers are in the
+  // database.
+  if (questions !== null) {
+    return (
+      <IntakeQuestionsStep
+        questions={questions}
+        onDone={submitAnswers}
+        saving={saving}
+        error={saveError}
+      />
+    )
   }
 
   return (

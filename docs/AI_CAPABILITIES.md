@@ -42,7 +42,7 @@ hineinpassen, ob dazwischen genug Erholung liegt — das entscheidet die Engine,
 Grenzen kennt. Damit behält die Sicherheitsarchitektur jede Eigenschaft, die sie heute hat,
 und die KI bekommt trotzdem echten Spielraum.
 
-## Die vier Hebel
+## Die sechs Hebel
 
 ### 1 · Zielspur-Aktionen erfinden
 
@@ -85,6 +85,37 @@ plausibel wäre. Welche Regeln daraus überhaupt werden können, bleibt auf die 
 mechanischen Schlüssel begrenzt (ADR-032): Ein gelerntes Verhalten darf einen Plan nur
 verkleinern oder verschieben, nie vergrößern.
 
+### 5 · Nachfragen, bevor sie plant
+
+Das Onboarding stellt allen dieselben Fragen. Das ist richtig — die Engine braucht dieselben
+Felder von jedem — aber es heißt auch, dass die App genau das erfährt, was jemand vorher als
+wichtig aufgeschrieben hat. Für „5 kg abnehmen" reicht das. Für „ich will wieder zeichnen
+können, ohne dass mein Rücken nach zwanzig Minuten dicht macht" reicht es nicht, und kein
+Formular hätte die passende Frage vorgesehen.
+
+Also sieht das Modell einmal das ganze Intake und darf bis zu **drei** Dinge nachfragen. Es
+bekommt dazu eine deterministisch erzeugte Liste dessen, was offen geblieben ist — sonst
+fragt es nach etwas, das schon in der Datenbank steht, was der schnellste Weg ist, eine App
+so wirken zu lassen, als hätte sie nicht zugehört.
+
+**Der Normalfall ist, dass es nichts fragt.** Ein Modell, dem man einen „du darfst
+fragen"-Platz hinstellt, füllt ihn, und drei Pflichtfragen am Ende eines zehnminütigen
+Formulars sind die Stelle, an der Leute aussteigen. Deshalb macht der Prompt die leere
+Antwort zur respektablen, und `checkQuestions` verwirft `needsMore: false` mit einer
+nichtleeren Liste als Widerspruch. Jede Frage ist überspringbar; eine übersprungene Antwort
+ist `unknown`, und `unknown` ist überall sonst in diesem Produkt ein gültiger Zustand.
+
+Nicht fragen darf es nach Identität und Kontakt (der Einwilligungstext verspricht, dass Name,
+E-Mail und Geburtsdatum die App nicht verlassen — das muss auch auf dem Rückweg gelten) und
+nach Medizinischem. Siehe ADR-084.
+
+### 6 · Einmal pro Woche etwas sagen
+
+Der Wochenimpuls: eine Beobachtung, ein Vorschlag, höchstens eine Rückfrage — aus den echten
+Daten dieser Woche, einschließlich der Check-in-Notizen, die sonst nichts liest. Schweigen ist
+ein reguläres Ergebnis, und `checkWeeklyNote` verwirft, was für einen fremden Menschen genauso
+gälte. Siehe ADR-082.
+
 ## Was die KI weiterhin nicht darf
 
 Unverändert gegenüber `CLAUDE.md`:
@@ -96,6 +127,9 @@ Unverändert gegenüber `CLAUDE.md`:
 - Eine Metrikklasse setzen
 - Eine Sicherheitsgrenze umgehen — der Plan wird gebaut und geprüft, nicht bewertet
 - Ergebnisse als sicher darstellen
+- Nach Name, Adresse, E-Mail, Telefonnummer, Geburtsdatum oder Versicherung fragen
+- Medizinische Fragen stellen (Diagnosen, Medikamente, Schwangerschaft, Therapie)
+- Ohne ausdrückliche Einwilligung überhaupt aufgerufen werden (ADR-083)
 
 ## Ohne API-Key
 

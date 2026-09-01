@@ -7,7 +7,7 @@
 // Violations are rejected, never repaired. Silently fixing a bad proposal
 // would hide that the model produced one.
 
-import type { GoalClassification, WeeklyNote } from './schemas'
+import type { GoalClassification, IntakeQuestions, WeeklyNote } from './schemas'
 
 export type Violation = { rule: string; detail: string }
 
@@ -173,6 +173,115 @@ export function checkClassification(value: GoalClassification): Violation[] {
       rule: 'metric_pair',
       detail: `metricKey=${value.metricKey} unit=${value.unit}`,
     })
+  }
+
+  return violations
+}
+
+// ------------------------------------------------- what it may not ask for ---
+
+/**
+ * Identity, contact details, and anything that turns an intake into a file.
+ *
+ * The consent text (ADR-083) promises that no name, e-mail address or date of
+ * birth leaves the app. A question is the one place the model could ask for
+ * exactly those and have the person type them in — after which they would be
+ * in the answer, and the answer goes back to the model with the next request.
+ * The promise has to be enforced on the way out too, not only on the way in.
+ */
+const IDENTITY = [
+  /\bwie hei(ß|ss)t du\b/i, /\bdein\w*\s+(name|nachname|vorname)\b/i,
+  /\be-?mail/i, /\btelefon/i, /\bhandynummer\b/i, /\badresse\b/i,
+  /\bwo (wohnst|lebst) du\b/i, /\bgeburtsdatum\b/i, /\bgeboren\b/i,
+  /\bpostleitzahl\b/i, /\bversicher(t|ung)\b/i,
+]
+
+/**
+ * Questions that ask a person to diagnose themselves.
+ *
+ * "Hast du eine Essstörung?", "Nimmst du Antidepressiva?" — a model has no
+ * business asking, this app has no business storing the answer, and the answer
+ * would not change a plan it is allowed to build anyway. MEDICAL catches the
+ * vocabulary; these catch the question forms that avoid it.
+ */
+const MEDICAL_QUESTION = [
+  /\b(hast|hattest) du (schon mal )?(eine|ein|einen)\s+\S*(störung|erkrankung|diagnose)/i,
+  /\bnimmst du\b.{0,30}\b(tabletten|medikamente|mittel)\b/i,
+  /\bbist du (schwanger|krank|depressiv|magersüchtig)\b/i,
+  /\bin (therapie|behandlung)\b/i,
+]
+
+/**
+ * Questions any app could ask anybody.
+ *
+ * The whole justification for interrupting somebody at the end of a long
+ * intake is that the model found a specific gap. "Was ist dein Ziel?" is not a
+ * gap — it is the first thing they typed. A generic question is worse than no
+ * question, because it spends the one moment of attention this step gets.
+ */
+const GENERIC_QUESTION = [
+  /\bwas (ist|sind) dein\w*\s+(ziel|wunsch|traum)/i,
+  /\bwie geht('|e)?s dir\b/i,
+  /\bwas motiviert dich\b/i,
+  /\bwie (wichtig|ernst) ist dir\b/i,
+  /\bbist du bereit\b/i,
+  /\bwie viel zeit hast du\b/i,
+]
+
+/**
+ * Plausibility for the questions asked before a plan is built.
+ *
+ * @param known plain-language names of things the person already answered.
+ *   Re-asking is not a safety problem but it is the fastest way to make the
+ *   app feel like it was not listening — and it is the specific failure a
+ *   model is most prone to here, because the intake it is shown is coarsened
+ *   and a coarse answer reads like a missing one.
+ */
+export function checkQuestions(value: IntakeQuestions, known: string[] = []): Violation[] {
+  const violations: Violation[] = []
+
+  // The two halves have to agree. A model that says it needs nothing and then
+  // asks three questions has not understood what it was asked, and taking
+  // either half on its own would be picking the answer we prefer.
+  if (!value.needsMore && value.questions.length > 0) {
+    violations.push({
+      rule: 'contradicts_itself',
+      detail: `needsMore is false but ${value.questions.length} questions were asked`,
+    })
+  }
+  if (value.needsMore && value.questions.length === 0) {
+    violations.push({ rule: 'contradicts_itself', detail: 'needsMore is true with no question' })
+  }
+
+  for (const [index, q] of value.questions.entries()) {
+    const where = `question[${index}]`
+    const texts = [q.question, q.why, ...q.options]
+
+    for (const text of texts) {
+      violations.push(...scan(text, IDENTITY, 'no_identity_data'))
+      violations.push(...scan(text, MEDICAL, 'no_medical_questions'))
+      violations.push(...scan(text, MEDICAL_QUESTION, 'no_medical_questions'))
+      violations.push(...scan(text, RESTRICTIVE, 'additive_only'))
+      violations.push(...scan(text, SLEEP_REDUCTION, 'never_less_sleep'))
+    }
+
+    violations.push(...scan(q.question, GENERIC_QUESTION, 'not_generic'))
+
+    // A question is only worth asking if the model can say what the answer
+    // would change. Without that the screen has nothing honest to show under
+    // it, and the person is being asked to trust a form.
+    if (!q.question.trim().endsWith('?')) {
+      violations.push({ rule: 'must_be_a_question', detail: `${where}: no question mark` })
+    }
+
+    const asked = q.question.toLowerCase()
+    const repeat = known.find((field) => asked.includes(field.toLowerCase()))
+    if (repeat !== undefined) {
+      violations.push({
+        rule: 'asks_what_it_knows',
+        detail: `${where}: "${repeat}" was already answered`,
+      })
+    }
   }
 
   return violations

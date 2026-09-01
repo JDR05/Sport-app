@@ -110,8 +110,37 @@ async function main(): Promise<void> {
     }
   }
 
-  const ok = classified.ok && proposed.ok
-  console.log(`\n${ok ? '✓ Beide Aufrufe haben funktioniert.' : '✗ Mindestens ein Aufruf ist gescheitert — siehe oben.'}\n`)
+  console.log('\n── Test 3: Rückfragen vor dem Plan ────────────────────────')
+  // Two intakes on purpose. The interesting number is not whether the model
+  // *can* ask — any model will — but whether it keeps quiet when there is
+  // nothing to ask about. A model that asks three questions of a complete
+  // intake makes the onboarding longer for everyone and is the wrong model
+  // for this job, however good its questions read.
+  const { incompleteInput } = await import('../tests/fixtures/profiles')
+  const cases: Array<[string, Parameters<typeof adapter.askQuestions>[0]]> = [
+    ['vollständiges Onboarding', makeInput(PROFILES[0], GOALS[3])],
+    ['abgebrochenes Onboarding', incompleteInput],
+  ]
+
+  let asked = true
+  for (const [label, input] of cases) {
+    const questions = await adapter.askQuestions(input)
+    if (!questions.ok) {
+      asked = false
+      console.log(`  ✗ ${label}: ${questions.reason} — ${questions.detail}`)
+      if (questions.reason === 'implausible') {
+        console.log('    Die Frage hat die Prüfung nicht bestanden (Identität, Medizin oder zu allgemein).')
+      }
+      continue
+    }
+    const list = questions.value.questions
+    console.log(`  ✓ ${label}: ${list.length === 0 ? 'keine Rückfrage' : `${list.length} Rückfrage(n)`}`)
+    for (const q of list) console.log(`    · ${q.question}\n      → ${q.why}`)
+  }
+  console.log('    Erwartung: beim vollständigen Onboarding eher keine, beim abgebrochenen eher welche.')
+
+  const ok = classified.ok && proposed.ok && asked
+  console.log(`\n${ok ? '✓ Alle Aufrufe haben funktioniert.' : '✗ Mindestens ein Aufruf ist gescheitert — siehe oben.'}\n`)
   process.exit(ok ? 0 : 1)
 }
 

@@ -4,7 +4,7 @@
 // Claude adapter, and a null adapter used to prove the product works with no AI
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
-import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
+import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { WeeklyNoteContext } from './tasks'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -44,6 +44,16 @@ export interface AiAdapter {
    * simply does not appear and the deterministic insights stand alone.
    */
   weeklyNote(context: WeeklyNoteContext): Promise<AiResult<WeeklyNote>>
+  /**
+   * What the model would like to know before it plans — the one call where it
+   * asks rather than answers.
+   *
+   * Also has no deterministic stand-in, and for a sharper reason than the
+   * weekly note: a fixed list of questions is what the onboarding already is.
+   * Asking the same three extra questions of everybody would be a longer form,
+   * not a model noticing a gap.
+   */
+  askQuestions(input: PlanInput): Promise<AiResult<IntakeQuestions>>
 }
 
 export type AiConfig = {

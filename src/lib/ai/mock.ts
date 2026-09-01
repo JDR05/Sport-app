@@ -7,7 +7,7 @@
 
 import { classifyGoalText } from '@/lib/engine'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
+import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
   body_composition: { key: 'weight_kg', unit: 'kg' },
@@ -75,6 +75,18 @@ export class MockAdapter implements AiAdapter {
   async weeklyNote(): Promise<AiResult<WeeklyNote>> {
     return { ok: false, reason: 'disabled', detail: 'no deterministic stand-in for advice' }
   }
+
+  /**
+   * Asks nothing, deliberately.
+   *
+   * A deterministic set of extra questions is just a longer onboarding form —
+   * the same three asked of everybody, which is the opposite of a model
+   * noticing a gap in this particular intake. Without a key the intake is what
+   * it is, and the archetypes plan from it. ADR-084.
+   */
+  async askQuestions(): Promise<AiResult<IntakeQuestions>> {
+    return { ok: false, reason: 'no_api_key', detail: 'a fixed question list is just a longer form' }
+  }
 }
 
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
@@ -106,6 +118,9 @@ export class NullAdapter implements AiAdapter {
   async weeklyNote(): Promise<AiResult<WeeklyNote>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
+  async askQuestions(): Promise<AiResult<IntakeQuestions>> {
+    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
+  }
 }
 
 /**
@@ -130,6 +145,9 @@ export class WithheldAdapter implements AiAdapter {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
   async weeklyNote(): Promise<AiResult<WeeklyNote>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async askQuestions(): Promise<AiResult<IntakeQuestions>> {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
 }
