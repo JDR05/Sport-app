@@ -113,11 +113,12 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
     }
 
     if (!response.ok) {
-      // 401 and 403 are a misconfigured key, which is worth telling apart from
-      // a provider having a bad day — the first never fixes itself.
-      const reason = response.status === 401 || response.status === 403 ? 'no_api_key' : 'api_error'
       const body = await response.text().catch(() => '')
-      return { ok: false, reason, detail: `${response.status}: ${body.slice(0, 200)}` }
+      return {
+        ok: false,
+        reason: rejectedKey(response.status, body) ? 'no_api_key' : 'api_error',
+        detail: `${response.status}: ${body.slice(0, 200)}`,
+      }
     }
 
     let payload: ChatCompletion
@@ -156,4 +157,20 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
     }
     return { ok: true, value: result.value, source: 'ai' }
   }
+}
+
+/**
+ * A key the provider will not accept, told apart from a provider having a bad
+ * day. The first never fixes itself; the second is worth falling back from
+ * quietly and trying again next time.
+ *
+ * 401 and 403 are the documented answers. Gemini's OpenAI-compatible endpoint
+ * returns **400** with "Please pass a valid API key" instead, which was found
+ * by pointing the check script at it with a deliberately wrong key — so a
+ * mistyped Gemini key was being reported as a transient outage. The body test
+ * is narrow on purpose: a 400 about anything else really is a bad request.
+ */
+function rejectedKey(status: number, body: string): boolean {
+  if (status === 401 || status === 403) return true
+  return status === 400 && /api[\s_-]?key/i.test(body)
 }

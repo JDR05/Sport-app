@@ -146,6 +146,34 @@ describe('a provider that is having a bad day', () => {
     expect(b.ok === false && b.reason).toBe('api_error')
   })
 
+  it('recognises a rejected key even when it arrives as a 400', async () => {
+    // Found by pointing the check script at Gemini with a deliberately wrong
+    // key: its OpenAI-compatible endpoint answers 400 "Please pass a valid API
+    // key" rather than 401. Without this, a mistyped key looked like a
+    // transient outage — something the app would keep retrying for ever.
+    const gemini = new OpenAiCompatibleAdapter(config, (async () =>
+      new Response(
+        JSON.stringify({ error: { code: 400, message: 'Please pass a valid API key' } }),
+        { status: 400 },
+      )) as typeof fetch)
+
+    const result = await gemini.classifyGoal('x')
+    expect(result.ok === false && result.reason).toBe('no_api_key')
+  })
+
+  it('still calls an ordinary bad request a bad request', async () => {
+    // The body test has to stay narrow: a 400 about a parameter is not a key
+    // problem, and calling it one would send someone hunting the wrong thing.
+    const badParam = new OpenAiCompatibleAdapter(config, (async () =>
+      new Response(
+        JSON.stringify({ error: { message: 'Unknown field: response_format' } }),
+        { status: 400 },
+      )) as typeof fetch)
+
+    const result = await badParam.classifyGoal('x')
+    expect(result.ok === false && result.reason).toBe('api_error')
+  })
+
   it('reports a rate limit as an ordinary failure, not a crash', async () => {
     // The one every free tier hits. It must fall back, quietly.
     const limited = new OpenAiCompatibleAdapter(config, (async () =>
