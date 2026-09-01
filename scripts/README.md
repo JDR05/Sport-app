@@ -9,3 +9,19 @@ Entwicklungs-, Seed- und Testskripte.
 ```bash
 bash scripts/verify-local.sh
 ```
+
+## verify_rls_isolation.sql
+
+Mandantentrennung an einer echten Datenbank: zwei Nutzer, alle 13 Tabellen, lesend **und**
+schreibend. `verify_schema.sql` beweist, dass die Policies da sind — dieses Skript beweist,
+dass sie halten.
+
+```bash
+psql "$LOCAL_URL" -f scripts/verify_rls_isolation.sql
+```
+
+Gegen das gehostete Projekt: in den Supabase-SQL-Editor einfügen. Läuft komplett in einer
+Transaktion mit `rollback` und ist damit auch gegen eine Datenbank mit echten Daten sicher.
+
+Nach jeder Migration, die eine Policy berührt, erneut laufen lassen. Die letzte Zeile nennt
+die Zahl der Fehler; alles außer `0` ist ein Befund.

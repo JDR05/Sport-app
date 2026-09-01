@@ -7,6 +7,43 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-081: RLS gegen das gehostete Projekt geprüft, mit zwei Nutzern
+
+**Entscheidung:** `scripts/verify_rls_isolation.sql` prüft die Mandantentrennung an einer
+echten Datenbank: zwei Nutzer, alle 13 Tabellen, lesend und schreibend. Ausgeführt gegen das
+Produktivprojekt `life-system` am 1. September 2026 — **31 Prüfungen, 0 Fehler**. Erfüllt den
+seit Schritt 3 offenen Punkt.
+
+**Begründung:** Die Policies existierten und `verify_schema.sql` bestätigte, dass sie da sind.
+Ob sie *halten*, hatte niemand je nachgesehen. Vor einem öffentlichen Start mit fremden
+Gesundheitsdaten ist das der Unterschied zwischen „sollte passen" und „geprüft".
+
+Zwei **Kontrollprüfungen** sind wichtiger als die Isolationsprüfungen selbst, und sie stehen
+deshalb im Skript ganz vorn:
+
+- `Impersonierung greift` — hätte `set local request.jwt.claims` still nichts getan, wäre
+  `auth.uid()` null gewesen, jedes „sieht nichts" wäre trivial wahr, und das Skript hätte
+  einen Erfolg gemeldet, ohne irgendetwas zu beweisen.
+- Die **Gegenproben** — RLS, die *alles* blockt, besteht jeden Isolationstest und wäre eine
+  App, die ihre eigenen Zeilen nicht lesen kann. Ein Sicherheitstest ohne sie ist ein halber.
+
+Geprüft wurde außerdem der subtile Fall, den eine UPDATE-Policy ohne `WITH CHECK` durchlässt:
+die eigene Zeile behalten, aber einem anderen Profil zuschieben. Abgewiesen (42501).
+
+Ein früherer Lauf meldete an einer Stelle fälschlich „App wäre kaputt": der Fehler war
+`23505`, eine Unique-Verletzung des partiellen Index „ein aktives Ziel pro Profil" — also eine
+Produktregel, die korrekt zuschlug, und nicht RLS. Der Testfall war falsch, nicht die App.
+Deshalb prüft das Skript jetzt die **Fehlerklasse** und nicht nur, dass etwas scheiterte.
+
+Alles läuft in einer Transaktion mit `rollback`; die Datenbestände des Product Owners (1
+Profil, 4 Ziele, 57 Aktionen, 3 Check-ins) waren davor und danach identisch, ohne Testreste.
+Migrationsstand geprüft: 17 im Repo, 17 angewendet, kein Drift.
+
+Der Supabase-Sicherheitsberater meldet eine einzige Warnung, `auth_leaked_password_protection`.
+Die ist bewusst offen: dieselbe Prüfung baut ADR-040 selbst, weil sie im kostenlosen Plan fehlt.
+
+---
+
 ## 2026-09-01 — ADR-080: Ein Adapter für jeden OpenAI-kompatiblen Anbieter
 
 **Entscheidung:** Neben Claude gibt es `OpenAiCompatibleAdapter` — ein `fetch` gegen
