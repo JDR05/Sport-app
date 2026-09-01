@@ -112,6 +112,7 @@ describe('without a model', () => {
   it('never throws, whatever the adapter does', async () => {
     const exploding = {
       name: 'boom',
+      usesModel: true,
       classifyGoal: async () => {
         throw new Error('nope')
       },

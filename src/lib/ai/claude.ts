@@ -23,6 +23,7 @@ import type { PlanInput } from '@/lib/domain/types'
 
 export class ClaudeAdapter implements AiAdapter {
   readonly name = 'claude'
+  readonly usesModel = true
   private client: Anthropic
   private config: AiConfig
 

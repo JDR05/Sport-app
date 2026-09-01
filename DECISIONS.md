@@ -7,6 +7,45 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-088: Zwei Fehler, die nur ein echter Anbieter zeigen konnte
+
+**Entscheidung:** `AiAdapter` bekommt `usesModel`, und `classifyGoal` entscheidet daran statt am
+Namen. Das Budget für die Rückfragen steigt von 8 s auf 20 s.
+
+**Begründung:** Der erste Aufruf, der komplett durchlief, hat beides sichtbar gemacht — und
+beide waren gegen den Mock unsichtbar.
+
+**1. Ein erfolgreicher Aufruf wurde als Rückfall gemeldet.** Die Zeile hieß
+`primary.name === 'claude' ? 'ai' : 'fallback'` — geschrieben, als Claude der einzige echte
+Adapter war. Der kompatible Adapter nennt sich nach dem Anbieter, also `gemini`. Damit galt
+jede **erfolgreiche** Gemini-Einordnung als Rückfall: `reclassify` schrieb nicht,
+`classified_by` blieb `keywords`, und die App behauptete auf dem Bildschirm, sie habe das
+Modell nicht benutzt, das sie gerade benutzt hatte. Logs und Datenbank widersprachen sich —
+keine Warnzeile für `classify`, trotzdem `keywords` in der Zeile. Genau dieser Widerspruch
+war der Hinweis.
+
+Der Name ist kein Typ. `usesModel` fragt, was der Adapter *ist*. Die deterministischen Adapter
+setzen es auf `false`, obwohl ihre Einordnung gelingt: ein Treffer in einer Wortliste ist eine
+echte Antwort, aber nicht das Modell — und der Bildschirm sagt, welche von beiden man vor sich
+hat.
+
+**2. Das Rückfragen-Budget schnitt genau den Schritt ab, um den es geht.** 8 s, begründet
+damit, dass eine Frage nach langem leeren Bildschirm schlechter ist als keine Frage. Gegen
+einen echten Anbieter gemessen war das falsch: die Rückfragen liefen bei exakt 8 000 ms in den
+Timeout, während der **Planvorschlag im selben Request** nach etwa zwölf Sekunden zurückkam und
+funktionierte. Abgeschnitten wurde also ausgerechnet der Teil, der das Feature ausmacht — und
+von außen sah es aus wie ein Modell, das nichts zu fragen hatte. Das ist laut Entwurf der
+Normalfall, also wirkte nichts kaputt. Ein Fehler, der sich als beabsichtigtes Verhalten
+tarnt, ist der teuerste.
+
+Wer „Plan erstellen" tippt, wartet ohnehin bewusst. Die Frage ist ihm die Sekunden wert.
+
+**Was daraus folgt:** Diese beiden waren gegen den Mock-Adapter grün und gegen den echten
+Anbieter falsch. `npm run ai:check` existiert genau dafür und war ungenutzt, weil der Key nur
+in Vercel lag. Vor dem nächsten Schritt an der KI gehört er lokal in `.env.local`.
+
+---
+
 ## 2026-09-01 — ADR-087: Eine kaputte Konfiguration darf nicht wie ein Anbieterfehler aussehen
 
 **Entscheidung:** `AI_TIMEOUT_MS` wird validiert, statt durch `Number()` gereicht zu werden. Ein

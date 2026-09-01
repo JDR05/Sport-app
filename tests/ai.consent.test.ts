@@ -7,7 +7,9 @@
 // declining would cost the product rather than the model.
 
 import { describe, expect, it } from 'vitest'
-import { classifyGoal, createAdapter, providerName, readConfig, timeoutFrom, WithheldAdapter } from '@/lib/ai'
+import {
+  classifyGoal, createAdapter, MockAdapter, providerName, readConfig, timeoutFrom, WithheldAdapter,
+} from '@/lib/ai'
 import type { AiAdapter } from '@/lib/ai'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -198,5 +200,46 @@ describe('a timeout a typo cannot break', () => {
       // downgrade the app to the no-model path either.
       expect(adapter.name).toBe('compatible')
     })
+  })
+})
+
+describe('who counts as having used the model', () => {
+  // The bug: `source` was decided by `primary.name === 'claude'`, written when
+  // Claude was the only real adapter. The compatible adapter names itself after
+  // the provider, so a *successful* Gemini classification was reported as a
+  // fallback — the goal stayed marked 'keywords' in the database, and the app
+  // told the person it had not used the model it had just used.
+
+  const answering = (): AiAdapter => ({
+    name: 'gemini',
+    usesModel: true,
+    classifyGoal: async () => ({
+      ok: true as const,
+      source: 'ai' as const,
+      value: {
+        archetype: 'endurance',
+        confidence: 0.9,
+        metricKey: 'distance_km',
+        unit: 'km',
+        restated: 'Zehn Kilometer am Stück laufen',
+        reasoning: 'Der Zieltext nennt eine Laufdistanz.',
+      },
+    }),
+    proposePlan: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+    weeklyNote: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+    askQuestions: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+  })
+
+  it('credits a provider that is not Claude', async () => {
+    const classified = await classifyGoal('Ich will 10 km laufen', answering())
+    expect(classified.source).toBe('ai')
+  })
+
+  it('still does not credit the word list, which also succeeds', async () => {
+    // MockAdapter.classifyGoal returns ok:true — a keyword match is a real
+    // answer. It is just not the model, and the screen says which one the
+    // person is looking at.
+    const classified = await classifyGoal('Ich will 10 km laufen', new MockAdapter())
+    expect(classified.source).toBe('fallback')
   })
 })

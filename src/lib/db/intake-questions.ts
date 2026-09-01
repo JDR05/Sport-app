@@ -21,13 +21,20 @@ import type { IntakeAnswer, PlanInput } from '@/lib/domain/types'
 /**
  * How long the model gets before the app moves on without it.
  *
- * Much shorter than the proposal budget, because this call sits between a
- * person pressing a button and their plan appearing. A question that arrives
- * after twelve seconds of blank screen is worse than no question — and no
- * question is a perfectly good outcome anyway, which is what makes cutting it
- * short honest rather than a compromise.
+ * Was 8 s, on the reasoning that a question arriving after a long blank screen
+ * is worse than no question. Measured against a real provider that reasoning
+ * was wrong in a way that mattered: the questions call timed out at exactly
+ * 8 000 ms while the proposal, in the same request, came back after about
+ * twelve seconds and worked. So the step that is the whole point of asking was
+ * the only one being cut off, and it looked from outside like a model that had
+ * nothing to ask — which is precisely the outcome the design says is normal, so
+ * nothing looked broken.
+ *
+ * The budget now matches the proposal's. A person who tapped "Plan erstellen"
+ * is already waiting on purpose, and the question is worth more to them than
+ * the seconds it costs.
  */
-const QUESTION_BUDGET_MS = 8_000
+const QUESTION_BUDGET_MS = 20_000
 
 /**
  * Asks once per goal. Returns the questions, or an empty list.

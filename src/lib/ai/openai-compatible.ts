@@ -51,6 +51,7 @@ type ChatCompletion = {
 
 export class OpenAiCompatibleAdapter implements AiAdapter {
   readonly name: string
+  readonly usesModel = true
   private config: CompatibleConfig
   private fetchImpl: typeof fetch
 

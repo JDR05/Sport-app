@@ -205,7 +205,12 @@ export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promis
   const result = await primary.classifyGoal(rawText)
 
   if (result.ok) {
-    return { value: result.value, source: primary.name === 'claude' ? 'ai' : 'fallback' }
+    // Asks what the adapter is, not what it is called. This read
+    // `primary.name === 'claude'`, from when Claude was the only real adapter
+    // — so a successful Gemini classification was reported as a fallback, the
+    // goal stayed 'keywords' in the database, and the app claimed not to have
+    // used the model it had just used.
+    return { value: result.value, source: primary.usesModel ? 'ai' : 'fallback' }
   }
 
   const fallback = await new MockAdapter().classifyGoal(rawText)

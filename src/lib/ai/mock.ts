@@ -21,6 +21,7 @@ const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
 
 export class MockAdapter implements AiAdapter {
   readonly name = 'mock'
+  readonly usesModel = false
 
   async classifyGoal(rawText: string): Promise<AiResult<GoalClassification>> {
     const result = classifyGoalText(rawText)
@@ -92,6 +93,7 @@ export class MockAdapter implements AiAdapter {
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
 export class NullAdapter implements AiAdapter {
   readonly name = 'null'
+  readonly usesModel = false
   async classifyGoal(): Promise<AiResult<GoalClassification>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
@@ -138,6 +140,7 @@ export class NullAdapter implements AiAdapter {
  */
 export class WithheldAdapter implements AiAdapter {
   readonly name = 'withheld'
+  readonly usesModel = false
   async classifyGoal(): Promise<AiResult<GoalClassification>> {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }

@@ -28,6 +28,21 @@ export type AiFailure =
 
 export interface AiAdapter {
   readonly name: string
+  /**
+   * Whether a real model answers, or a word list does.
+   *
+   * Needed because `name` was standing in for it — `name === 'claude'` was the
+   * test for "the AI answered", written when Claude was the only real adapter.
+   * The compatible adapter's name is the provider's label, so every successful
+   * Gemini classification was reported as a fallback: the goal stayed marked
+   * "ohne KI erkannt" in the database and on screen, and the app told people it
+   * had not used the model it had just used.
+   *
+   * The deterministic adapters set this to false even though their
+   * classification succeeds — a keyword match is a real answer, but it is not
+   * the model, and the screen says which one the person is looking at.
+   */
+  readonly usesModel: boolean
   classifyGoal(rawText: string): Promise<AiResult<GoalClassification>>
   /**
    * Actions for the plan itself — the lever from ADR-041. Takes the input

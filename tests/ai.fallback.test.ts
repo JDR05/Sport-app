@@ -15,6 +15,7 @@ class FailingAdapter implements AiAdapter {
   }
 
   readonly name = 'claude'
+  readonly usesModel = true
   constructor(private reason: 'timeout' | 'invalid_json' | 'schema_invalid' | 'implausible' | 'api_error') {}
   async classifyGoal(): Promise<AiResult<GoalClassification>> {
     return { ok: false, reason: this.reason, detail: 'simulated' }
