@@ -303,6 +303,25 @@ describe('an answer the model itself does not believe', () => {
     askQuestions: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
   })
 
+  it('does not run the gate against the deterministic classifier', async () => {
+    // classifyGoalText reports 0.2 when no keyword matched, which is the
+    // product's ordinary general_health case. Running that through the gate
+    // told people the answer had failed a safety check when nothing had been
+    // sent anywhere at all.
+    const classified = await classifyGoal('Ich will einfach ausgeglichener sein', new MockAdapter())
+    expect(classified.value.archetype).toBe('general_health')
+    expect(classified.fallbackReason).toBeUndefined()
+  })
+
+  it('names low confidence as itself, not as a failed safety check', async () => {
+    // 'implausible' means the answer was refused by checkClassification.
+    // A model being honest about an ambiguous goal — which CLASSIFY_SYSTEM
+    // explicitly asks for — is not that, and the two need different words
+    // because they need different responses from the person reading them.
+    const classified = await classifyGoal('irgendwas mit Gesundheit', sure(0.05))
+    expect(classified.fallbackReason).toBe('low_confidence')
+  })
+
   it('falls back when the model reports low confidence', async () => {
     // The schema has documented this since it was written and nothing read the
     // field, so a model answering 0.05 was adopted and stored as

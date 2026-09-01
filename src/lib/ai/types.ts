@@ -25,6 +25,10 @@ export type AiFailure =
   // nothing was sent. Distinct from 'disabled' so the app can say which of
   // the two it is, and offer the checkbox rather than a shrug.
   | 'no_consent'
+  // The model answered and said it was unsure. Not a fault and not a failed
+  // safety check: CLASSIFY_SYSTEM asks for a low number on an ambiguous goal,
+  // so this is the model doing as it was told.
+  | 'low_confidence'
 
 export interface AiAdapter {
   readonly name: string

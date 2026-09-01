@@ -29,29 +29,40 @@ export function assertPlanInvariants(plan: PlanResult, input: PlanInput): void {
 }
 
 /**
- * What counts as exertion, whatever the model chose to call it.
+ * What counts as exertion — and for a proposed action, the label is ignored.
  *
- * Every load limit in this engine used to read `domain === 'training'`. The
- * domain is a label the AI supplies, `movement` is open to all seven
- * archetypes, and `movement` is the natural word for a run — so a proposal
- * could put twenty-two hours of hill running into a week and every invariant
- * would count zero. The hard constraints a person set themselves went the same
- * way: "never train on Wednesday" was enforced only against items labelled
- * `training`.
+ * The first attempt at this listed `training` and `movement`, which was
+ * whack-a-mole and lost: relabelling the same attack `priority` put 1125
+ * minutes of hill intervals on a 58-year-old beginner while the ceiling
+ * counted zero. Worse than the hole it replaced. The schema offers six
+ * domains and the prompt explains one of them, so the model picks whatever
+ * word fits — `priority` has no definition anywhere.
  *
- * A body does not read labels. These two predicates are the fix, and they are
- * deliberately in the shared invariants rather than in each archetype: a rule
- * repeated seven times is a rule six of them will drift away from.
+ * The lesson is that a domain is not a property of an action. It is a claim
+ * about it, and for an AI-proposed action it is a claim by the party the
+ * limits exist to constrain. So the origin decides how the label is read:
+ *
+ *   * An engine-authored item's domain is trustworthy. The engine wrote both
+ *     the item and the rule, and a 20-minute baseline walk really is movement.
+ *   * A proposed item's domain is not evidence of anything. Any proposed
+ *     action with real minutes on it costs the person real time and real
+ *     recovery, whatever it is called, so it is counted.
+ *
+ * No list of domains can be walked around, because there is no list.
  */
+function isProposed(item: PlanResult['items'][number]): boolean {
+  return item.details.kind === 'ai_proposed'
+}
+
 function isExertion(item: PlanResult['items'][number]): boolean {
-  return (
-    (item.domain === 'training' || item.domain === 'movement') &&
-    (item.plannedDurationMin ?? 0) > 0
-  )
+  if ((item.plannedDurationMin ?? 0) <= 0) return false
+  if (isProposed(item)) return true
+  return item.domain === 'training' || item.domain === 'movement'
 }
 
 /** Exertion a body has to recover from, as opposed to a walk. */
 function isStrenuous(item: PlanResult['items'][number]): boolean {
+  if (isProposed(item)) return (item.plannedDurationMin ?? 0) >= STRENUOUS_MINUTES
   if (item.domain === 'training') return true
   return item.domain === 'movement' && (item.plannedDurationMin ?? 0) >= STRENUOUS_MINUTES
 }

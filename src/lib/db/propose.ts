@@ -122,9 +122,14 @@ export async function clearProposal(profileId: string): Promise<void> {
 export async function refreshProposal(
   profileId: string,
   input: PlanInput,
-): Promise<PlanInput> {
+): Promise<{ input: PlanInput; written: boolean }> {
   const { proposal } = await proposePlan(input, await adapterFor(profileId))
-  if (!proposal) return input
+  // Reports what it did, rather than returning an input the caller has to
+  // guess about. Because restartAi deliberately no longer clears the old
+  // proposal first, `input.aiProposal` is still the *previous* answer on every
+  // failure path — so a caller checking `aiProposal != null` was told the
+  // model had answered when nothing was asked, written or changed.
+  if (!proposal) return { input, written: false }
 
   const supabase = await createClient()
   const goal = await supabase
@@ -133,7 +138,7 @@ export async function refreshProposal(
     .eq('profile_id', profileId)
     .eq('status', 'active')
     .maybeSingle()
-  if (!goal.data) return input
+  if (!goal.data) return { input, written: false }
 
   const stored: AiProposal = {
     headline: proposal.headline,
@@ -151,5 +156,7 @@ export async function refreshProposal(
     .eq('id', goal.data.id)
     .eq('profile_id', profileId)
 
-  return error === null ? { ...input, aiProposal: stored } : input
+  return error === null
+    ? { input: { ...input, aiProposal: stored }, written: true }
+    : { input, written: false }
 }

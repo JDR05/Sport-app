@@ -322,26 +322,41 @@ function answered(input: PlanInput): string[] {
  * signal survives the redaction.
  */
 function coarsenRoutine(label: string): string {
-  const PART = '(?:um|gegen|ab|nach|vor)?\\s*'
-  const replace = (text: string, body: string) =>
-    text.replace(new RegExp(`\\b${PART}${body}`, 'gi'), (match, hour: string) => {
-      // Keep the leading space the preposition group may have eaten, or
+  // Ranges are the case the first version missed: in "von 18 bis 19 Uhr" only
+  // the second hour sits behind a preposition or an `Uhr`, so the first left
+  // the machine verbatim. And the `Uhr` pattern used to swallow the hour while
+  // abandoning its minutes, turning "Wecker 5 Uhr 30" into "Wecker morgens 30".
+  //
+  // So: the longest forms first, each consuming everything it replaces.
+  const HOUR = '([01]?\\d|2[0-3])'
+  const rules: Array<[RegExp, (hour: string) => string]> = [
+    // 5 Uhr 30 — the word sits between the hour and its minutes.
+    [new RegExp(`\\b(?:um|gegen|ab|nach|vor)?\\s*${HOUR}\\s*Uhr\\s*[0-5]\\d\\b`, 'gi'), (h) => partOfDay(Number(h))],
+    // 18:30 Uhr · 6.45 Uhr — hour, minutes and the word together.
+    [new RegExp(`\\b(?:um|gegen|ab|nach|vor)?\\s*${HOUR}\\s*[:.]\\s*[0-5]\\d\\s*(?:Uhr)?\\b`, 'gi'), (h) => partOfDay(Number(h))],
+    // von 18 bis 19 Uhr · zwischen 18 und 19 Uhr — both ends at once.
+    [new RegExp(`\\b(?:von|zwischen)\\s+${HOUR}\\s+(?:bis|und)\\s+(?:[01]?\\d|2[0-3])\\s*(?:Uhr)?\\b`, 'gi'), (h) => partOfDay(Number(h))],
+    // 17-18 Uhr
+    [new RegExp(`\\b${HOUR}\\s*[–-]\\s*(?:[01]?\\d|2[0-3])\\s*(?:Uhr)?\\b`, 'gi'), (h) => partOfDay(Number(h))],
+    // 18 Uhr · 19h
+    [new RegExp(`\\b(?:um|gegen|ab|nach|vor)?\\s*${HOUR}\\s*(?:Uhr|h)\\b`, 'gi'), (h) => partOfDay(Number(h))],
+    // um 7 — a bare number is only a clock time behind a preposition, so
+    // "3 Sätze" and "20 Minuten" survive as themselves.
+    [new RegExp(`\\b(?:um|gegen|ab|nach|vor)\\s+${HOUR}\\b(?!\\s*(?:min|minuten|km|kg|x|×|%|s(ä|ae)tze))`, 'gi'), (h) => partOfDay(Number(h))],
+  ]
+
+  let out = label.trim().slice(0, 60)
+  for (const [pattern, replace] of rules) {
+    out = out.replace(pattern, (match, hour: string) => {
+      // Keep a leading space the optional preposition group may have eaten, or
       // "Aufstehen 6:45" becomes "Aufstehenmorgens".
       const lead = /^\s/.test(match) ? ' ' : ''
-      return `${lead}${partOfDay(Number(hour))}`
+      return `${lead}${replace(hour)}`
     })
-
-  // Order matters. "um 22.30" has to meet the minutes pattern first, or the
-  // bare-hour pattern eats "um 22" and leaves a stray ".30" behind.
-  let out = label.trim().slice(0, 60)
-  out = replace(out, '([01]?\\d|2[0-3])[:.][0-5]\\d\\b')
-  out = replace(out, '([01]?\\d|2[0-3])\\s*Uhr\\b')
-  // A bare number only counts as a clock time behind a preposition, so
-  // "3 Sätze" and "20 Minuten" survive as themselves.
-  out = out.replace(/\b(?:um|gegen|ab|nach|vor)\s+([01]?\d|2[0-3])\b(?!\s*(?:min|minuten|km|kg|x|×|%))/gi,
-    (_m, hour: string) => partOfDay(Number(hour)))
+  }
   return out.replace(/\s{2,}/g, ' ').trim()
 }
+
 
 function partOfDay(hour: number): string {
   if (hour < 11) return 'morgens'

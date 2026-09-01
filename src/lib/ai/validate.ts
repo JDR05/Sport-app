@@ -25,14 +25,25 @@ export type Violation = { rule: string; detail: string }
  * a list looking only for `weglassen` as one word.
  */
 const RESTRICTIVE = [
-  /\bverzicht/i, /\bverbot/i, /\bweglassen\b/i, /\bstreich/i,
-  /\bkeine?[nrs]?\s+\S+\s+mehr\b/i,
+  /\bverzicht/i, /\bverbot/i, /\bweglassen\b/i,
+  // Striking food is a restriction; striking a session after a bad night is
+  // the safe advice a sleep-aware planner must be able to give.
+  /(?<!\b(training|einheit|sport|session|lauf)\w{0,10}\s{0,3})\b(streich|gestrichen)\w*\b(?![^.!?]{0,25}\b(training|einheit|sport|session|lauf)\w*\b)/i,
+  /\bvermeide\b/i, /\breduzier\w*\s+(dein|deinen|deine|den|die)?\s*\w*(konsum|zucker|alkohol|portion|menge)/i,
+  /\bhalbier\w*/i, /\bschr(ä|ae)nk\w*\b[^.!?]{0,25}\bein\b/i, /\beinschr(ä|ae)nk\w*/i,
+  /\bersetz\w*\b[^.!?]{0,30}\bdurch\b/i,
+  /\bnur\s+noch\s+\w+(mal)?\s+(am tag|t(ä|ae)glich|pro tag)\b/i,
+  /\bfinger\s+weg\b/i, /\bvom\s+speiseplan\b/i,
+  /\blass\w*\b[^.!?]{0,35}\b(weg|aus)\b/i,
+  /\b(trink|iss|esse)\w*\s+weniger\b/i,
+  /\bweniger\s+(alkohol|zucker|s(ü|ue)(ß|ss)igkeiten|kohlenhydrate|brot)\b/i,
+  // "kein X mehr" — but not the observations, which are about capacity, not food
+  /\bkeine?[nrs]?\s+(?!zeit|energie|kraft|lust|motivation|einheit|luft|ausrede|sport|training|aktion|plan|termin|gelegenheit)\S+\s+mehr\b/i,
   /\bnichts? mehr\s+(essen|trinken|naschen)\b/i,
   /\b(iss|trink|esse|trinke)\b[^.!?]{0,20}\bnichts mehr\b/i,
-  /\blass\w*\b[^.!?]{0,25}\bweg\b/i,
-  /\bnicht mehr essen\b/i, /\btabu\b/i,
-  /\bfasten\b/i, /\bcheat.?day\b/i,
+  /\bnicht mehr essen\b/i, /\btabu\b/i, /\bfasten\b/i, /\bcheat.?day\b/i,
 ]
+
 
 /** The app computes numbers. A model that states them is out of its lane. */
 const NUMERIC_HEALTH_CLAIM = [
@@ -62,18 +73,32 @@ const NUMERIC_HEALTH_CLAIM = [
 const SLEEP_REDUCTION = [
   /\b(weniger|k(ü|ue)rzer)\s+(zu\s+)?schlaf/i,
   /\bschlaf\w*\s+(k(ü|ue)rzer|k(ü|ue)rzen|reduzieren|opfern|weniger|verk(ü|ue)rzen)\b/i,
-  // "Reduziere deinen Schlaf", "Kürze deine Nachtruhe" — verb first.
-  /\b(k(ü|ue)rz|verk(ü|ue)rz|reduzier|opfer|streich|beschneid)\w*\s+(dein\w*\s+|den\s+|die\s+|etwas\s+)?(schlaf|nachtruhe)/i,
-  // "deinen Schlaf etwas reduzieren" — verb last, as German prefers.
-  /\b(schlaf|nachtruhe)\w*\b[^.!?]{0,30}\b(k(ü|ue)rzen|reduzieren|opfern|verk(ü|ue)rzen|streichen)\b/i,
+  /\b(k(ü|ue)rz|verk(ü|ue)rz|reduzier|opfer|beschneid)\w*\s+(deine[nr]?\s+|den\s+|die\s+|etwas\s+)?(schlaf|nachtruhe|nacht\b)/i,
+  /\b(deine[nr]?|den|die|dein)\s+(schlaf|nachtruhe)\w*\s+(etwas\s+|ein\s+bisschen\s+|deutlich\s+)?(k(ü|ue)rzen|reduzieren|opfern|verk(ü|ue)rzen)/i,
   /\b(stunde|stunden|minuten|zeit)\s+weniger\s+(zu\s+)?schlaf/i,
   /\bschlaf\w*\s+\S+\s+(stunde|stunden|minuten)\s+weniger\b/i,
+  /\b(stunde|stunden|minuten)\s+(schlaf|nachtruhe)\w*\s+weniger\b/i,
   /\b(vom|von deinem|beim)\s+schlaf\b[^.!?]{0,30}\b(nehmen|nimm|abzwack|abknapp|hol)/i,
   /\b(nimm|nehmen|hol|klau|zwack|knaps)\w*\b[^.!?]{0,40}\b(vom|von deinem|beim)\s+schlaf/i,
-  /\bfr(ü|ue)her\s+auf(stehen|zustehen)\b.{0,40}\b(trainier|sport|laufen)/i,
-  // Two halves that are each harmless and together mean less sleep.
+  // prescribing a number of hours below the floor
+  /\b(vier|f(ü|ue)nf|sechs|4|5|6)\s*(bis\s+\w+\s*)?stunden?\b[^.!?]{0,25}\b(schlaf|nacht)/i,
+  /\b(schlaf|nachtruhe|nacht)\w*\b[^.!?]{0,25}\b(reich(en|t)|gen(ü|ue)g(en|t))\b/i,
+  /\bbegn(ü|ue)g\w*\b[^.!?]{0,30}\b(stunden|schlaf|nachtruhe)/i,
+  /\bbrauchst\s+(du\s+)?nicht\s+so\s+viel\s+schlaf/i,
+  // separable verbs, which is how an imperative is actually written
+  /\bsteh\w*\b[^.!?]{0,30}\bfr(ü|ue)her\b[^.!?]{0,15}\bauf\b/i,
+  /\bfr(ü|ue)her\s+auf(stehen|zustehen)\b/i,
+  /\bwecker\b[^.!?]{0,30}\bfr(ü|ue)her/i,
+  // Bare "später ins Bett" would also refuse the observation "du kommst
+  // abends später ins Bett, wenn du spät trainierst". An imperative frame, or
+  // the two harmless halves that together mean less sleep.
+  /\b(geh|gehe|leg\s+dich|bleib)\w*\s+(ruhig\s+|erst\s+)?sp(ä|ae)ter\s+ins\s+bett/i,
   /\bsp(ä|ae)ter\s+ins\s+bett\b[^.!?]{0,60}\bfr(ü|ue)her\s+(auf|raus)/i,
+  /\b(weniger|wenig)\s+nachtruhe/i,
+  /\bnutz\w*\s+die\s+nacht\b/i,
   /\bnachts?\s+(durcharbeiten|wach bleiben)\b/i,
+  /\bm(u|ü)sst?\s+(du\s+)?eben\s+(eher|fr(ü|ue)her)\s+raus/i,
+  /\b(eher|fr(ü|ue)her)\s+raus\b/i,
 ]
 
 const MEDICAL = [
@@ -233,7 +258,9 @@ const IDENTITY = [
   /\be-?mail/i, /\btelefon/i, /\bhandynummer\b/i, /\badresse\b/i,
   /\bwo (wohnst|lebst|arbeitest) du\b/i,
   // "In welcher Stadt lebst du?" walked past a list that only knew "wo".
-  /\bwelche[rmn]?\s+(stadt|ort|land|region|plz)\b/i,
+  // `ort` is deliberately not here: "An welchem Ort trainierst du lieber?" is
+  // a question about a gym, not about an address.
+  /\bwelche[rmn]?\s+(stadt|land|region|plz|postleitzahl)\b/i,
   /\bgeburtsdatum\b/i, /\bgeboren\b/i, /\bwie alt bist du\b/i,
   /\bpostleitzahl\b/i, /\bversicher(t|ung)\b/i, /\barbeitgeber\b/i,
 ]
@@ -251,14 +278,21 @@ const MEDICAL_QUESTION = [
   // keyed on "hast du … störung" and "nimmst du … medikamente", so
   // "Leidest du unter einer Essstörung?" — the reworded form of the comment's
   // own example — walked straight through, as did "Nimmst du Antidepressiva?".
-  /\b\w*(st(ö|oe)rung|erkrankung|krankheit|diagnose|syndrom)\b/i,
-  /\b(depress|angstzust|magersucht|bulimie|essst(ö|oe)rung|burnout|adhs|diabetes)/i,
-  /\b(antidepressiva|psychopharmaka|tabletten|medikament|arznei|therapeut)/i,
+  // `\w*` on both ends, because German plurals append -en and a trailing \b
+  // killed the match: the first widening refused "Kochst du nach Rezept?" and
+  // permitted "Hast du Schlafstörungen?".
+  /\w*(st(ö|oe)rung|erkrankung|krankheit|diagnose|syndrom|beschwerde|schmerz)\w*/i,
+  /\b(depress|angstzust|magersucht|bulimie|burnout|adhs|diabetes)/i,
+  /\b(antidepressiva|psychopharmaka|tablette|medikament|arznei|therapeut|schmerzmittel)\w*/i,
   /\bleidest du\b/i,
-  /\bnimmst du\b[^.!?]{0,30}\b(ein|etwas|regelm(ä|ae)(ß|ss)ig)\b/i,
+  // Anchored on medication, not on "nimmst du" plus anything. The broad form
+  // refused "Nimmst du dir abends etwas Zeit für dich?".
+  /\bnimmst du\b[^.!?]{0,30}\b(medikament|tablette|mittel|pr(ä|ae)parat|tropfen)\w*/i,
   /\bbist du (schwanger|krank|depressiv|magers(ü|ue)chtig|in behandlung)\b/i,
   /\bin (therapie|behandlung)\b/i,
-  /\b(arzt|(ä|ae)rztin|klinik|rezept|befund)\b/i,
+  // `rezept` is a recipe before it is a prescription, and this app asks about
+  // cooking. Only the medical compound counts.
+  /\b(arzt|(ä|ae)rztin|klinik|befund|rezeptpflichtig|vorerkrank)\w*/i,
 ]
 
 /**
@@ -362,13 +396,19 @@ const FIELD_TOPICS: Record<string, RegExp> = {
   Leistungsstand: /\b(erfahr|anf(ä|ae)nger|fortgeschritten|leistungsstand|trainingsstand|wie lange trainierst)/i,
   'bevorzugte Sportarten': /\b(sportart|welchen sport|welche sportarten|trainierst du gern|magst du.*sport)/i,
   Arbeitsform: /\b(arbeit|beruf|job|schicht|homeoffice|b(ü|ue)ro|studium|studierst)/i,
-  'freie Zeitfenster': /\b(zeit hast|wann hast du|freie? (zeit|tage|abende)|zeitfenster|wie viel zeit)/i,
+  // `wann hast du` alone made "Wann hast du zuletzt Sport gemacht?" a repeat.
+  'freie Zeitfenster': /\b(zeit hast|wann hast du zeit|freie? (zeit|tage|abende)|zeitfenster|wie viel zeit)/i,
   Kochen: /\b(koch|selbst zubereit|essen zubereit|am herd)/i,
-  Ernährungsform: /\b(ern(ä|ae)hr|vegan|vegetarisch|isst du fleisch|ern(ä|ae)hrungsform)/i,
-  Schlafzeiten: /\b(schlafzeit|schlafenszeit|ins bett|aufsteh|stehst du\b|wann.*schl(ä|ae)fst|weckerzeit|wecker)/i,
+  Ernährungsform: /\b(ern(ä|ae)hrst du dich|ern(ä|ae)hrungsform|vegan|vegetarisch|isst du fleisch)/i,
+  // `stehst du` alone made "Wie stehst du zu Krafttraining?" a repeat of
+  // bedtimes. The separable verb needs its particle.
+  Schlafzeiten: /\b(schlafzeit|schlafenszeit|ins bett|aufsteh|stehst du[^.!?]{0,20}\bauf\b|wann.*schl(ä|ae)fst|weckerzeit|wecker)/i,
   Schlafqualität: /\b(schl(ä|ae)fst du (gut|schlecht)|schlafqualit(ä|ae)t|durchschlaf|wachst du.*nachts)/i,
   Bildschirmzeit: /\b(bildschirm|handy|display|screen|am telefon)/i,
-  Konzentration: /\b(konzentr|fokus|ablenk|aufmerksam)/i,
+  // Bare `fokus` made "Worauf willst du dich zuerst fokussieren?" a repeat of
+  // the concentration field, which is about being distractible, not about
+  // priorities.
+  Konzentration: /\b(konzentr|ablenk|aufmerksam|fokus\w*\s+(f(ä|ae)llt|schwer|leicht))/i,
   'bestehende Routinen': /\b(routine|gewohnheit|machst du (schon|bereits) (jeden|t(ä|ae)glich))/i,
   Zieldatum: /\b(bis wann|zieldatum|deadline|frist|wann willst du.*erreicht)/i,
 }

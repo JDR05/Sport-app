@@ -31,6 +31,8 @@ export const AI_FAILURE_TEXT: Record<AiFailure, string> = {
     'Die Antwort hatte nicht die Form, die die App braucht. Kleinere Modelle scheitern hier häufiger.',
   implausible:
     'Die Antwort hat die Sicherheitsprüfung nicht bestanden und wurde verworfen. Genau dafür ist sie da — passiert das oft, taugt das Modell für diese Aufgabe nicht.',
+  low_confidence:
+    'Die KI war sich bei deinem Ziel nicht sicher genug. Die App hat es stattdessen anhand von Schlüsselwörtern eingeordnet — im Profil kannst du es korrigieren.',
   no_consent: 'Ohne Häkchen wird nichts an ein Modell geschickt.',
   disabled: 'Die KI ist in dieser Umgebung abgeschaltet.',
 }

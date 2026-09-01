@@ -240,7 +240,12 @@ export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promis
   const primary = adapter ?? createAdapter()
   const result = await attempt(() => primary.classifyGoal(rawText))
 
-  if (result.ok && result.value.confidence >= MIN_CONFIDENCE) {
+  // The confidence gate applies only to a real model. The deterministic
+  // classifier reports 0.2 when no keyword matched — which is the product's
+  // ordinary `general_health` case, not a failure — and running it through the
+  // gate told people "die Antwort hat die Sicherheitsprüfung nicht bestanden"
+  // when nothing had been sent anywhere.
+  if (result.ok && (!primary.usesModel || result.value.confidence >= MIN_CONFIDENCE)) {
     // Asks what the adapter is, not what it is called. This read
     // `primary.name === 'claude'`, from when Claude was the only real adapter
     // — so a successful Gemini classification was reported as a fallback, the
@@ -250,8 +255,10 @@ export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promis
   }
 
   // An answer the model itself is unsure of falls through to the word list,
-  // which is what the schema has always said happens.
-  const reason: AiFailure = result.ok ? 'implausible' : result.reason
+  // which is what the schema has always said happens. `low_confidence` rather
+  // than `implausible`: nothing failed a safety check, the model was honest
+  // about not knowing — and CLASSIFY_SYSTEM explicitly asks it to be.
+  const reason: AiFailure = result.ok ? 'low_confidence' : result.reason
   const detail = result.ok
     ? `confidence ${result.value.confidence} is below ${MIN_CONFIDENCE}`
     : result.detail

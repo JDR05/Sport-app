@@ -250,10 +250,12 @@ export async function finishAiForGoal(payload: unknown): Promise<{ ok: boolean }
   // refreshProposal, not withProposal: this path is explicitly "ask again", and
   // it writes only if an answer came back — so a provider that is down leaves
   // the previous proposal intact instead of erasing it.
-  const withIt = await refreshProposal(user.id, { ...input, today })
+  //
+  // `written`, not `aiProposal != null`: the old proposal is still in `input`
+  // precisely because it was not erased, so the presence of one says nothing
+  // about whether this call achieved anything.
+  const { written } = await refreshProposal(user.id, { ...input, today })
 
   revalidatePath('/', 'layout')
-  // Reports whether a proposal actually came back, so the screen can say "the
-  // model answered" or "it did not" rather than claiming success either way.
-  return { ok: withIt.aiProposal != null }
+  return { ok: written }
 }

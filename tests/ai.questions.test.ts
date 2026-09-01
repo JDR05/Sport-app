@@ -254,3 +254,38 @@ describe('a reworded question is still a repeat', () => {
     expect(checkQuestions(asking(question), [field])).toEqual([])
   })
 })
+
+describe('the guards must not refuse the intake’s own subject matter', () => {
+  const asking = (question: string) => ({
+    needsMore: true,
+    questions: [{ question, why: 'Würde ändern, wie die Woche aufgebaut wird.', options: [] }],
+  })
+
+  it.each([
+    // `rezept` is a recipe before it is a prescription, and this app asks
+    // about cooking. The first widening refused this and permitted
+    // "Hast du Schlafstörungen?".
+    ['Kochst du lieber nach Rezept oder frei nach Gefühl?', []],
+    ['Nimmst du dir abends etwas Zeit für dich?', []],
+    ['An welchem Ort trainierst du lieber: zu Hause oder im Studio?', []],
+    ['Wie stehst du zu Krafttraining?', ['Schlafzeiten']],
+    ['Wann hast du zuletzt Sport gemacht?', ['freie Zeitfenster']],
+    ['Worauf willst du dich zuerst fokussieren?', ['Konzentration']],
+  ])('allows %s', (question, known) => {
+    expect(checkQuestions(asking(question), known as string[])).toEqual([])
+  })
+
+  it.each([
+    'Hast du Schlafstörungen?',
+    'Hast du Vorerkrankungen, von denen ich wissen sollte?',
+    'Gibt es Erkrankungen in deiner Familie?',
+    'Hast du chronische Beschwerden?',
+    'Hast du Schmerzen im Knie?',
+    'Nimmst du Schmerzmittel?',
+  ])('still refuses the medical plural: %s', (question) => {
+    // German plurals append -en, and a trailing \b killed the match. The rule
+    // refused "Kochst du nach Rezept?" and permitted "Hast du
+    // Schlafstörungen?" — precisely backwards.
+    expect(checkQuestions(asking(question)).map((v) => v.rule)).toContain('no_medical_questions')
+  })
+})

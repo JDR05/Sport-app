@@ -36,6 +36,24 @@ const askingAbout = (text: string): IntakeQuestions => ({
 
 /** Every one of these passed the gate before. */
 const LESS_SLEEP = [
+  // Round two. The first fix enumerated constructions and still passed
+  // fourteen of these fifteen, for two structural reasons rather than fifteen
+  // accidents: it required a reduction *verb*, so a sentence that simply
+  // prescribes a number below the floor had no rule at all; and it matched
+  // "früher aufstehen" only as an infinitive, while German splits separable
+  // verbs in exactly the form advice is written in.
+  'Sechs Stunden Schlaf reichen für dich völlig aus.',
+  'Begnüge dich mit sechs Stunden Schlaf, das genügt.',
+  'Fünf Stunden pro Nacht sind für dich genug.',
+  'Du brauchst nicht so viel Schlaf.',
+  'Verkürz die Nacht ein bisschen.',
+  'Steh eine Stunde früher auf und trainiere vor der Arbeit.',
+  'Stell den Wecker eine Stunde früher als sonst.',
+  'Zwei Stunden Nachtruhe weniger schaffst du locker.',
+  'Du kannst locker mit weniger Nachtruhe auskommen.',
+  'Nutz die Nacht zum Lernen.',
+  'Trainiere früh morgens, dafür musst du eben eher raus.',
+  'Geh später ins Bett, dann hast du mehr vom Abend.',
   'Schlaf eine Stunde weniger und trainiere dafür morgens',
   'Reduziere deinen Schlaf um dreissig Minuten',
   'Verkürze deinen Schlaf an Trainingstagen',
@@ -51,6 +69,23 @@ const LESS_SLEEP = [
 ]
 
 const RESTRICTIVE = [
+  // Round two. validate.ts's own header names the target — "a schema-valid
+  // proposal can still tell someone to skip dinner, and that is the failure
+  // mode that matters" — and "Ersetze das Abendessen durch einen Tee" is that
+  // sentence. All twelve passed: the list was a vocabulary of eight stems and
+  // missed the four commonest German reduction verbs.
+  'Vermeide Süßigkeiten am Abend.',
+  'Reduziere deinen Zuckerkonsum deutlich.',
+  'Halbiere deine Portionen beim Abendessen.',
+  'Ersetze das Abendessen durch einen Tee.',
+  'Iss nur noch zweimal am Tag.',
+  'Süßigkeiten sind ab jetzt gestrichen.',
+  'Kohlenhydrate am Abend sind für dich gestrichen.',
+  'Schränk die Süßigkeiten ein.',
+  'Trink weniger Alkohol in dieser Woche.',
+  'Nimm das Brot vom Speiseplan.',
+  'Lass die Kohlenhydrate abends aus.',
+  'Finger weg von Chips.',
   // PROPOSE_SYSTEM gives this exact sentence to the model as the thing not to
   // write, and promises the proposal is discarded whole. It was not.
   'Kein Handy mehr nach 22 Uhr',
@@ -70,6 +105,19 @@ const RESTRICTIVE = [
  * it deletes the observation the weekly note exists to make.
  */
 const ORDINARY = [
+  // The counterweight, and round two showed it is not theoretical: the first
+  // fix used a 30-character proximity window — the very mechanism its own
+  // comment said it avoided — and refused the single most important thing a
+  // sleep-aware planner says. A guard that deletes the safe recommendation is
+  // not a safer app.
+  'Nach einer Nacht mit wenig Schlaf kannst du die Einheit kürzen.',
+  'Bei schlechtem Schlaf lieber die Einheit verkürzen als ausfallen lassen.',
+  'Nach Wochen mit wenig Schlaf hast du die Einheiten reduzieren müssen.',
+  'Wenn dein Schlaf schlecht war, darfst du das Training streichen.',
+  'Am Wochenende bleibt keine Zeit mehr für die zweite Einheit.',
+  'Du hast keinen Sport mehr eingetragen, seit der Schicht am Montag.',
+  'Nach 20 Uhr hattest du keine Energie mehr für die Einheit.',
+  'Acht Stunden Schlaf tun dir sichtbar gut.',
   'Geh eine halbe Stunde früher ins Bett, das ist der kleinste Hebel.',
   'Dein Schlaf war diese Woche besser als sonst.',
   'An den Tagen mit schlechtem Schlaf hast du weniger umgesetzt.',

@@ -46,10 +46,15 @@ export const MAX_WEEKLY_EXERTION_MIN = 600
  * When a movement action stops being a walk and starts being a session.
  *
  * The baseline plans a short daily walk, and counting that as a training day
- * would leave every week with seven consecutive ones. Forty-five minutes is
- * where "I went for a walk" turns into something a body needs to recover from.
+ * would leave every week with seven consecutive ones.
+ *
+ * Thirty, not forty-five, because forty-five was a cliff exactly one value
+ * wide: `checkProposal` refuses any action over 45 minutes, so of the whole
+ * legal range only 45 itself counted, and "40 Minuten locker laufen" — the
+ * most ordinary number a model writes — landed underneath without trying.
+ * Four consecutive days of it were accepted for a 58-year-old beginner.
  */
-export const STRENUOUS_MINUTES = 45
+export const STRENUOUS_MINUTES = 30
 
 /** A slot shorter than this cannot hold a useful session. */
 export const MIN_VIABLE_SESSION_MINUTES = 20
