@@ -13,6 +13,10 @@
 //
 // Transitions are on colour only, never on layout: an animated size change
 // costs a frame and reads as lag, which is the complaint that started this.
+//
+// The empty state shows the tick it will draw, at low opacity. "Erledigt" was
+// the only answer in the app with no word attached to it — the other three sit
+// behind the disclosure as labelled buttons, and this one was a bare circle.
 
 import type { PlanItemStatus } from '@/lib/domain/types'
 
@@ -63,7 +67,24 @@ export function CheckRing({
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
             <path d="M6 10h8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
-        ) : null}
+        ) : (
+          // The untouched state shows the tick it is about to draw, faintly.
+          //
+          // An empty circle is a convention people have been taught elsewhere,
+          // and this app had not taught it: "erledigt" was the one answer with
+          // no word attached to it anywhere on the screen. Faint enough that
+          // nobody reads it as already done — it says what the tap will do,
+          // it does not claim it has happened.
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden className="opacity-30">
+            <path
+              d="M4.5 10.5 8 14l7.5-8"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </span>
     </button>
   )

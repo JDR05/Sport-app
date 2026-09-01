@@ -23,7 +23,17 @@ import { CheckRing } from '@/components/CheckRing'
 import { DomainBadge } from '@/components/ui'
 import type { PlannedItem, PlanItemStatus } from '@/lib/domain/types'
 
-const OTHER: Array<{ status: PlanItemStatus; label: string }> = [
+/**
+ * Every answer, including the one people actually give.
+ *
+ * `done` used to be missing here, because it lives on the ring. That left the
+ * disclosure showing three ways to say it did not happen and no way to say it
+ * did — you opened the list of answers and the answer you wanted was not in
+ * it. The ring stays the fast path for the common case; this is the complete
+ * set, and a set with a hole in it is worse than no set at all.
+ */
+const ANSWERS: Array<{ status: PlanItemStatus; label: string }> = [
+  { status: 'done', label: 'Erledigt' },
   { status: 'moved', label: 'Verschoben' },
   { status: 'missed', label: 'Nicht geschafft' },
   { status: 'not_relevant', label: 'Passte nicht' },
@@ -92,7 +102,7 @@ export function ActionItem({
           type="button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          aria-label={open ? 'Weniger zeigen' : 'Warum, und andere Antworten'}
+          aria-label={open ? 'Weniger zeigen' : 'Warum, und alle Antworten'}
           className="-m-2 shrink-0 p-2 text-faint"
         >
           <svg
@@ -118,7 +128,7 @@ export function ActionItem({
         <div className="border-t border-line px-3.5 pb-3.5 pt-3">
           <p className="text-sm leading-relaxed text-muted">{item.rationale.text}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {OTHER.map((option) => (
+            {ANSWERS.map((option) => (
               <button
                 key={option.status}
                 type="button"
