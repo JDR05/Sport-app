@@ -28,11 +28,20 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   }
 }
 
-export function createAdapter(env: NodeJS.ProcessEnv = process.env): AiAdapter {
+/**
+ * @param timeoutMs a smaller budget than the configured one, for a call that
+ *   sits in front of a person waiting for a screen. The default is generous
+ *   because the onboarding can afford to wait; a page load cannot.
+ */
+export function createAdapter(
+  env: NodeJS.ProcessEnv = process.env,
+  timeoutMs?: number,
+): AiAdapter {
   if (env.AI_ADAPTER === 'null') return new NullAdapter()
   if (env.AI_ADAPTER === 'mock') return new MockAdapter()
 
-  const config = readConfig(env)
+  const base = readConfig(env)
+  const config = timeoutMs === undefined ? base : { ...base, timeoutMs }
   // No key means the deterministic adapter, silently and by design. The product
   // is fully usable in that state — that is the whole point.
   return config.apiKey ? new ClaudeAdapter(config) : new MockAdapter()

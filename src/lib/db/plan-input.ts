@@ -15,6 +15,7 @@
 // be is one refactor away from reading everything.
 
 import 'server-only'
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import {
   readAiProposal, readCommitments, readConstraintValue, readFreeSlots, readMind,
@@ -51,8 +52,18 @@ export class PlanInputUnavailableError extends Error {
   }
 }
 
-/** Null means: this person has not finished the onboarding yet. */
-export async function loadPlanInput(profileId: string): Promise<StoredPlanInput | null> {
+/**
+ * Null means: this person has not finished the onboarding yet.
+ *
+ * Memoized per request. It was called three times on the way to rendering
+ * Fortschritt — once by the layout to decide whether a goal exists, once by
+ * the page, once inside weeklyReview — and each call is seven queries. Three
+ * identical round trips to the database before anything appears on screen,
+ * on every single tap of the bottom bar.
+ */
+export const loadPlanInput = cache(async function loadPlanInput(
+  profileId: string,
+): Promise<StoredPlanInput | null> {
   const supabase = await createClient()
 
   // Fetched flat rather than as a nested select: the simplified generated types
@@ -167,4 +178,4 @@ export async function loadPlanInput(profileId: string): Promise<StoredPlanInput 
     personalRules,
     aiProposal: readAiProposal(g.ai_proposal),
   }
-}
+})

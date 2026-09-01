@@ -10,7 +10,7 @@
 
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
-import { proposePlan } from '@/lib/ai'
+import { createAdapter, proposePlan } from '@/lib/ai'
 import type { AiProposal, PlanInput } from '@/lib/domain/types'
 
 /**
@@ -29,10 +29,20 @@ function modeFor(input: PlanInput): AiProposal['mode'] {
  * Ensures the active goal has been asked about, and returns the input with
  * whatever came back. Never throws: a failure here means planning without a
  * proposal, which is the same state the app is in without a key.
+ *
+ * @param budgetMs how long the model may take. This call used to sit inside
+ *   ensureWeekPlan with the full configured timeout, which meant the first
+ *   time a week was opened the app could stop dead for twenty seconds with an
+ *   empty screen — the "es hängt sich manchmal auf". It is asked during the
+ *   onboarding now, where the button already says "Plan wird gebaut" and a
+ *   wait is what the person is expecting. The week-load path keeps it only as
+ *   a fallback for a goal that was never asked, on a budget short enough that
+ *   a slow answer costs a moment rather than the screen.
  */
 export async function withProposal(
   profileId: string,
   input: PlanInput,
+  budgetMs?: number,
 ): Promise<PlanInput> {
   if (input.aiProposal) return input
 
@@ -48,7 +58,7 @@ export async function withProposal(
   if (!goal.data || goal.data.ai_proposal_at !== null) return input
 
   const mode = modeFor(input)
-  const { proposal } = await proposePlan(input)
+  const { proposal } = await proposePlan(input, createAdapter(process.env, budgetMs))
 
   const stored: AiProposal | null = proposal
     ? {

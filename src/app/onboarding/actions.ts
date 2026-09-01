@@ -17,6 +17,9 @@ import { z } from 'zod'
 import { isoDate } from '@/lib/domain/isoDate'
 import { requireUser } from '@/lib/auth/session'
 import { saveOnboarding } from '@/lib/db/save-onboarding'
+import { loadPlanInput } from '@/lib/db/plan-input'
+import { withProposal } from '@/lib/db/propose'
+import { serverToday } from '@/lib/db/today'
 import {
   commitmentSchema, constraintValueSchema, freeSlotSchema, mindSchema,
   nutritionSchema, sleepSchema, sportSchema,
@@ -87,6 +90,22 @@ export async function completeOnboarding(payload: unknown): Promise<CompleteResu
   const saved = await saveOnboarding(user.id, parsed.data)
   if (!saved.ok) {
     return { error: 'Speichern hat nicht geklappt. Versuch es bitte noch einmal.' }
+  }
+
+  // Ask the model here, not on the first page load.
+  //
+  // It is the same ask — once per goal, ADR-041 — moved to the one moment the
+  // person is already waiting on purpose: the button says "Plan wird gebaut".
+  // Inside ensureWeekPlan it sat in front of a blank screen with the full
+  // twenty-second budget, which is what made the app look like it had frozen.
+  //
+  // Never allowed to fail the onboarding. Everything is already saved by this
+  // point, and a plan without a proposal is the documented, fully usable state.
+  try {
+    const input = await loadPlanInput(user.id)
+    if (input) await withProposal(user.id, { ...input, today: await serverToday() })
+  } catch {
+    // Deliberately swallowed. See above.
   }
 
   // The app layout reads the plan on the server, so its cache has to go.

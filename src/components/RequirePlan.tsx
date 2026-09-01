@@ -16,6 +16,7 @@
 
 import Link from 'next/link'
 import { usePlan, type StoredWeek } from '@/components/PlanProvider'
+import { ScreenSkeleton } from '@/components/Skeleton'
 import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
 
 export function RequirePlan({ children }: { children: (week: StoredWeek) => React.ReactNode }) {
@@ -82,9 +83,17 @@ export function RequirePlan({ children }: { children: (week: StoredWeek) => Reac
   }
 
   // Loading, and the moment between "ready" and the week arriving in state.
-  // Nothing rather than a spinner: the fetch is usually faster than a spinner
-  // is readable, and a flash of loading UI on every navigation reads as slower
-  // than silence.
-  if (state !== 'ready' || !week) return null
+  //
+  // The same skeleton `loading.tsx` shows, because on a cold open the two
+  // waits are consecutive: the server renders the route, then the client
+  // fetches the week. A skeleton for the first and a blank page for the second
+  // is worse than either — the screen appears to load, then appears to break.
+  if (state !== 'ready' || !week) {
+    return (
+      <Screen>
+        <ScreenSkeleton />
+      </Screen>
+    )
+  }
   return <>{children(week)}</>
 }

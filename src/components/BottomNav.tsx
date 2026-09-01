@@ -1,8 +1,54 @@
 'use client'
 
+// The bottom bar.
+//
+// Two things make a tap here feel instant, and neither is about the data.
+//
+// The first is that the tapped tab colours immediately. `usePathname()` only
+// changes once the navigation has *committed*, so a bar that reads its active
+// state from it alone leaves the tapped tab grey for the whole round trip —
+// the finger goes down and nothing at all happens. useLinkStatus knows the tap
+// happened before the server does.
+//
+// The second is `loading.tsx` in the app group, which paints the shape of the
+// destination while the server works. That is the route-level fix the Next
+// docs prefer, and this is the inline hint that sits on top of it.
+
 import Link from 'next/link'
+import { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
 import { TABS } from '@/components/tabs'
+
+type Tab = (typeof TABS)[number]
+
+/**
+ * True from the moment the tab is tapped until the new screen commits.
+ *
+ * Has to live inside the Link — the hook reads the nearest one above it.
+ */
+function TabContent({
+  label,
+  Icon,
+  active,
+}: {
+  label: string
+  Icon: Tab['Icon']
+  active: boolean
+}) {
+  const { pending } = useLinkStatus()
+  const lit = active || pending
+
+  return (
+    <span
+      className={`flex flex-col items-center gap-1 transition-colors duration-100 ${
+        lit ? 'text-accent' : 'text-faint'
+      }`}
+    >
+      <Icon />
+      {label}
+    </span>
+  )
+}
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -17,12 +63,9 @@ export function BottomNav() {
               <Link
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex flex-col items-center gap-1 px-1 pb-3 pt-2.5 text-[10px] font-medium transition ${
-                  active ? 'text-accent' : 'text-faint'
-                }`}
+                className="flex flex-col items-center px-1 pb-3 pt-2.5 text-[10px] font-medium"
               >
-                <tab.Icon />
-                {tab.label}
+                <TabContent label={tab.label} Icon={tab.Icon} active={active} />
               </Link>
             </li>
           )

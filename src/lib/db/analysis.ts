@@ -10,6 +10,7 @@
 // sessions never happen) are about the person, not about the goal.
 
 import 'server-only'
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { fromRow, type ItemRow } from './item-mapping'
 import { analysisWindowStart, toObservations } from './observations'
@@ -115,25 +116,34 @@ export async function loadObservations(
  * — comes back as a review with an empty analysis, because "no pattern found"
  * is a real answer and the screens show it as one.
  */
-export async function weeklyReview(
+export const weeklyReview = cache(async function weeklyReview(
   profileId: string,
   today: string,
 ): Promise<WeeklyReview | null> {
-  const input = await loadPlanInput(profileId)
+  const weekStart = startOfWeek(today)
+
+  // Everything that does not depend on anything else, at once.
+  //
+  // These ran one after another, and each is a round trip to a database in
+  // another region. Nothing on this screen appears until the last of them
+  // comes back, so a chain of five is five times the wait for no reason —
+  // none of them needs an answer from any of the others.
+  const [input, observations, wholeWeek, checkIns, activeGoal] = await Promise.all([
+    loadPlanInput(profileId),
+    loadObservations(profileId, today),
+    loadWeekItems(profileId, weekStart),
+    loadCheckIns(profileId, analysisWindowStart(today)),
+    activeGoalId(profileId),
+  ])
   if (!input) return null
 
-  const observations = await loadObservations(profileId, today)
-  const weekStart = startOfWeek(today)
   const thisWeek = observations.filter((o) => o.scheduledOn >= weekStart)
-  // The whole week, days ahead included — plan care is picking a day to move
-  // something onto and must be able to see what is already there.
-  const wholeWeek = await loadWeekItems(profileId, weekStart)
-  const thisWeekForGoal = await scopeToActiveGoal(profileId, thisWeek, weekStart, today)
+  const thisWeekForGoal = await scopeToActiveGoal(profileId, activeGoal, thisWeek, weekStart, today)
 
   // The check-ins over the same window. Without them a pattern can only be
   // stated bare — "Dienstags läuft es schlechter" — and a shortfall with no
   // circumstance beside it reads as a verdict on the person.
-  const days = (await loadCheckIns(profileId, analysisWindowStart(today))).map((c) => ({
+  const days = checkIns.map((c) => ({
     date: c.checkedInOn,
     energy: c.energy,
     mood: c.mood,
@@ -153,7 +163,7 @@ export async function weeklyReview(
     completionThisWeek: completionRate(thisWeekForGoal),
     weeksWithData: new Set(observations.map((o) => startOfWeek(o.scheduledOn))).size,
   }
-}
+})
 
 /**
  * Narrows a week to the plan belonging to the active goal.
@@ -166,28 +176,33 @@ export async function weeklyReview(
  * cannot be read, showing the week slightly too wide is a smaller error than
  * showing an empty one.
  */
-async function scopeToActiveGoal(
-  profileId: string,
-  week: Observation[],
-  weekStart: string,
-  today: string,
-): Promise<Observation[]> {
-  if (week.length === 0) return week
+/** The active goal's id, or null. Fetched alongside everything else. */
+async function activeGoalId(profileId: string): Promise<string | null> {
   const supabase = await createClient()
-
   const goal = await supabase
     .from('goals')
     .select('id')
     .eq('profile_id', profileId)
     .eq('status', 'active')
     .maybeSingle()
-  if (goal.error || !goal.data) return week
+  return goal.data?.id ?? null
+}
+
+async function scopeToActiveGoal(
+  profileId: string,
+  goalId: string | null,
+  week: Observation[],
+  weekStart: string,
+  today: string,
+): Promise<Observation[]> {
+  if (week.length === 0 || goalId === null) return week
+  const supabase = await createClient()
 
   const plans = await supabase
     .from('plans')
     .select('id')
     .eq('profile_id', profileId)
-    .eq('goal_id', goal.data.id)
+    .eq('goal_id', goalId)
     .gte('week_start', weekStart)
     .lte('week_start', today)
   if (plans.error) return week

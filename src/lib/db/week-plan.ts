@@ -49,6 +49,13 @@ export type WeekResult =
   /** A safety invariant refused the plan. The message is shown, never hidden. */
   | { ok: false; reason: 'unsafe'; message: string }
 
+/**
+ * How long the model may take when the ask happens on a page load rather than
+ * in the onboarding. Four seconds is already long to stare at a skeleton; past
+ * that the deterministic plan is the better answer.
+ */
+const WEEK_LOAD_AI_BUDGET_MS = 4_000
+
 export async function ensureWeekPlan(profileId: string, today: string): Promise<WeekResult> {
   const weekStart = startOfWeek(today)
 
@@ -61,9 +68,12 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   const loaded = await loadPlanInput(profileId)
   if (!loaded) return { ok: false, reason: 'no_goal' }
 
-  // Asked at most once per goal, and only when a week is actually being built —
-  // so a person who never opens the app is never paid for.
-  const input = await withProposal(profileId, { ...loaded, today })
+  // Normally already answered: the onboarding asks, where the person is
+  // watching a button that says the plan is being built. This is the fallback
+  // for a goal that was never asked — one created before that moved, or one
+  // whose proposal was cleared — and it runs on a short budget. A page load is
+  // not a place to wait twenty seconds for a model.
+  const input = await withProposal(profileId, { ...loaded, today }, WEEK_LOAD_AI_BUDGET_MS)
 
   let plan
   try {

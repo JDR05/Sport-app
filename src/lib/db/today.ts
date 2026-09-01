@@ -5,10 +5,11 @@
 // fallback cannot be worse than what it replaces.
 
 import 'server-only'
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { isValidTimeZone, localToday, TIMEZONE_COOKIE } from '@/lib/engine/localDate'
 
-export async function serverToday(): Promise<string> {
+export const serverToday = cache(async function serverToday(): Promise<string> {
   const zone = (await cookies()).get(TIMEZONE_COOKIE)?.value
   return localToday(new Date(), isValidTimeZone(zone) ? zone : undefined)
-}
+})
