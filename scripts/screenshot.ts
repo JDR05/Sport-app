@@ -1,6 +1,28 @@
 // Drives the real app in a real browser: completes the onboarding, then captures
 // every screen at phone size. Green tests prove the engine behaves; this shows
 // whether the result is actually usable.
+//
+// OUT OF DATE — read this before trusting a green run.
+//
+// It has not been runnable since authentication landed, and nothing said so,
+// which is the worst state for a verification tool to be in: the one check
+// that looks at the real interface quietly stopped looking. Three things drifted:
+//
+//   1. It opens `/` and waits for `/onboarding`. With auth in place `/`
+//      redirects to `/login`, so it needs a sign-in (or sign-up) step first,
+//      against an account the environment can actually confirm.
+//   2. The intake grew from eight steps to ten — `Messbar` after `Ziel`, and
+//      `Fest` (commitments) after `Alltag`. The script walks the old order and
+//      will click the wrong controls from step two onwards.
+//   3. Two screens did not exist when it was written: the AI consent checkbox
+//      on the goal step, and the question step that can appear after
+//      "Plan erstellen" (ADR-084). Neither is captured.
+//
+// Deliberately not repaired blind. Fixing browser automation without being able
+// to run it produces a script that looks correct and is not — which is exactly
+// how it got into this state. It needs one session in an environment where the
+// database is reachable; the egress policy in the environment this note was
+// written in blocks both the deployment and Supabase.
 
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
