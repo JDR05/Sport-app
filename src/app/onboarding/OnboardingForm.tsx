@@ -13,7 +13,8 @@
 
 import { useMemo, useState } from 'react'
 import { completeOnboarding } from './actions'
-import { Button, Card, Note, Screen, ScreenTitle } from '@/components/ui'
+import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { AiConsent, type ConsentView } from '@/components/AiConsent'
 import {
   ChoiceGroup, DateInput, Field, MultiChoice, NumberInput, StepProgress, TextArea, TimeInput,
 } from '@/components/form'
@@ -137,10 +138,15 @@ function buildAnswers(
 export function OnboardingForm({
   existing,
   today,
+  provider,
+  consent,
 }: {
   existing?: StoredPlanInput | null
   /** Today, as the person experiences it. Comes from the server so both renders agree. */
   today: string
+  /** Which company would receive the data. Null when none is configured. */
+  provider: string | null
+  consent: ConsentView
 }) {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -158,6 +164,9 @@ export function OnboardingForm({
   const detected = useMemo(() => classifyGoalText(d.goalText), [d.goalText])
   const [aiArchetype, setAiArchetype] = useState<GoalArchetype | null>(null)
   const [classifying, setClassifying] = useState(false)
+  // Mirrors what the server stored, so the step can say which classifier will
+  // answer before anybody presses anything.
+  const [ai, setAi] = useState({ granted: consent.granted, pending: false })
   const archetype = d.archetype ?? aiArchetype ?? detected.archetype
   const metricSpec = METRIC_FOR[archetype]
 
@@ -165,7 +174,8 @@ export function OnboardingForm({
   const visibleSteps = STEPS.filter((_, i) => i !== 1 || metricSpec !== undefined)
   const stepName = visibleSteps[step]
   const isLast = step === visibleSteps.length - 1
-  const canContinue = stepName !== 'Ziel' || d.goalText.trim().length >= 3
+  const canContinue =
+    !ai.pending && (stepName !== 'Ziel' || d.goalText.trim().length >= 3)
 
   const finish = async () => {
     setSaving(true)
@@ -187,6 +197,14 @@ export function OnboardingForm({
    *  the deterministic answer, which is already on screen. */
   const advanceFromGoal = async () => {
     if (d.archetype !== null) {
+      setStep(step + 1)
+      return
+    }
+    // Not even a request. The route would decline it and answer from the
+    // keyword classifier, which is already on screen — so this saves a round
+    // trip, and more importantly it means "no consent" is visible in the
+    // network tab as no traffic at all rather than as a call that was refused.
+    if (!ai.granted) {
       setStep(step + 1)
       return
     }
@@ -246,7 +264,9 @@ export function OnboardingForm({
               <p className="mt-1 text-xs text-faint">
                 {aiArchetype !== null
                   ? 'Von der KI eingeordnet.'
-                  : 'Ohne KI erkannt — anhand von Schlüsselwörtern.'}
+                  : ai.granted
+                    ? 'Ohne KI erkannt — anhand von Schlüsselwörtern.'
+                    : 'Ohne KI erkannt — anhand von Schlüsselwörtern. Mit Häkchen unten schaut die KI noch einmal darauf.'}
               </p>
               <div className="mt-3">
                 <ChoiceGroup
@@ -260,6 +280,13 @@ export function OnboardingForm({
                 />
               </div>
             </Card>
+          )}
+
+          {provider !== null && (
+            <div className="mt-6">
+              <SectionHeading>KI-Unterstützung</SectionHeading>
+              <AiConsent initial={consent} provider={provider} onChange={setAi} />
+            </div>
           )}
 
           <div className="mt-6">

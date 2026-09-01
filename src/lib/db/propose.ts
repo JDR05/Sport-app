@@ -10,7 +10,8 @@
 
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
-import { createAdapter, proposePlan } from '@/lib/ai'
+import { proposePlan } from '@/lib/ai'
+import { adapterFor, mayUseAi } from '@/lib/ai/consent'
 import type { AiProposal, PlanInput } from '@/lib/domain/types'
 
 /**
@@ -46,6 +47,16 @@ export async function withProposal(
 ): Promise<PlanInput> {
   if (input.aiProposal) return input
 
+  // Before anything is written, not after.
+  //
+  // `adapterFor` would decline the call correctly, but the timestamp below is
+  // written either way to stop a retry loop — so going through the motions
+  // without consent would stamp the goal as "asked, nothing came back" and the
+  // model would never be asked again, not even after someone ticks the box.
+  // Leaving early keeps `ai_proposal_at` null, which is exactly what "not asked
+  // yet" means.
+  if (!(await mayUseAi(profileId))) return input
+
   const supabase = await createClient()
   const goal = await supabase
     .from('goals')
@@ -58,7 +69,7 @@ export async function withProposal(
   if (!goal.data || goal.data.ai_proposal_at !== null) return input
 
   const mode = modeFor(input)
-  const { proposal } = await proposePlan(input, createAdapter(process.env, budgetMs))
+  const { proposal } = await proposePlan(input, await adapterFor(profileId, budgetMs))
 
   const stored: AiProposal | null = proposal
     ? {

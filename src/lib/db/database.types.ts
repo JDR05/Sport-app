@@ -443,6 +443,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_consent_at: string | null
+          ai_consent_version: number | null
           birth_year: number | null
           created_at: string
           height_cm: number | null
@@ -458,6 +460,8 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          ai_consent_at?: string | null
+          ai_consent_version?: number | null
           birth_year?: number | null
           created_at?: string
           height_cm?: number | null
@@ -473,6 +477,8 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          ai_consent_at?: string | null
+          ai_consent_version?: number | null
           birth_year?: number | null
           created_at?: string
           height_cm?: number | null
@@ -527,6 +533,41 @@ export type Database = {
           wake_times?: Json
           weekend_differs?: boolean
           work_pattern?: string | null
+        }
+      }
+      weekly_notes: {
+        Row: {
+          created_at: string
+          evidence: Json
+          id: string
+          observation: string
+          profile_id: string
+          question: string | null
+          source: string
+          suggestion: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          evidence: Json
+          id?: string
+          observation: string
+          profile_id: string
+          question?: string | null
+          source: string
+          suggestion: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          observation?: string
+          profile_id?: string
+          question?: string | null
+          source?: string
+          suggestion?: string
+          week_start?: string
         }
       }
     }

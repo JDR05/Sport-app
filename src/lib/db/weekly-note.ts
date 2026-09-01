@@ -18,7 +18,7 @@
 import 'server-only'
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { createAdapter } from '@/lib/ai'
+import { adapterFor } from '@/lib/ai/consent'
 import { loadCheckIns } from './tracking'
 import { loadPlanInput } from './plan-input'
 import { weeklyReview } from './analysis'
@@ -103,7 +103,7 @@ async function run(profileId: string, today: string): Promise<WeeklyNote | null>
 
   const previous = await previousObservation(profileId, weekStart)
 
-  const adapter = createAdapter()
+  const adapter = await adapterFor(profileId)
   const result = await adapter.weeklyNote({
     goalText: input.goal.rawText,
     archetype: input.goal.archetype,

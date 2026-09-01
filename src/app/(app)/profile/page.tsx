@@ -5,6 +5,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/auth/session'
+import { providerName } from '@/lib/ai'
+import { readConsent } from '@/lib/ai/consent'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { isTheme, THEME_COOKIE } from '@/lib/theme'
 import { ProfileView } from './ProfileView'
@@ -15,6 +17,16 @@ export default async function ProfilePage() {
   if (!answers) redirect('/onboarding')
 
   const stored = (await cookies()).get(THEME_COOKIE)?.value
+  const consent = await readConsent(user.id)
 
-  return <ProfileView answers={answers} theme={isTheme(stored) ? stored : 'system'} />
+  return (
+    <ProfileView
+      answers={answers}
+      theme={isTheme(stored) ? stored : 'system'}
+      // Both read on the server. The provider name comes from the configured
+      // endpoint, which the browser must never see.
+      provider={providerName()}
+      consent={{ granted: consent.granted, outdated: consent.outdated }}
+    />
+  )
 }

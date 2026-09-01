@@ -80,6 +80,10 @@ insert into public.experiment_results (experiment_id, profile_id, metric, metric
   ('a2000000-0000-4000-8000-00000000000a','aaaaaaaa-0000-4000-8000-000000000001','completion_rate','behavior',0.5,0.7,'keep'),
   ('b2000000-0000-4000-8000-00000000000b','bbbbbbbb-0000-4000-8000-000000000002','completion_rate','behavior',0.5,0.7,'keep');
 
+insert into public.weekly_notes (profile_id, week_start, observation, suggestion, evidence, source) values
+  ('aaaaaaaa-0000-4000-8000-000000000001','2026-09-07','Beobachtung A','Vorschlag A','["item.a"]','test'),
+  ('bbbbbbbb-0000-4000-8000-000000000002','2026-09-07','Beobachtung B','Vorschlag B','["item.b"]','test');
+
 create temp table ergebnis (nr int, pruefung text, ausgang text, erwartet text);
 grant all on ergebnis to authenticated, anon;
 
@@ -103,7 +107,9 @@ insert into ergebnis values
   (13,'A sieht Insights B', (select count(*) from public.insights where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
   (14,'A sieht Experimente B', (select count(*) from public.experiments where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
   (15,'A sieht Ergebnisse B', (select count(*) from public.experiment_results where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
-  (16,'A sieht Bs Notiztext', (select coalesce(string_agg(note,','),'nichts') from public.check_ins where note = 'B privat'), 'nichts');
+  (16,'A sieht Bs Notiztext', (select coalesce(string_agg(note,','),'nichts') from public.check_ins where note = 'B privat'), 'nichts'),
+  (37,'A sieht Wochenimpuls B', (select count(*) from public.weekly_notes where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
+  (38,'Gegenprobe: A sieht eigenen Wochenimpuls', (select count(*) from public.weekly_notes where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1');
 
 -- ------------------------------------------------------------ A schreibt --
 do $$
@@ -162,6 +168,41 @@ begin
   exception when unique_violation then
     insert into ergebnis values (23,'Zweites AKTIVES Ziel','abgewiesen','abgewiesen');
   end;
+
+  -- Einwilligung. Sie entscheidet, ob Gesundheitsdaten das Haus verlassen, also
+  -- ist "kann A sie fuer B setzen" keine gewoehnliche Spaltenpruefung: ein
+  -- Durchkommen hier hiesse, dass jemand fremdes Einverstaendnis erklaeren
+  -- kann. Der Code prueft ausserdem selbst auf user.id — das hier prueft, dass
+  -- die Datenbank es auch ohne den Code haelt.
+  update public.profiles
+     set ai_consent_at = now(), ai_consent_version = 1
+   where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+  get diagnostics n = row_count;
+  insert into ergebnis values (32,'A erteilt Einwilligung fuer B', n::text, '0');
+
+  update public.profiles
+     set ai_consent_at = now(), ai_consent_version = 1
+   where id = 'aaaaaaaa-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  insert into ergebnis values (33,'Gegenprobe: A erteilt eigene Einwilligung', n::text, '1');
+
+  -- Zuruecknehmen muss so leicht sein wie Erteilen (Art. 7 Abs. 3). Wenn der
+  -- Widerruf an RLS scheitert, waere die Einwilligung unwiderruflich.
+  update public.profiles
+     set ai_consent_at = null, ai_consent_version = null
+   where id = 'aaaaaaaa-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  insert into ergebnis values (34,'Gegenprobe: A widerruft eigene Einwilligung', n::text, '1');
+
+  -- Haelt der Check-Constraint? Ein Zeitstempel ohne Version liesse sich nicht
+  -- gegen CONSENT_VERSION pruefen und wuerde stillschweigend als gueltig gelten.
+  begin
+    update public.profiles set ai_consent_at = now(), ai_consent_version = null
+     where id = 'aaaaaaaa-0000-4000-8000-000000000001';
+    insert into ergebnis values (35,'Halbe Einwilligung','durchgelassen','abgewiesen');
+  exception when check_violation then
+    insert into ergebnis values (35,'Halbe Einwilligung','abgewiesen','abgewiesen');
+  end;
 end $$;
 
 -- ------------------------------------------------- Symmetrie: B schaut zu --
@@ -185,6 +226,7 @@ insert into ergebnis select 28,'Anonym sieht Ziele', count(*)::text, '0' from pu
 insert into ergebnis select 29,'Anonym sieht Check-ins', count(*)::text, '0' from public.check_ins;
 insert into ergebnis select 30,'Anonym sieht Aktionen', count(*)::text, '0' from public.plan_items;
 insert into ergebnis select 31,'Anonym sieht Messungen', count(*)::text, '0' from public.measurements;
+insert into ergebnis select 36,'Anonym sieht Wochenimpulse', count(*)::text, '0' from public.weekly_notes;
 
 reset role;
 select nr, pruefung, ausgang, erwartet,

@@ -21,6 +21,10 @@ export type AiFailure =
   | 'implausible'
   | 'api_error'
   | 'disabled'
+  // Not a fault. Nobody agreed to send this person's data to a model, so
+  // nothing was sent. Distinct from 'disabled' so the app can say which of
+  // the two it is, and offer the checkbox rather than a shrug.
+  | 'no_consent'
 
 export interface AiAdapter {
   readonly name: string

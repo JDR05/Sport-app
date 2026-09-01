@@ -7,6 +7,7 @@
 // row level security already refuses somebody else's row, but a query that
 // relies on being refused is one refactor away from not being.
 
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
@@ -15,6 +16,7 @@ import { loadCheckIns, saveCheckIn, saveMeasurement, type CheckIn } from '@/lib/
 import { acceptExperiment, concludeIfDue, declineExperiment } from '@/lib/db/experiments'
 import { weeklyReview } from '@/lib/db/analysis'
 import { applyPlanCare, type PlanCareResult } from '@/lib/db/plan-care'
+import { grantConsent, readConsent, withdrawConsent, type ConsentState } from '@/lib/ai/consent'
 
 // Shared with the onboarding: a shape check is not a value check.
 import { isoDate } from '@/lib/domain/isoDate'
@@ -168,4 +170,31 @@ export async function setItemStatus(itemId: unknown, status: unknown): Promise<S
   // before the round trip. Re-rendering the route here would do work nobody sees
   // and could make a settled action flicker back and forth.
   return { ok: error === null }
+}
+
+/**
+ * Turning AI processing on or off for this account.
+ *
+ * A deliberate act with its own action rather than a field inside the
+ * onboarding payload: consent has to be separable from everything else, given
+ * on its own and withdrawn on its own. Art. 7 (3) requires withdrawal to be as
+ * easy as giving it, and the same one-tap call in both directions is what
+ * makes that true rather than stated.
+ *
+ * Revalidates the layout because the plan is read on the server: after a
+ * withdrawal the screens must stop showing an AI badge the account no longer
+ * has.
+ */
+export async function setAiConsent(granted: unknown): Promise<ConsentState> {
+  const user = await requireUser()
+  if (typeof granted !== 'boolean') return readConsent(user.id)
+
+  if (granted) await grantConsent(user.id)
+  else await withdrawConsent(user.id)
+
+  revalidatePath('/', 'layout')
+  // Read back rather than assumed. If the write failed, the person is told the
+  // truth — the alternative is a ticked box over an account that never agreed,
+  // which is the one error this whole module exists to prevent.
+  return readConsent(user.id)
 }

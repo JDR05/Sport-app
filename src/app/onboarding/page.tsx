@@ -26,6 +26,8 @@
 
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth/session'
+import { providerName } from '@/lib/ai'
+import { readConsent } from '@/lib/ai/consent'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { serverToday } from '@/lib/db/today'
 import { Button, Card, Screen, ScreenTitle } from '@/components/ui'
@@ -35,6 +37,10 @@ export default async function OnboardingPage({ searchParams }: PageProps<'/onboa
   const user = await requireUser()
   const existing = await loadPlanInput(user.id)
   const wantsReset = (await searchParams).reset === '1'
+  const consent = await readConsent(user.id)
+  // Read on the server, because it is derived from the API configuration and
+  // the browser must never see any of it.
+  const provider = providerName()
 
   if (existing && !wantsReset) {
     return (
@@ -74,5 +80,15 @@ export default async function OnboardingPage({ searchParams }: PageProps<'/onboa
   // The date comes from the server so the form's earliest selectable day is the
   // same on both renders. Read through the timezone cookie, so it is the day
   // the person is in rather than the day UTC is in.
-  return <OnboardingForm existing={existing} today={await serverToday()} />
+  return (
+    <OnboardingForm
+      existing={existing}
+      today={await serverToday()}
+      // Null when no provider is configured. The checkbox then does not appear
+      // at all — asking somebody to agree to a transfer that cannot happen is
+      // consent theatre, and it would name no recipient.
+      provider={provider}
+      consent={{ granted: consent.granted, outdated: consent.outdated }}
+    />
+  )
 }

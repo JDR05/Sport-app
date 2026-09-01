@@ -7,6 +7,54 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-083: Ohne ausdrückliche Einwilligung verlässt nichts das Haus
+
+**Entscheidung:** Kein Modellaufruf ohne vorher erteilte, ausdrückliche Einwilligung. Sie
+steht in `profiles.ai_consent_at` **und** `ai_consent_version`, wird über `adapterFor()` vor
+**jedem** Aufruf geprüft, ist im Onboarding nie vorangekreuzt und lässt sich im Profil mit
+einem Tippen zurücknehmen. Ohne Häkchen läuft die App vollständig weiter.
+
+**Begründung:** Gesundheitsdaten sind eine besondere Kategorie nach Art. 9 DSGVO —
+Verarbeitung ist verboten, außer eine Ausnahme greift. Für eine Consumer-App ist das
+Art. 9 Abs. 2 lit. a: **ausdrückliche** Einwilligung. „Ausdrücklich" schließt das
+vorangekreuzte Kästchen aus, und das in AGB versteckte Ja ebenso.
+
+Vier Entscheidungen darin, jede aus einem konkreten Fehlermodus:
+
+- **Deterministischer Code, kein Formularfeld.** Ein Server-Action ist ein öffentlicher
+  HTTP-Endpunkt; „unser eigenes Formular ruft das auf" ist keine Sicherheitseigenschaft. Und
+  ein Prompt kann nichts über eine Anfrage erzwingen, die bereits raus ist.
+- **Die Absage *ist* der Adapter.** Die Aufrufstellen verzweigen nicht über ein Boolean —
+  sie holen sich einen Adapter und bekommen einen, der ablehnt (`WithheldAdapter`,
+  `reason: 'no_consent'`). Ein vergessenes `if` erzeugt damit ein Ergebnis, das jede
+  Aufrufstelle ohnehin behandelt, statt einer Anfrage, die schon unterwegs ist.
+- **Zeitstempel plus Version, kein Boolean.** Art. 7 Abs. 1 legt die Beweislast beim
+  Verantwortlichen: die Frage ist nie „ist es an", sondern „wann hat diese Person wozu
+  zugestimmt". Die Version sorgt dafür, dass ein Anbieterwechsel oder ein größerer Payload
+  neu fragt, statt eine alte Zustimmung stillschweigend auszuweiten.
+- **Der Anbietername kommt aus der Base-URL, nicht aus einem Label.** Informierte
+  Einwilligung muss den Empfänger nennen; ein Label ist ein getippter String, der von der
+  URL abdriften kann — und dann wäre der Einwilligungstext leise falsch.
+
+**Warum das hier überhaupt eine echte Wahl ist:** Art. 7 Abs. 4 sagt, eine Einwilligung ist
+nicht freiwillig, wenn der Dienst ohne sie verweigert wird. Genau das kann diese App
+vermeiden, weil die Architektur es seit Schritt 3 hergibt: Ziel einordnen, planen, Muster
+erkennen, Experimente auswerten ist alles deterministischer Code mit Tests. Ablehnen kostet
+das Modell, nicht das Produkt. Das ist der Punkt, an dem sich „kein KI-Wrapper" auszahlt.
+
+**Geprüft, nicht behauptet:** `scripts/verify_rls_isolation.sql` wurde um vier Prüfungen
+erweitert — A kann die Einwilligung für B **nicht** setzen, kann die eigene erteilen und
+widerrufen, und eine halbe Einwilligung (Zeitstempel ohne Version) weist der Check-Constraint
+ab. Dazu zwei echte Isolationsprüfungen auf `weekly_notes`, die vorher mangels Fixtures
+trivial wahr gewesen wären. Lauf gegen `life-system`: **38 Prüfungen, 0 Fehler.**
+
+**Was das nicht löst:** Kostenlose Modell-Tarife trainieren in der Regel auf den Prompts.
+Eine Einwilligung macht das zulässig, nicht harmlos. Vor einem öffentlichen Start mit fremden
+Gesundheitsdaten gehört ein Anbieter her, der vertraglich nicht trainiert — dank des
+kompatiblen Adapters (ADR-080) ist das eine Umgebungsvariable, kein Umbau.
+
+---
+
 ## 2026-09-01 — ADR-082: Die KI hört nach dem Plan nicht auf — der Wochenimpuls
 
 **Entscheidung:** Ein Mal pro Woche schreibt das Modell einen **Wochenimpuls**: eine

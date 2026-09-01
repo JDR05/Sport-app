@@ -5,6 +5,7 @@ import { RequirePlan } from '@/components/RequirePlan'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeSetting } from '@/components/ThemeSetting'
 import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { AiConsent, type ConsentView } from '@/components/AiConsent'
 
 import type { GoalArchetype } from '@/lib/domain/types'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
@@ -28,9 +29,13 @@ const WORK_PATTERN: Record<string, string> = {
 export function ProfileView({
   answers,
   theme,
+  provider,
+  consent,
 }: {
   answers: StoredPlanInput
   theme: Theme
+  provider: string | null
+  consent: ConsentView
 }) {
   const router = useRouter()
 
@@ -101,6 +106,20 @@ export function ProfileView({
               Dein bisheriges Ziel wird pausiert, nicht gelöscht. Was du bis jetzt getan hast,
               bleibt Teil deiner Geschichte — und das persönliche Modell lernt weiter daraus.
             </Note>
+
+            <SectionHeading>KI-Unterstützung</SectionHeading>
+            {provider === null ? (
+              <Card>
+                <p className="text-sm font-semibold text-ink">Kein KI-Anbieter eingerichtet</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted">
+                  Die App plant vollständig ohne. Ziel einordnen, Plan bauen, Muster erkennen und
+                  Experimente auswerten passieren hier im Gerätecode — nur die freieren
+                  Vorschläge und der Wochenimpuls fehlen.
+                </p>
+              </Card>
+            ) : (
+              <AiConsent initial={consent} provider={provider} />
+            )}
 
             <SectionHeading>Darstellung</SectionHeading>
             <ThemeSetting current={theme} />

@@ -107,3 +107,29 @@ export class NullAdapter implements AiAdapter {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
 }
+
+/**
+ * Nobody agreed, so nothing is sent.
+ *
+ * A separate class from NullAdapter, which means "switched off in
+ * configuration". This one means "this person said no", and the distinction
+ * matters twice: the app can offer them the checkbox instead of shrugging, and
+ * a `no_consent` in a log is a working system respecting a choice rather than
+ * a misconfiguration somebody should go and fix.
+ *
+ * Its existence is also what makes the gate hard to get wrong. The call sites
+ * do not branch on a boolean — they ask for an adapter and get one that
+ * refuses, so a forgotten `if` cannot turn into a request that goes out.
+ */
+export class WithheldAdapter implements AiAdapter {
+  readonly name = 'withheld'
+  async classifyGoal(): Promise<AiResult<GoalClassification>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async proposePlan(): Promise<AiResult<PlanProposal>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async weeklyNote(): Promise<AiResult<WeeklyNote>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+}

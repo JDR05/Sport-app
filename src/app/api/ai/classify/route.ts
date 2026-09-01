@@ -11,6 +11,7 @@
 // bill, so the guard sits where the spending happens too.
 
 import { classifyGoal } from '@/lib/ai'
+import { adapterFor } from '@/lib/ai/consent'
 import { currentUser } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
@@ -18,7 +19,8 @@ export const runtime = 'nodejs'
 const MAX_GOAL_LENGTH = 500
 
 export async function POST(request: Request): Promise<Response> {
-  if (!(await currentUser())) {
+  const user = await currentUser()
+  if (!user) {
     return Response.json({ error: 'authentication required' }, { status: 401 })
   }
 
@@ -34,6 +36,11 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'rawText must be at least 3 characters' }, { status: 400 })
   }
 
-  const result = await classifyGoal(rawText.slice(0, MAX_GOAL_LENGTH))
+  // Sends nothing without consent: adapterFor hands back an adapter that
+  // declines, classifyGoal falls through to the keyword classifier, and the
+  // response says `source: 'fallback'` — the same answer the app gives when no
+  // key is configured, and one the person can use.
+  const adapter = await adapterFor(user.id)
+  const result = await classifyGoal(rawText.slice(0, MAX_GOAL_LENGTH), adapter)
   return Response.json(result)
 }

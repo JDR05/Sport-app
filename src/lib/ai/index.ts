@@ -96,6 +96,44 @@ export function readCompatibleConfig(
   }
 }
 
+
+/**
+ * Who actually receives the data, named from the endpoint rather than a label.
+ *
+ * The consent sentence has to name the recipient — informed consent that says
+ * "an unseren KI-Partner" is not informed. Derived from the configured base URL
+ * because that is the thing the request is genuinely sent to: a label is a
+ * string somebody typed, and a label that drifts from the URL would make the
+ * consent text quietly false.
+ */
+const PROVIDERS: ReadonlyArray<[string, string]> = [
+  ['generativelanguage.googleapis.com', 'Google (Gemini)'],
+  ['api.groq.com', 'Groq'],
+  ['openrouter.ai', 'OpenRouter'],
+  ['api.mistral.ai', 'Mistral AI'],
+  ['api.cerebras.ai', 'Cerebras'],
+  ['api.openai.com', 'OpenAI'],
+]
+
+/** Null when nothing is configured — then there is nothing to consent to. */
+export function providerName(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env.AI_ADAPTER === 'null' || env.AI_ADAPTER === 'mock') return null
+  if (env.AI_ADAPTER !== 'compat' && env.ANTHROPIC_API_KEY) return 'Anthropic (Claude)'
+
+  const config = readCompatibleConfig(env, 0)
+  if (!config) return null
+
+  let host: string
+  try {
+    host = new URL(config.baseUrl).hostname
+  } catch {
+    return null
+  }
+
+  const known = PROVIDERS.find(([domain]) => host === domain || host.endsWith(`.${domain}`))
+  return known ? known[1] : host
+}
+
 export type Classified = {
   value: GoalClassification
   /** Shown to the user, so the app is honest about where the answer came from. */
@@ -145,7 +183,7 @@ export async function proposePlan(
     : { proposal: null, source: 'none', reason: result.reason }
 }
 
-export { MockAdapter, NullAdapter } from './mock'
+export { MockAdapter, NullAdapter, WithheldAdapter } from './mock'
 export { OpenAiCompatibleAdapter, type CompatibleConfig } from './openai-compatible'
 export { ClaudeAdapter } from './claude'
 export { checkClassification, checkProposal, checkWeeklyNote } from './validate'
