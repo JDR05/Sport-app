@@ -11,10 +11,10 @@
 // refused identically no matter who hosts it, and a cheaper model will produce
 // that sentence more often, not less.
 
-import { goalClassificationSchema, planProposalSchema } from './schemas'
-import { checkClassification, checkProposal } from './validate'
-import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM } from './prompts'
-import type { GoalClassification, PlanProposal } from './schemas'
+import { goalClassificationSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
+import { checkClassification, checkProposal, checkWeeklyNote } from './validate'
+import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
+import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** What a parse attempt can say. `implausible` means a safety rule fired. */
@@ -65,6 +65,83 @@ export const proposeTask: AiTask<PlanProposal> = {
     }
     return { ok: true, value: parsed.data }
   },
+}
+
+export const weeklyNoteTask: AiTask<WeeklyNote> = {
+  system: WEEKLY_NOTE_SYSTEM,
+  // Reading a week and finding the one thing worth saying is the harder half
+  // of this feature; the writing is the easy part.
+  effort: 'high',
+  maxTokens: 2000,
+  parse: (json) => {
+    const parsed = weeklyNoteSchema.safeParse(json)
+    if (!parsed.success) return { ok: false, detail: parsed.error.message }
+    const violations = checkWeeklyNote(parsed.data)
+    if (violations.length > 0) {
+      return { ok: false, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+    }
+    return { ok: true, value: parsed.data }
+  },
+}
+
+/** Everything the weekly note is allowed to see. Assembled by the caller. */
+export type WeeklyNoteContext = {
+  goalText: string
+  archetype: string
+  weekStart: string
+  /** Per domain: how much of what was planned actually happened. */
+  completion: Array<{ domain: string; done: number; resolved: number }>
+  /** What deterministic detection already found, so the model adds rather than repeats. */
+  deviations: string[]
+  strengths: string[]
+  /** Confirmed personal rules, so it does not propose what is already true. */
+  rules: string[]
+  /**
+   * The free text. The reason this feature exists.
+   *
+   * Collected every day since the check-in shipped and read by nothing until
+   * now — so somebody could type "war krank" and the engine would see three
+   * missed actions and start forming a pattern about Wednesdays.
+   */
+  notes: Array<{ date: string; text: string }>
+  /** Last week's observation, so it does not say the same thing twice. */
+  previous: string | null
+}
+
+export function weeklyNoteUserMessage(ctx: WeeklyNoteContext): string {
+  const lines = [
+    `Ziel: ${ctx.goalText} (eingeordnet als ${ctx.archetype})`,
+    `Woche ab ${ctx.weekStart}`,
+    '',
+    'Umsetzung nach Bereich:',
+    ...(ctx.completion.length > 0
+      ? ctx.completion.map((c) => `- ${c.domain}: ${c.done} von ${c.resolved} bewerteten Aktionen`)
+      : ['- nichts bewertet']),
+  ]
+
+  if (ctx.deviations.length > 0) {
+    lines.push('', 'Was die App selbst schon erkannt hat (nicht wiederholen, ergänzen):',
+      ...ctx.deviations.map((d) => `- ${d}`))
+  }
+  if (ctx.strengths.length > 0) {
+    lines.push('', 'Was zuverlässig läuft:', ...ctx.strengths.map((s) => `- ${s}`))
+  }
+  if (ctx.rules.length > 0) {
+    lines.push('', 'Bereits bestätigte persönliche Regeln (nicht erneut vorschlagen):',
+      ...ctx.rules.map((r) => `- ${r}`))
+  }
+
+  lines.push('', ctx.notes.length > 0
+    ? 'Eigene Notizen aus den Check-ins — das ist der Teil, den sonst nichts liest:'
+    : 'Keine eigenen Notizen in dieser Woche.')
+  for (const note of ctx.notes) lines.push(`- ${note.date}: ${note.text}`)
+
+  if (ctx.previous) {
+    lines.push('', `Letzte Woche stand hier: „${ctx.previous}" — sag etwas anderes.`)
+  }
+
+  lines.push('', 'Eine Beobachtung, ein Vorschlag. Findest du nichts Belastbares, setz hasSomethingToSay auf false.')
+  return lines.join('\n')
 }
 
 export function classifyUserMessage(rawText: string): string {

@@ -42,6 +42,17 @@ export type InsightsData = {
   moveCount: number
   removalCount: number
   weeksWithData: number
+  /**
+   * One observation and one suggestion, written from this week's own data —
+   * including the check-in notes nothing else reads. Null most weeks.
+   */
+  note: {
+    weekStart: string
+    observation: string
+    suggestion: string
+    question: string | null
+    evidence: string[]
+  } | null
 }
 
 export function InsightsView({ data }: { data: InsightsData }) {
@@ -69,6 +80,34 @@ export function InsightsView({ data }: { data: InsightsData }) {
   return (
     <Screen>
       <ScreenTitle title="Insights" subtitle="Was funktioniert bei dir – und was nicht?" />
+
+      {/* The one thing a rule could not have found.
+          
+          Above the deterministic sections because it is the part that read the
+          free text — someone writing "war krank" is the difference between a
+          circumstance and a pattern about Wednesdays. Deliberately one
+          observation and one suggestion, never a list: a weekly feature that
+          must fill a screen fills it with the generic advice checkWeeklyNote
+          exists to refuse. */}
+      {data.note && (
+        <>
+          <SectionHeading>Diese Woche</SectionHeading>
+          <Card tone="accent">
+            <p className="text-sm leading-relaxed text-ink">{data.note.observation}</p>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-ink">
+              {data.note.suggestion}
+            </p>
+            {data.note.question && (
+              <p className="mt-3 border-t border-accent/20 pt-3 text-sm leading-relaxed text-muted">
+                {data.note.question}
+              </p>
+            )}
+            <p className="label mt-3 text-[10px] text-faint">
+              Aus deinen Daten dieser Woche · {data.note.evidence.length} Belege
+            </p>
+          </Card>
+        </>
+      )}
 
       {/* Said first, and deliberately given its own heading. Six weeks in which
           the only thing the app has ever told someone is where they fall short

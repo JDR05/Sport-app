@@ -4,7 +4,8 @@
 // Claude adapter, and a null adapter used to prove the product works with no AI
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
-import type { GoalClassification, PlanProposal } from './schemas'
+import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
+import type { WeeklyNoteContext } from './tasks'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** Never throws. A failed call is a value, so callers cannot forget to handle it. */
@@ -30,6 +31,15 @@ export interface AiAdapter {
    * it is what the plan will be built from.
    */
   proposePlan(input: PlanInput): Promise<AiResult<PlanProposal>>
+  /**
+   * The ongoing half: one observation and one suggestion per week, from this
+   * person's actual data — including the free text nothing else reads.
+   *
+   * Has no deterministic stand-in on purpose. A rules-based "tip" would be the
+   * generic filler the whole feature exists to avoid, so without a model this
+   * simply does not appear and the deterministic insights stand alone.
+   */
+  weeklyNote(context: WeeklyNoteContext): Promise<AiResult<WeeklyNote>>
 }
 
 export type AiConfig = {

@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth/session'
 import { serverToday } from '@/lib/db/today'
 import { weeklyReview } from '@/lib/db/analysis'
 import { concludeIfDue, loadRunningExperiment } from '@/lib/db/experiments'
+import { ensureWeeklyNote } from '@/lib/db/weekly-note'
 import { InsightsView, type InsightsData } from './InsightsView'
 
 export default async function InsightsPage() {
@@ -19,6 +20,11 @@ export default async function InsightsPage() {
 
   const review = await weeklyReview(user.id, today)
   if (!review) redirect('/onboarding')
+
+  // The ongoing half of the AI. Written once a week and then fixed; null is the
+  // normal answer for a quiet week, for no key, and for an answer that did not
+  // survive the safety checks. Never throws — nothing here is worth a screen.
+  const note = await ensureWeeklyNote(user.id, today)
 
   const { analysis } = review
 
@@ -59,6 +65,7 @@ export default async function InsightsPage() {
     moveCount: analysis.patch.moves.length,
     removalCount: analysis.patch.removals.length,
     weeksWithData: review.weeksWithData,
+    note,
   }
 
   return <InsightsView data={data} />

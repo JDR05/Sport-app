@@ -7,6 +7,53 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-082: Die KI hört nach dem Plan nicht auf — der Wochenimpuls
+
+**Entscheidung:** Ein Mal pro Woche schreibt das Modell einen **Wochenimpuls**: eine
+Beobachtung, ein Vorschlag und höchstens eine Rückfrage, belegt durch konkrete Daten aus
+genau dieser Woche. Er steht in `weekly_notes` (eine Zeile je Profil und Woche, per Unique
+Index erzwungen), wird auf Insights angezeigt und ändert sich danach nicht mehr.
+**Schweigen ist ein reguläres Ergebnis, kein Fehler.**
+
+**Begründung:** Bis hierhin wurde das Modell zwei Mal je Ziel gefragt — Archetyp erkennen,
+Plan vorschlagen — und danach nie wieder. Damit konnte die App nur bemerken, wofür vorher
+jemand eine Regel geschrieben hatte. Zwei Löcher folgen daraus, und das erste ist keine
+fehlende Funktion, sondern eine **falsche Antwort**:
+
+- `check_ins.note` wird seit dem Check-in jeden Tag erhoben und **von nichts gelesen**.
+  Jemand tippt „war krank", die deterministische Erkennung sieht drei ausgefallene Aktionen
+  und beginnt, ein Muster über Mittwoche zu bilden. Der Wochenimpuls ist die einzige Stelle,
+  die diesen Text überhaupt sieht.
+- Zusammenhänge über Domains hinweg, die keine Regel vorwegnimmt, bleiben unsichtbar. Genau
+  dafür ist ein Modell da und ein Schema nicht.
+
+**Warum das Schweigen die eigentliche Entscheidung ist:** Ein Wochenformat, das jede Woche
+etwas liefern *muss*, liefert in ruhigen Wochen Füllsatz — „trink mehr Wasser", „bleib dran".
+Ein Füllsatz macht aus einem Messgerät ein Horoskop, und er ist exakt das, was ein
+Wettbewerber ohne jede Datenlage auch sagen kann: das Gegenteil eines Unterschieds. Deshalb
+wird härter geprüft, was die App **nicht** sagt, als was sie sagt:
+
+- `checkWeeklyNote` weist `not_generic` (Sätze, die für eine fremde Person genauso gelten)
+  und `no_verdict_on_the_person` (Urteile über den Menschen statt über die Woche) ab —
+  zusätzlich zu den vier Sicherheitsfamilien, die auch für Planvorschläge gelten. Ein Text,
+  auf den jemand handelt, wird nicht milder geprüft, nur weil er kein Planitem ist.
+- `basedOn` darf nicht leer sein. Ohne Beleg ist ein selbstsicherer Satz über eine Woche
+  möglich, die das Modell nie gelesen hat (Prinzip 4).
+- Vor Donnerstag wird nichts geschrieben, und ohne eine einzige bewertete Aktion auch nicht.
+- Das Modell bekommt die Beobachtung der Vorwoche mit, damit es nicht zwei Mal dasselbe sagt.
+- `hasSomethingToSay: false` ist ein gültiges Ergebnis des Schemas, nicht ein Ausfall.
+
+**Kein deterministischer Ersatz.** `MockAdapter` und `NullAdapter` liefern hier bewusst
+nichts. Ein deterministischer „Tipp" wäre eine feste Liste, und ein Satz aus einer festen
+Liste ist für jeden wahr — also genau der Füllsatz, den die Prüfung oben verwirft. Ohne Key
+erscheint der Impuls schlicht nicht; die deterministischen Insights stehen für sich, weil sie
+auf echten Zählungen beruhen. Das Produkt bleibt vollständig benutzbar (ADR-041).
+
+**Kosten:** ein Modellaufruf je Nutzer und Woche, ausgelöst beim Öffnen von Insights, nicht
+per Cron. Fehler jeder Art enden gleich: kein Impuls.
+
+---
+
 ## 2026-09-01 — ADR-081: RLS gegen das gehostete Projekt geprüft, mit zwei Nutzern
 
 **Entscheidung:** `scripts/verify_rls_isolation.sql` prüft die Mandantentrennung an einer

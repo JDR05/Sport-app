@@ -7,7 +7,7 @@
 // Violations are rejected, never repaired. Silently fixing a bad proposal
 // would hide that the model produced one.
 
-import type { GoalClassification } from './schemas'
+import type { GoalClassification, WeeklyNote } from './schemas'
 
 export type Violation = { rule: string; detail: string }
 
@@ -91,6 +91,72 @@ export function checkProposal(proposal: {
     if (action.timesPerWeek > 5) {
       violations.push({ rule: 'too_frequent', detail: `${where}: ${action.timesPerWeek}×/week` })
     }
+  }
+
+  return violations
+}
+
+/**
+ * Advice that is generic is not advice.
+ *
+ * The whole claim of this feature is that it says something only this person's
+ * data could produce. "Trink mehr Wasser", "bleib dran", "Schlaf ist wichtig"
+ * are true of everyone, which makes them worthless here and indistinguishable
+ * from a horoscope. A model under pressure to produce something every week
+ * produces exactly these, so they are refused rather than trusted to the
+ * prompt.
+ *
+ * Deliberately a short list of the actual offenders rather than a cleverness
+ * detector: it catches the filler, and anything subtler is what `basedOn` and
+ * the reviewer are for.
+ */
+const GENERIC_FILLER = [
+  /\btrink(e)? (mehr|ausreichend|genug) wasser\b/i,
+  /\bbleib dran\b/i, /\bdranbleiben lohnt\b/i,
+  /\bschlaf ist wichtig\b/i, /\bbewegung ist wichtig\b/i,
+  /\bjeder schritt z(ä|ae)hlt\b/i,
+  /\bdu schaffst das\b/i, /\bsei stolz\b/i, /\bglaub an dich\b/i,
+  /\bkleine schritte f(ü|ue)hren zum ziel\b/i,
+  /\bh(ö|oe)r auf deinen k(ö|oe)rper\b/i,
+]
+
+/** Judging the person rather than naming what was different. */
+const VERDICT = [
+  /\bdisziplinlos\b/i, /\bfaul\b/i, /\bkeine disziplin\b/i,
+  /\bdu musst dich\b/i, /\breiß dich\b/i, /\bausrede/i,
+  /\bmangelnde motivation\b/i, /\bwillensschw/i,
+]
+
+/**
+ * Plausibility for the weekly note.
+ *
+ * Same four families as a plan proposal — a note is text a person acts on, so
+ * the rules cannot be softer just because it is not a plan item — plus the two
+ * above, which only apply here: a proposal cannot be filler (it has to be an
+ * action with minutes on it), and it is not written in the second person about
+ * how the week went.
+ */
+export function checkWeeklyNote(value: WeeklyNote): Violation[] {
+  const violations: Violation[] = []
+  if (!value.hasSomethingToSay) return violations
+
+  const texts = [value.observation, value.suggestion, value.question ?? '']
+  for (const text of texts) {
+    violations.push(...scan(text, RESTRICTIVE, 'additive_only'))
+    violations.push(...scan(text, NUMERIC_HEALTH_CLAIM, 'no_numeric_health_claims'))
+    violations.push(...scan(text, SLEEP_REDUCTION, 'never_less_sleep'))
+    violations.push(...scan(text, MEDICAL, 'no_medical_claims'))
+    violations.push(...scan(text, GENERIC_FILLER, 'not_generic'))
+    violations.push(...scan(text, VERDICT, 'no_verdict_on_the_person'))
+  }
+
+  // Saying something means having something to point at. Without this the
+  // model can produce a confident sentence about a week it never read.
+  if (value.basedOn.length === 0) {
+    violations.push({ rule: 'must_cite_evidence', detail: 'basedOn is empty' })
+  }
+  if (value.observation.trim().length < 20 || value.suggestion.trim().length < 20) {
+    violations.push({ rule: 'too_thin', detail: 'observation or suggestion is a fragment' })
   }
 
   return violations

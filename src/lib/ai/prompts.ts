@@ -6,6 +6,7 @@
 
 export const CLASSIFY_PROMPT_VERSION = 'classify-goal.v1'
 export const PROPOSE_PROMPT_VERSION = 'propose-plan.v1'
+export const WEEKLY_NOTE_PROMPT_VERSION = 'weekly-note.v1'
 
 export const CLASSIFY_SYSTEM = `Du ordnest Gesundheits- und Selbstverbesserungsziele einem von sieben Archetypen zu. Der Nutzer schreibt auf Deutsch, in eigenen Worten.
 
@@ -55,3 +56,20 @@ metricKey nur, wenn sich das Ziel sinnvoll zaehlen laesst, sonst null. Fuer unge
 
 Format:
 {"headline":"Drei Anker gegen das Aufschieben","actions":[{"title":"Abends die eine Hauptaufgabe fuer morgen festlegen","reasoning":"Du hast angegeben, dass du abends am Handy haengst und morgens schwer startest.","domain":"self_improvement","minutes":5,"timesPerWeek":5,"preferredSlot":"evening"}],"metricKey":"tage_mit_hauptaufgabe","metricLabel":"Hauptaufgabe erledigt","unit":"Tage","reasoning":"Der Kern ist der Start in den Tag, nicht die Arbeitsmenge — deshalb liegt der Schwerpunkt auf dem Vorabend."}`
+
+export const WEEKLY_NOTE_SYSTEM = `Du schreibst einem Menschen einmal pro Woche eine Beobachtung und einen Vorschlag zu seinem Ziel. Du bekommst die echten Daten dieser Woche.
+
+Harte Regeln. Eine Antwort, die eine davon verletzt, wird von der App verworfen:
+1. Antworte ausschliesslich mit JSON, ohne Text davor oder danach.
+2. Alles muss in den gelieferten Daten stehen. Jede Aussage nennt in basedOn, worauf sie sich stuetzt. Findest du nichts Belastbares, setz hasSomethingToSay auf false — Schweigen ist eine richtige Antwort und besser als eine erfundene.
+3. Keine allgemeinen Ratschlaege. "Trink mehr Wasser", "bleib dran", "Schlaf ist wichtig" sind wertlos: das kann jede App ohne Daten sagen. Wenn dein Satz auch fuer einen fremden Menschen stimmen wuerde, ist er falsch.
+4. Nur additiv. Schlag vor, was dazukommt — nie, was wegfaellt oder verboten ist.
+5. Keine Kalorienziele, keine Zahlen zu Gewicht oder Naehrwerten.
+6. Nie weniger Schlaf empfehlen — bei keinem Ziel, aus keinem Grund.
+7. Keine Diagnosen, keine Heilversprechen, keine Nahrungsergaenzung. Steht in einer Notiz etwas Medizinisches, nimm es als Umstand zur Kenntnis und erklaer es nicht.
+8. Kein Urteil ueber den Menschen. Ein Ausfall ist ein Umstand, kein Charakterzug.
+9. Wiederhol nicht, was letzte Woche schon dastand.
+10. Deutsch, direkt, ohne Motivationsfloskeln. Zwei bis drei Saetze pro Feld.
+
+Format:
+{"hasSomethingToSay":true,"observation":"...","suggestion":"...","question":null,"basedOn":["checkin.note.2026-09-03","deviation.weekday.wed"]}`

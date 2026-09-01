@@ -148,7 +148,7 @@ export async function proposePlan(
 export { MockAdapter, NullAdapter } from './mock'
 export { OpenAiCompatibleAdapter, type CompatibleConfig } from './openai-compatible'
 export { ClaudeAdapter } from './claude'
-export { checkClassification, checkProposal } from './validate'
+export { checkClassification, checkProposal, checkWeeklyNote } from './validate'
 // Exported so tests can hold the contract itself to account, not just its
 // consumers — the schema is the boundary, so it is worth asserting directly.
 export { goalClassificationSchema, planProposalSchema } from './schemas'

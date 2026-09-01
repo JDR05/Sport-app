@@ -24,10 +24,11 @@
 
 import {
   classifyTask, classifyUserMessage, proposeTask, proposeUserMessage, stripCodeFence,
-  type AiTask,
+  weeklyNoteTask, weeklyNoteUserMessage,
+  type AiTask, type WeeklyNoteContext,
 } from './tasks'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, PlanProposal } from './schemas'
+import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 export type CompatibleConfig = {
@@ -66,6 +67,10 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
 
   async proposePlan(input: PlanInput): Promise<AiResult<PlanProposal>> {
     return this.call(proposeTask, this.config.proposeModel, proposeUserMessage(input))
+  }
+
+  async weeklyNote(context: WeeklyNoteContext): Promise<AiResult<WeeklyNote>> {
+    return this.call(weeklyNoteTask, this.config.proposeModel, weeklyNoteUserMessage(context))
   }
 
   private async call<T>(task: AiTask<T>, model: string, user: string): Promise<AiResult<T>> {

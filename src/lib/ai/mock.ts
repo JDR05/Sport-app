@@ -7,8 +7,7 @@
 
 import { classifyGoalText } from '@/lib/engine'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, PlanProposal } from './schemas'
-import type {  } from '@/lib/domain/types'
+import type { GoalClassification, PlanProposal, WeeklyNote } from './schemas'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
   body_composition: { key: 'weight_kg', unit: 'kg' },
@@ -64,6 +63,18 @@ export class MockAdapter implements AiAdapter {
     }
   }
 
+  /**
+   * Nothing, deliberately.
+   *
+   * A deterministic weekly "tip" would have to be assembled from a fixed list,
+   * and a sentence from a fixed list is true of everyone — which is exactly
+   * the filler checkWeeklyNote refuses from the model. Without a key the
+   * weekly note simply does not appear, and the deterministic insights, which
+   * are grounded in real counts, stand on their own.
+   */
+  async weeklyNote(): Promise<AiResult<WeeklyNote>> {
+    return { ok: false, reason: 'disabled', detail: 'no deterministic stand-in for advice' }
+  }
 }
 
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
@@ -92,4 +103,7 @@ export class NullAdapter implements AiAdapter {
     }
   }
 
+  async weeklyNote(): Promise<AiResult<WeeklyNote>> {
+    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
+  }
 }

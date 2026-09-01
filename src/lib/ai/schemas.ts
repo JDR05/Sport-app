@@ -70,3 +70,26 @@ export const planProposalSchema = z.object({
 })
 
 export type PlanProposal = z.infer<typeof planProposalSchema>
+
+// ------------------------------------------------------- the weekly note ----
+
+/**
+ * What the model may say once a week.
+ *
+ * `hasSomethingToSay` is the important field. A weekly feature that must
+ * produce something every week produces filler in the weeks where nothing
+ * happened, and filler is what turns a measuring instrument into a horoscope.
+ * When it is false the app stores nothing and shows nothing.
+ *
+ * `basedOn` is required and non-empty for the same reason it is on every
+ * insight: a statement nobody can trace back to real rows must not exist.
+ */
+export const weeklyNoteSchema = z.object({
+  hasSomethingToSay: z.boolean(),
+  observation: z.string().max(400),
+  suggestion: z.string().max(400),
+  question: z.string().max(200).nullable(),
+  basedOn: z.array(z.string().max(80)).max(12),
+})
+
+export type WeeklyNote = z.infer<typeof weeklyNoteSchema>
