@@ -14,6 +14,38 @@ import type { PlanInput } from '@/lib/domain/types'
 /** Sensible for a small app; a slow answer is worse than a deterministic one. */
 const DEFAULT_TIMEOUT_MS = 20_000
 
+/**
+ * A timeout that a typo cannot turn into "never call the model".
+ *
+ * This was `Number(env.AI_TIMEOUT_MS ?? DEFAULT)`, and it cost an afternoon.
+ * `??` only catches null and undefined, so an AI_TIMEOUT_MS that exists but is
+ * empty — easy to create by accident in a dashboard — became `Number('')`,
+ * which is 0. A value like "20s" becomes NaN. Both make setTimeout fire on the
+ * next tick, so AbortController cancelled every request before it left, and
+ * the app reported `timeout` — the one reason that sounds like the provider's
+ * fault and invites you to try again.
+ *
+ * Two calls escaped it only because they pass an explicit budget, which is
+ * what made the symptom so confusing: the questions call reached Google and
+ * came back with a real 404, while classification and proposal died at 0 ms in
+ * the same request.
+ *
+ * A configured value that cannot be a duration is a mistake, not an
+ * instruction. Fall back, and say so where someone will find it.
+ */
+export function timeoutFrom(raw: string | number | undefined, fallback: number): number {
+  if (raw === undefined || raw === '') return fallback
+
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0) {
+    console.warn(
+      `[ai] ignoring AI_TIMEOUT_MS="${raw}": not a positive number of milliseconds. Using ${fallback} ms.`,
+    )
+    return fallback
+  }
+  return value
+}
+
 export function readConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
   return {
     apiKey: env.ANTHROPIC_API_KEY,
@@ -25,7 +57,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AiConfig {
     // variable that is already set in a deployment would silently fall back to
     // the default rather than fail, which is the worst of both outcomes.
     proposeModel: env.AI_PROPOSE_MODEL ?? env.AI_SUGGEST_MODEL ?? 'claude-opus-5',
-    timeoutMs: Number(env.AI_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
+    timeoutMs: timeoutFrom(env.AI_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
   }
 }
 
@@ -52,7 +84,11 @@ export function createAdapter(
   if (env.AI_ADAPTER === 'mock') return new MockAdapter()
 
   const base = readConfig(env)
-  const config = timeoutMs === undefined ? base : { ...base, timeoutMs }
+  // The override goes through the same guard: a caller passing a computed
+  // budget can get it wrong too, and "0 means never call" must not be
+  // reachable from any direction.
+  const config =
+    timeoutMs === undefined ? base : { ...base, timeoutMs: timeoutFrom(timeoutMs, base.timeoutMs) }
 
   const compatible = readCompatibleConfig(env, config.timeoutMs)
   if (env.AI_ADAPTER === 'compat') {
@@ -147,6 +183,16 @@ export type Classified = {
    * the person's to take.
    */
   fallbackReason?: AiFailure
+  /**
+   * What the provider itself said, when it said anything.
+   *
+   * Worth surfacing rather than burying in a log: Google's answer to a retired
+   * model is literally "Please update your code to use models/gemini-3.6-flash".
+   * No sentence I can write beats that, and a hard-coded model name in a hint
+   * rots the moment the provider retires it — which is the failure that
+   * produced this field.
+   */
+  fallbackDetail?: string
 }
 
 /**
@@ -164,7 +210,12 @@ export async function classifyGoal(rawText: string, adapter?: AiAdapter): Promis
 
   const fallback = await new MockAdapter().classifyGoal(rawText)
   if (!fallback.ok) throw new Error('the deterministic classifier must never fail')
-  return { value: fallback.value, source: 'fallback', fallbackReason: result.reason }
+  return {
+    value: fallback.value,
+    source: 'fallback',
+    fallbackReason: result.reason,
+    fallbackDetail: result.detail,
+  }
 }
 
 /**

@@ -7,7 +7,7 @@
 // declining would cost the product rather than the model.
 
 import { describe, expect, it } from 'vitest'
-import { classifyGoal, providerName, WithheldAdapter } from '@/lib/ai'
+import { classifyGoal, createAdapter, providerName, readConfig, timeoutFrom, WithheldAdapter } from '@/lib/ai'
 import type { AiAdapter } from '@/lib/ai'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -118,5 +118,85 @@ describe('who the consent text names', () => {
         AI_COMPAT_MODEL: 'm',
       } as unknown as NodeJS.ProcessEnv),
     ).toBe('Google (Gemini)')
+  })
+})
+
+describe('a timeout a typo cannot break', () => {
+  // The bug this pins down cost an afternoon and looked like the provider's
+  // fault. AI_TIMEOUT_MS existed but was empty, `??` does not catch an empty
+  // string, Number('') is 0, and AbortController then cancelled every request
+  // before it left the machine — reported as `timeout`, the one reason that
+  // says "try again" rather than "your configuration is wrong".
+
+  const quiet = async (run: () => void) => {
+    const original = console.warn
+    console.warn = () => {}
+    try {
+      run()
+    } finally {
+      console.warn = original
+    }
+  }
+
+  it.each([
+    ['an empty value', ''],
+    ['a value with a unit', '20s'],
+    ['a word', 'default'],
+    ['zero', '0'],
+    ['a negative number', '-1'],
+  ])('falls back to the default for %s', async (_case, value) => {
+    await quiet(() => {
+      const config = readConfig({ AI_TIMEOUT_MS: value } as unknown as NodeJS.ProcessEnv)
+      expect(config.timeoutMs).toBe(20_000)
+    })
+  })
+
+  it('still honours a real value', () => {
+    const config = readConfig({ AI_TIMEOUT_MS: '5000' } as unknown as NodeJS.ProcessEnv)
+    expect(config.timeoutMs).toBe(5_000)
+  })
+
+  it('uses the default when nothing is configured', () => {
+    expect(readConfig({} as unknown as NodeJS.ProcessEnv).timeoutMs).toBe(20_000)
+  })
+
+  it('says which value it refused, so it is findable', async () => {
+    const lines: string[] = []
+    const original = console.warn
+    console.warn = (...args: unknown[]) => void lines.push(args.map(String).join(' '))
+    try {
+      timeoutFrom('20s', 20_000)
+    } finally {
+      console.warn = original
+    }
+    expect(lines[0]).toContain('AI_TIMEOUT_MS')
+    expect(lines[0]).toContain('20s')
+  })
+
+  it.each([
+    ['NaN', Number.NaN],
+    ['zero', 0],
+    ['a negative budget', -5],
+  ])('cannot be broken through the per-call override either: %s', async (_case, budget) => {
+    // askIntakeQuestions and the week-load path both pass their own budget, so
+    // the override is a second way in. A caller computing one badly must not be
+    // able to switch the model off — which is exactly what a 0 does.
+    await quiet(() => expect(timeoutFrom(budget, 20_000)).toBe(20_000))
+  })
+
+  it('still creates a working adapter when a caller passes a broken budget', async () => {
+    await quiet(() => {
+      const adapter = createAdapter(
+        {
+          AI_COMPAT_BASE_URL: 'https://api.groq.com/openai/v1',
+          AI_COMPAT_KEY: 'k',
+          AI_COMPAT_MODEL: 'm',
+        } as unknown as NodeJS.ProcessEnv,
+        Number.NaN,
+      )
+      // Not the deterministic fallback: a bad number must not silently
+      // downgrade the app to the no-model path either.
+      expect(adapter.name).toBe('compatible')
+    })
   })
 })

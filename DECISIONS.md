@@ -7,6 +7,55 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-01 — ADR-087: Eine kaputte Konfiguration darf nicht wie ein Anbieterfehler aussehen
+
+**Entscheidung:** `AI_TIMEOUT_MS` wird validiert, statt durch `Number()` gereicht zu werden. Ein
+Wert, der keine positive Millisekundenzahl ist, wird verworfen, der Standard greift, und eine
+Warnzeile nennt den abgelehnten Wert. Der gleiche Filter liegt auf dem Per-Call-Budget.
+Zusätzlich zeigt der Bildschirm bei `api_error` die **wörtliche Antwort des Anbieters**.
+
+**Begründung:** Ein Tag Fehlersuche, und die Logzeile aus ADR-086 hat beides in einer Zeile
+geliefert:
+
+```
+[ai] questions failed via gemini (gemini-2.5-flash): api_error — 404: This model
+     models/gemini-2.5-flash is no longer available to new users. Please update
+     your code to use models/gemini-3.6-flash
+[ai] classify failed via gemini (gemini-2.5-flash): timeout — no response within 0 ms
+```
+
+**„no response within 0 ms"** ist der eigentliche Fund. `readConfig` stand da als
+`Number(env.AI_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS)`. `??` fängt nur `null` und `undefined` —
+eine Variable, die *existiert*, aber leer ist (in einem Dashboard versehentlich schnell
+angelegt), wird zu `Number('')`, also **0**. `"20s"` wird zu `NaN`. Beides lässt `setTimeout`
+sofort feuern, der AbortController bricht jede Anfrage ab, **bevor sie das Haus verlässt** —
+und die App meldet `timeout`: ausgerechnet der Grund, der nach dem Anbieter klingt und zum
+Nochmalversuchen einlädt.
+
+Was den Fehler so schwer lesbar machte: **zwei Aufrufe entkamen ihm.** `askIntakeQuestions`
+und der Wochen-Ladepfad übergeben ein eigenes Budget und überschrieben damit den kaputten
+Wert. Deshalb erreichte im selben Request die Rückfrage Google und kam mit einem echten 404
+zurück, während Einordnung und Vorschlag bei 0 ms starben. Ein Anbieter, der gleichzeitig
+antwortet und nicht antwortet.
+
+Ein konfigurierter Wert, der keine Dauer sein kann, ist ein Versehen und keine Anweisung. Der
+Filter liegt an **einer** Stelle — dort, wo Umgebung zu Konfiguration wird — und deckt auch
+den Override ab: „0 heißt: ruf das Modell nie" darf aus keiner Richtung erreichbar sein.
+
+**Und der Hinweistext nennt keine Modellversion mehr.** Er schlug `gemini-2.5-flash` vor, und
+noch am selben Nachmittag hat der Anbieter genau dieses Modell für neue Konten abgeschaltet —
+der Hinweis war also aktiv falsch. Eine Versionsnummer in einem Hinweis verrottet. Was nicht
+verrottet, ist die Antwort des Anbieters selbst, und die steht jetzt darunter: sie enthält
+nichts vom Menschen, sondern spricht über die Anfrage, und im konkreten Fall sagt sie exakt,
+welches Modell stattdessen zu nehmen ist. Kein selbstgeschriebener Satz schlägt das.
+
+**Geprüft:** neun Tests — leerer Wert, Wert mit Einheit, Wort, `0`, negativ und `NaN` fallen
+alle auf 20 000 ms zurück; ein echter Wert wird weiter übernommen; die Warnzeile nennt den
+abgelehnten Wert; und ein kaputtes Per-Call-Budget schaltet die App nicht heimlich auf den
+deterministischen Pfad zurück.
+
+---
+
 ## 2026-09-01 — ADR-086: Ein gescheiterter Modellaufruf hinterlässt eine Spur
 
 **Entscheidung:** Jeder fehlgeschlagene Modellaufruf wird serverseitig einmal protokolliert —

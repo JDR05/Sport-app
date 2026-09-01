@@ -31,6 +31,8 @@ type Phase =
       reclassified: GoalArchetype | null
       /** Why it did not work, when it did not. Null on success. */
       failure: AiFailure | null
+      /** The provider's own words. Often more useful than anything I can write. */
+      detail: string | null
     }
 
 export function AiCatchUpView({
@@ -57,7 +59,7 @@ export function AiCatchUpView({
       setPhase({ name: 'asking', questions: result.questions, reclassified: result.reclassified })
       return
     }
-    await submit([], result.reclassified, result.failure)
+    await submit([], result.reclassified, result.failure, result.detail)
   }
 
   const submit = async (
@@ -74,10 +76,17 @@ export function AiCatchUpView({
      * fix from their phone anyway.
      */
     failure: AiFailure | null = null,
+    detail: string | null = null,
   ) => {
     setPhase({ name: 'working' })
     const result = await finishAiForGoal(answers)
-    setPhase({ name: 'done', answered: result.ok, reclassified, failure: result.ok ? null : failure })
+    setPhase({
+      name: 'done',
+      answered: result.ok,
+      reclassified,
+      failure: result.ok ? null : failure,
+      detail: result.ok ? null : detail,
+    })
     router.refresh()
   }
 
@@ -144,6 +153,16 @@ export function AiCatchUpView({
                 : (phase.failure !== null && AI_FAILURE_TEXT[phase.failure]) ||
                   'Der Plan wird weiter deterministisch gebaut, wie bisher.'}
             </p>
+            {!phase.answered && phase.detail && (
+              // The provider's answer, verbatim and trimmed. React escapes it,
+              // and it is the provider talking about the request rather than
+              // anything of the person's — so there is nothing here to leak and
+              // usually the exact instruction needed. A retired model says which
+              // one to use instead; no sentence of mine competes with that.
+              <p className="mt-2 break-words font-mono text-xs leading-relaxed text-faint">
+                {phase.detail.slice(0, 300)}
+              </p>
+            )}
             {phase.reclassified && (
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 Sie liest dein Ziel außerdem anders als die Wortliste: jetzt{' '}

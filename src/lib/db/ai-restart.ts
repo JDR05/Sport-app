@@ -37,9 +37,11 @@ export type AiRestart = {
    * next steps, and only one of them is theirs to take.
    */
   failure: AiFailure | null
+  /** The provider's own words, when there are any. Shown verbatim. */
+  detail: string | null
 }
 
-const NOTHING: AiRestart = { questions: [], reclassified: null, failure: null }
+const NOTHING: AiRestart = { questions: [], reclassified: null, failure: null, detail: null }
 
 /**
  * Re-opens the active goal to the model: classification, then questions.
@@ -107,14 +109,18 @@ async function reclassify(
   profileId: string,
   goalId: string,
   goal: { rawText: string; archetype: GoalArchetype },
-): Promise<{ reclassified: GoalArchetype | null; failure: AiFailure | null }> {
+): Promise<{ reclassified: GoalArchetype | null; failure: AiFailure | null; detail: string | null }> {
   const classified = await classifyGoal(goal.rawText, await adapterFor(profileId))
 
   // `source` is 'fallback' when the deterministic classifier answered — which
   // is what the goal already holds, so there is nothing to write. The reason
   // travels on, because that is the one thing the screen can act on.
   if (classified.source !== 'ai') {
-    return { reclassified: null, failure: classified.fallbackReason ?? 'api_error' }
+    return {
+      reclassified: null,
+      failure: classified.fallbackReason ?? 'api_error',
+      detail: classified.fallbackDetail ?? null,
+    }
   }
 
   const archetype = classified.value.archetype as GoalArchetype
@@ -125,5 +131,9 @@ async function reclassify(
     .eq('id', goalId)
     .eq('profile_id', profileId)
 
-  return { reclassified: archetype === goal.archetype ? null : archetype, failure: null }
+  return {
+    reclassified: archetype === goal.archetype ? null : archetype,
+    failure: null,
+    detail: null,
+  }
 }
