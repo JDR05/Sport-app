@@ -34,6 +34,7 @@ vi.mock('@/app/(app)/actions', () => ({
 const { InsightsView } = await import('@/app/(app)/insights/InsightsView')
 const { AiCatchUpView } = await import('@/app/(app)/ai/AiCatchUpView')
 const { IntakeQuestionsStep } = await import('@/app/onboarding/IntakeQuestionsStep')
+const { ActionItem } = await import('@/components/ActionItem')
 
 const PROPOSAL = {
   headline: 'Drei Anker, die an deinen Abend passen',
@@ -223,6 +224,61 @@ describe('the catch-up screen', () => {
       <AiCatchUpView {...base} classifiedBy="keywords" consent={{ granted: false, outdated: false }} />,
     )
     expect(html).toContain('Google (Gemini)')
+  })
+})
+
+const ACTION = {
+  scheduledOn: '2026-09-09',
+  domain: 'training' as const,
+  track: 'goal' as const,
+  title: 'Ganzkörper ohne Geräte',
+  plannedDurationMin: 40,
+  timeSlot: 'evening' as const,
+  rationale: { text: 'Mittwoch 19:30, nach deiner Vorlesung.', basedOn: ['schedule.wed'] },
+  details: {},
+  cadence: 'weekly' as const,
+}
+
+describe('the action card', () => {
+  it('asks nothing until there is something to explain', () => {
+    // The question is the whole feature, and it is also the whole risk: a card
+    // that opens with seven reason chips under every action is the "zweiter
+    // Job" the product rules forbid. It appears after an answer, never before.
+    const html = render(
+      <ActionItem
+        item={ACTION}
+        status="unknown"
+        onStatus={() => {}}
+        onAnswer={async () => null}
+        onAccept={async () => null}
+      />,
+    )
+    expect(html).toContain('Ganzkörper ohne Geräte')
+    expect(html).not.toContain("Woran lag's")
+    expect(html).not.toContain('Zu müde')
+  })
+
+  it('keeps the one circle the design system sanctions, and no more', () => {
+    // The card cannot join the aggregate check below: it contains the
+    // completion ring, which is the single sanctioned `rounded-full` in the
+    // whole product. So it is checked here, and the check is that there is
+    // exactly one — a second would be a pill that crept in beside it.
+    const html = render(
+      <ActionItem item={ACTION} status="missed" onStatus={() => {}} onAnswer={async () => null} />,
+    )
+    expect(html.match(/rounded-full/g)).toHaveLength(1)
+    expect(html).not.toMatch(/shadow-(sm|md|lg|xl)/)
+    expect(html).not.toMatch(/(class|Name)="[^"]*(?:bg|text|border)-\[#/)
+    expect(html).toMatch(/rounded-\[3px\]/)
+  })
+
+  it('renders unchanged where an answer would make no sense', () => {
+    // Without the two handlers the card is exactly what it was: the standing
+    // rules list passes no handlers, because "Eiweiß zu jeder Mahlzeit" cannot
+    // be moved to Saturday.
+    const plain = render(<ActionItem item={ACTION} status="missed" onStatus={() => {}} />)
+    expect(plain).toContain('Ganzkörper ohne Geräte')
+    expect(plain).not.toContain('Zu müde')
   })
 })
 

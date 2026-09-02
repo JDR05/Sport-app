@@ -22,6 +22,8 @@ import { saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { refreshProposal } from '@/lib/db/propose'
 import { serverToday } from '@/lib/db/today'
+import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
+import { STATUS_REASONS, type Reaction } from '@/lib/adaptive/reaction'
 
 // Shared with the onboarding: a shape check is not a value check.
 import { isoDate } from '@/lib/domain/isoDate'
@@ -163,6 +165,15 @@ export async function setItemStatus(itemId: unknown, status: unknown): Promise<S
     .from('plan_items')
     .update({
       status: next.data,
+      // A new verdict retires the reason given for the old one.
+      //
+      // Not tidiness: the check constraint forbids a reason on an `unknown`
+      // row, so undoing an answered action by tapping the ring would fail the
+      // whole update and silently roll the screen back. And a reason left
+      // attached to a status it no longer explains is a fact about a week that
+      // did not happen.
+      status_reason: null,
+      status_note: null,
       // When it was decided, not when it was planned. The adaptive engine reads
       // this to tell "marked missed that evening" from "marked missed three
       // weeks later", which are not the same signal.
@@ -175,6 +186,59 @@ export async function setItemStatus(itemId: unknown, status: unknown): Promise<S
   // before the round trip. Re-rendering the route here would do work nobody sees
   // and could make a settled action flicker back and forth.
   return { ok: error === null }
+}
+
+// ------------------------------------------------------------------ reason ---
+
+const reasonSchema = z.enum(STATUS_REASONS)
+
+/**
+ * The verdict, why it was given, and what the app offers to do about it.
+ *
+ * One round trip rather than two, because the offer has to appear in the same
+ * moment as the tap. A second call to fetch it would put a spinner between the
+ * question and the answer, on the one screen where the whole point is that the
+ * app reacts immediately.
+ */
+export async function answerItemStatus(payload: unknown): Promise<AnswerResult> {
+  const user = await requireUser()
+
+  const parsed = z
+    .object({
+      itemId: z.uuid(),
+      status: statusSchema,
+      reason: reasonSchema.nullable(),
+      // The database caps this at 300 as well. Two places on purpose: one is
+      // a validation, the other is the truth.
+      note: z.string().trim().max(300).nullable(),
+      today: isoDate,
+    })
+    .safeParse(payload)
+
+  if (!parsed.success) return { ok: false, reaction: null }
+
+  const { itemId, status, reason, note, today } = parsed.data
+  return answerItem(user.id, itemId, status, reason, note && note.length > 0 ? note : null, today)
+}
+
+/**
+ * "Passt" — carry out what was offered.
+ *
+ * Takes the item and the day, and nothing else. The offer itself is worked out
+ * again on the server from the stored reason, so the request cannot choose
+ * which day an action lands on.
+ */
+export async function acceptReaction(
+  itemId: unknown,
+  today: unknown,
+): Promise<{ ok: boolean; applied: Reaction | null }> {
+  const user = await requireUser()
+
+  const id = z.uuid().safeParse(itemId)
+  const day = isoDate.safeParse(today)
+  if (!id.success || !day.success) return { ok: false, applied: null }
+
+  return applyOffer(user.id, id.data, day.data)
 }
 
 /**

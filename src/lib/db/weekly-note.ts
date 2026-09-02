@@ -20,6 +20,8 @@ import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { adapterFor } from '@/lib/ai/consent'
 import { loadCheckIns } from './tracking'
+import { weekReasons } from './reaction'
+import { REASON_LABELS } from '@/lib/adaptive/reaction'
 import { loadPlanInput } from './plan-input'
 import { weeklyReview } from './analysis'
 import { weekScores } from '@/lib/adaptive/scores'
@@ -96,10 +98,19 @@ async function run(profileId: string, today: string): Promise<WeeklyNote | null>
   if (scores.overall.resolved === 0) return null
 
   // The free text, and the reason for all of this.
-  const checkIns = await loadCheckIns(profileId, weekStart)
-  const notes = checkIns
-    .filter((c) => c.note !== null && c.note.trim().length > 0)
-    .map((c) => ({ date: c.checkedInOn, text: c.note!.trim().slice(0, 300) }))
+  const [checkIns, reasons] = await Promise.all([
+    loadCheckIns(profileId, weekStart),
+    weekReasons(profileId, weekStart),
+  ])
+  const notes = [
+    ...checkIns
+      .filter((c) => c.note !== null && c.note.trim().length > 0)
+      .map((c) => ({ date: c.checkedInOn, text: c.note!.trim().slice(0, 300) })),
+    // Notes left on an action itself belong in the same pile: they were typed
+    // by the same person about the same week, and splitting them into two
+    // lists would only invite the model to weigh one over the other.
+    ...reasons.notes,
+  ].sort((a, b) => a.date.localeCompare(b.date))
 
   const previous = await previousObservation(profileId, weekStart)
 
@@ -116,6 +127,10 @@ async function run(profileId: string, today: string): Promise<WeeklyNote | null>
     deviations: review.analysis.deviations.map(describeDeviation),
     strengths: review.analysis.strengths.map(describeStrength),
     rules: input.personalRules.map((r) => r.ruleKey),
+    reasons: reasons.counts.map(
+      (c) =>
+        `${REASON_LABELS[c.reason]} — ${c.count}× bei ${DOMAIN_LABELS[c.domain as keyof typeof DOMAIN_LABELS] ?? c.domain}`,
+    ),
     notes,
     previous,
   })

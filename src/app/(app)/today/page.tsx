@@ -14,12 +14,17 @@ const WEEKDAY_LONG: Record<string, string> = {
 }
 
 export default function TodayPage() {
-  const { today, setStatus } = usePlan()
+  const { today, setStatus, answer, accept, movedAway } = usePlan()
 
   return (
     <RequirePlan>
       {(week) => {
-        const all = week.items.filter((i) => i.scheduledOn === today)
+        // Also the ones that just left today: an accepted move rewrites the
+        // date, and a card that vanishes the instant somebody taps "Passt"
+        // takes the confirmation with it. They stay until the next load.
+        const all = week.items.filter(
+          (i) => i.scheduledOn === today || movedAway[i.id] === today,
+        )
         // Standing rules are collapsed into one card, so the two or three
         // things specific to today are not buried under them.
         const rules = all.filter((i) => i.cadence === 'daily')
@@ -78,6 +83,8 @@ export default function TodayPage() {
                     item={item}
                     status={item.status}
                     onStatus={(status) => setStatus(item.id, status)}
+                    onAnswer={(status, reason, note) => answer(item.id, status, reason, note)}
+                    onAccept={() => accept(item.id)}
                   />
                 ))}
               </div>

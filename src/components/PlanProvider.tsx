@@ -21,7 +21,8 @@ import {
   useSyncExternalStore,
 } from 'react'
 import type { ReactNode } from 'react'
-import { loadWeek, setItemStatus } from '@/app/(app)/actions'
+import { acceptReaction, answerItemStatus, loadWeek, setItemStatus } from '@/app/(app)/actions'
+import type { Reaction, StatusReason } from '@/lib/adaptive/reaction'
 import type { StoredItem, StoredWeek } from '@/lib/db/week-plan'
 import { planStateOf, type PlanState } from '@/components/planState'
 import { localToday } from '@/lib/engine/localDate'
@@ -48,6 +49,29 @@ type PlanContextValue = {
   planError: string | null
   today: string
   setStatus: (itemId: string, status: PlanItemStatus) => void
+  /**
+   * Records why an action did not happen, and returns what the app offers to
+   * do about it. The offer comes from the server, never from here: it changes
+   * a plan, so it is subject to the same limits the plan is.
+   */
+  answer: (
+    itemId: string,
+    status: PlanItemStatus,
+    reason: StatusReason,
+    note: string | null,
+  ) => Promise<Reaction | null>
+  /** Carries out the offer and moves the week to match. */
+  accept: (itemId: string) => Promise<Reaction | null>
+  /**
+   * Actions that left today in the last few seconds, by the day they left.
+   *
+   * Today renders by date, so an accepted move would make the card vanish
+   * mid-sentence — the person taps "Passt" and the confirmation disappears
+   * with the thing that was confirmed. Keeping the id here lets the screen
+   * hold it in place until the next load, without pretending the move did not
+   * happen: the date underneath is already the new one.
+   */
+  movedAway: Record<string, string>
   /** Load the week again. Only meaningful from `failed`. */
   retry: () => void
 }
@@ -144,6 +168,75 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const [movedAway, setMovedAway] = useState<Record<string, string>>({})
+
+  /**
+   * Deliberately not optimistic, unlike `setStatus`.
+   *
+   * A tick has one possible outcome and can be shown before the server agrees.
+   * A reaction does not: which day is free, and whether any is, is decided
+   * from the whole week on the server. Guessing here and correcting a moment
+   * later would mean showing somebody a promise and then taking it back.
+   */
+  const submitAnswer = useCallback(
+    async (
+      itemId: string,
+      status: PlanItemStatus,
+      reason: StatusReason,
+      note: string | null,
+    ): Promise<Reaction | null> => {
+      if (today === null) return null
+
+      // The status itself is applied at once, because that part *is* certain.
+      setWeek((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((item) =>
+                item.id === itemId ? { ...item, status } : item,
+              ),
+            }
+          : current,
+      )
+
+      const result = await answerItemStatus({ itemId, status, reason, note, today }).catch(
+        () => null,
+      )
+      return result?.reaction ?? null
+    },
+    [today],
+  )
+
+  const accept = useCallback(
+    async (itemId: string): Promise<Reaction | null> => {
+      if (today === null) return null
+
+      const result = await acceptReaction(itemId, today).catch(() => null)
+      const applied = result?.applied
+      if (!applied) return null
+
+      setWeek((current) => {
+        if (!current) return current
+        return {
+          ...current,
+          items: current.items.map((item) => {
+            if (item.id !== itemId) return item
+            if (applied.kind === 'move') return { ...item, scheduledOn: applied.toDate }
+            if (applied.kind === 'shorten') return { ...item, plannedDurationMin: applied.toMinutes }
+            return item
+          }),
+        }
+      })
+
+      if (applied.kind === 'move') {
+        setMovedAway((current) => ({ ...current, [itemId]: today }))
+      }
+
+      return applied
+    },
+    [today],
+  )
+
   const value: PlanContextValue = useMemo(
     () => ({
       state,
@@ -151,9 +244,12 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       planError,
       today: today ?? '1970-01-01',
       setStatus,
+      answer: submitAnswer,
+      accept,
+      movedAway,
       retry,
     }),
-    [today, state, week, planError, setStatus, retry],
+    [today, state, week, planError, setStatus, submitAnswer, accept, movedAway, retry],
   )
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>

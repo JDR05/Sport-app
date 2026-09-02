@@ -7,6 +7,61 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-095: Die App fragt im Moment nach — und die Antwort ändert den Plan sofort
+
+**Entscheidung:** Wer eine Aktion auf „Verschoben", „Nicht geschafft" oder „Passte nicht"
+setzt, bekommt **eine** Frage mit antippbaren Antworten: keine Zeit, zu müde, keine Lust,
+war unterwegs, ging mir nicht gut, war zu viel, anderes. Darauf folgt **eine sichtbare
+Handlung** — die Aktion wird auf einen freien Tag gelegt, gekürzt, oder es passiert
+ausdrücklich nichts und die App sagt, warum. Der Grund wird als Code gespeichert
+(`plan_items.status_reason`, dazu optional `status_note`) und geht in den Wochenimpuls ein.
+
+Die Reaktion selbst ist **deterministisch**, nicht vom Modell. Das ist kein Rückschritt: sie
+ändert einen Plan und unterliegt damit denselben Grenzen wie der Plan (Prinzip 1). Ein
+verschobener Termin landet auf einem echten freien Tag, eine gekürzte Einheit nie unter
+`MIN_VIABLE_SESSION_MINUTES`, und nichts hier kann eine Woche größer machen.
+
+**Begründung:** „Nicht geschafft" war eine Sackgasse. Der Status wurde gespeichert und dann
+passierte nichts — im informationsreichsten Moment, den diese App je bekommt: der Mensch ist
+da, hat gerade etwas Wahres gesagt und ist zu genau einer Frage bereit. Tage später hat die
+Mustererkennung den Grund dann aus Wochentagen und Zeitfenstern **geraten**. „Drei Mittwoche
+verpasst, also sind Mittwoche schwierig" ist eine Vermutung; „zu müde, dreimal" ist eine
+Tatsache. Das ist der Unterschied zwischen ein Muster erkennen und jemanden kennen.
+
+Damit beantwortet der Schritt auch die Frage des Product Owners — „warum sollte man die app
+öffnen?". Bisher war die KI dreimal pro Ziel aktiv (alles im Onboarding) und der Wochenimpuls
+einmal pro Woche ab Donnerstag. Montag bis Mittwoch passierte nichts. Jetzt reagiert die App
+an jedem Tag, an dem etwas nicht klappt.
+
+**Drei Grenzen, die die Regeln erzwingen:**
+
+1. **Keine kompensatorische Logik.** Ein Verschieben stapelt nie eine zweite Einheit derselben
+   Domain auf einen Tag, überschreitet nie `MAX_ITEMS_PER_DAY` und landet nie in der
+   Vergangenheit. „Heute verpasst, also morgen mehr" ist genau die Form, die CLAUDE.md
+   verbietet.
+2. **„Keine Lust" tut absichtlich nichts.** Es ist die eine Antwort, bei der Verschieben eine
+   Beleidigung und Kürzen eine Bestechung wäre. Sie wird notiert und gesammelt: dreimal in
+   einer Domain ist ein Befund für den Wochenimpuls, einmal ist ein Dienstag.
+3. **Der Client bestimmt nicht, was passiert.** Das Angebot wird auf dem Server aus der
+   Datenbank neu berechnet, wenn es angenommen wird — wie bei `applyCorrections` und
+   `respondToExperiment`. Eine Anfrage, die das Zieldatum mitschickt, ist eine Anfrage, die
+   sich jedes Datum aussuchen kann.
+
+**Was das Modell davon hat:** Es erfährt endlich **warum**. Der Wochenimpuls bekommt die
+angegebenen Gründe getrennt von dem, was die App selbst abgeleitet hat, mit der ausdrücklichen
+Regel, dass ein angegebener Grund ein abgeleitetes Muster schlägt. Der teure Teil — deuten,
+verbinden, vorschlagen — bleibt beim Modell; der Teil, der jemandes Woche verändert, bleibt
+im Code.
+
+**Geprüft:** 29 Tests auf der reinen Funktion, darunter ein Durchlauf über alle Tage der Woche
+× alle sieben Gründe, der zusichert, dass kein Vorschlag je in der Vergangenheit oder auf dem
+eigenen Tag landet. Drei Mutationen des Codes (Vergangenheit erlauben, Domain-Sperre
+entfernen, Untergrenze streichen) wurden alle von den Tests gefangen. Die drei
+Datenbank-Constraints sind gegen das echte Projekt geprüft, mit einer Kontrollzeile, die
+beweist, dass die Prüfung überhaupt anschlägt.
+
+---
+
 ## 2026-09-01 — ADR-089: Die KI bekommt einen sichtbaren Ort — auf Insights, nicht in der Leiste
 
 **Entscheidung:** Alles, was das Modell beiträgt, steht auf **Insights**: der Wochenimpuls (war

@@ -25,7 +25,7 @@ const WEEKDAY_LONG: Record<string, string> = {
 }
 
 export default function PlanPage() {
-  const { today, setStatus } = usePlan()
+  const { today, setStatus, answer, accept } = usePlan()
 
   return (
     <RequirePlan>
@@ -84,6 +84,10 @@ export default function PlanPage() {
                             item={item}
                             status={item.status}
                             onStatus={(status) => setStatus(item.id, status)}
+                            onAnswer={(status, reason, note) =>
+                              answer(item.id, status, reason, note)
+                            }
+                            onAccept={() => accept(item.id)}
                           />
                         ) : (
                           <div key={item.id} className="rounded-[2px] border border-line bg-surface p-3">

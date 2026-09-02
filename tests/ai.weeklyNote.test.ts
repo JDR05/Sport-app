@@ -107,6 +107,7 @@ describe('what the model is shown', () => {
     deviations: ['Mittwochs: 3 von 4 ausgefallen, sonst 10 %'],
     strengths: ['Samstags: 5 von 5 umgesetzt'],
     rules: ['avoid_weekday'],
+    reasons: ['Zu müde — 3× bei Training'],
     notes: [{ date: '2026-09-09', text: 'war krank, kaum geschlafen' }],
     previous: 'Letzte Woche lief der Abend besser als der Morgen.',
   }
@@ -125,6 +126,22 @@ describe('what the model is shown', () => {
     expect(message).toContain('Mittwochs')
     expect(message).toContain('Samstags')
     expect(message).toContain('nicht wiederholen')
+  })
+
+  it('separates what the person said from what the app inferred', () => {
+    // Both reach the model, and the model must not treat them as the same
+    // kind of evidence: one is a statement, the other is a guess from a
+    // calendar. If they arrive in one undifferentiated list, the guess borrows
+    // the authority of the statement.
+    const message = weeklyNoteUserMessage(context)
+    expect(message).toContain('Zu müde — 3× bei Training')
+    expect(message).toContain('keine Vermutung')
+    expect(message.indexOf('Zu müde')).not.toBe(message.indexOf('Mittwochs'))
+  })
+
+  it('says nothing about reasons when nobody gave one', () => {
+    const message = weeklyNoteUserMessage({ ...context, reasons: [] })
+    expect(message).not.toContain('keine Vermutung')
   })
 
   it('shows last week, so it cannot say the same thing twice', () => {

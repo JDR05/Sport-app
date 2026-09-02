@@ -370,6 +370,8 @@ export type Database = {
           scheduled_on: string
           status: Database["public"]["Enums"]["plan_item_status"]
           status_changed_at: string | null
+          status_note: string | null
+          status_reason: string | null
           time_slot: string | null
           title: string
           track: Database["public"]["Enums"]["plan_track"]
@@ -387,6 +389,8 @@ export type Database = {
           scheduled_on: string
           status?: Database["public"]["Enums"]["plan_item_status"]
           status_changed_at?: string | null
+          status_note?: string | null
+          status_reason?: string | null
           time_slot?: string | null
           title: string
           track?: Database["public"]["Enums"]["plan_track"]
@@ -404,6 +408,8 @@ export type Database = {
           scheduled_on?: string
           status?: Database["public"]["Enums"]["plan_item_status"]
           status_changed_at?: string | null
+          status_note?: string | null
+          status_reason?: string | null
           time_slot?: string | null
           title?: string
           track?: Database["public"]["Enums"]["plan_track"]

@@ -12,6 +12,13 @@
 // did not fit, and the reasoning — lives behind one disclosure, present but not
 // in the way. Nothing is hidden from the person; it is just not all shouting.
 //
+// The second half of the card is newer and is the reason to open the app on a
+// Tuesday. Saying "nicht geschafft" used to be a dead end: the status was
+// stored and the app said nothing, then guessed at the reason days later from
+// weekdays and time slots. Now it asks — one question, tappable, no typing —
+// and then does something visible about the answer. What it does is worked out
+// on the server, because it changes a plan.
+//
 // Four statuses, not three, and that has not changed: `missed` and
 // `not_relevant` mean different things to the adaptive engine — one is a
 // behavioural signal, the other a planning error — and the user is the only one
@@ -21,6 +28,10 @@
 import { useState } from 'react'
 import { CheckRing } from '@/components/CheckRing'
 import { DomainBadge } from '@/components/ui'
+import { WEEKDAY_LABELS } from '@/lib/adaptive/labels'
+import { asksForReason, REASON_LABELS, STATUS_REASONS } from '@/lib/adaptive/reaction'
+import type { Reaction, StatusReason } from '@/lib/adaptive/reaction'
+import { weekdayOf } from '@/lib/engine/dates'
 import type { PlannedItem, PlanItemStatus } from '@/lib/domain/types'
 
 /**
@@ -43,13 +54,61 @@ export function ActionItem({
   item,
   status,
   onStatus,
+  onAnswer,
+  onAccept,
 }: {
   item: PlannedItem
   status: PlanItemStatus
   onStatus: (status: PlanItemStatus) => void
+  /**
+   * Optional on purpose. Without it the card behaves exactly as before — which
+   * is what the standing-rules list wants: "Eiweiß zu jeder Mahlzeit" is not
+   * something that can be moved to Saturday.
+   */
+  onAnswer?: (
+    status: PlanItemStatus,
+    reason: StatusReason,
+    note: string | null,
+  ) => Promise<Reaction | null>
+  onAccept?: () => Promise<Reaction | null>
 }) {
   const [open, setOpen] = useState(false)
   const settled = status !== 'planned' && status !== 'unknown'
+
+  // The status a reason is being asked for. Null means no question is open —
+  // either none was asked, or it has been answered.
+  const [asking, setAsking] = useState<PlanItemStatus | null>(null)
+  const [offer, setOffer] = useState<Reaction | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  /** Anything that changes the verdict retires the question and the offer. */
+  function answered(next: PlanItemStatus) {
+    onStatus(next)
+    setOffer(null)
+    setDone(null)
+    setAsking(onAnswer && asksForReason(next) ? next : null)
+  }
+
+  async function give(reason: StatusReason) {
+    if (!onAnswer || !asking || busy) return
+    setBusy(true)
+    const reaction = await onAnswer(asking, reason, null)
+    setBusy(false)
+    setAsking(null)
+    // A null means the round trip failed. Saying nothing is better than
+    // inventing an offer the server never made.
+    if (reaction) setOffer(reaction)
+  }
+
+  async function take() {
+    if (!onAccept || busy) return
+    setBusy(true)
+    const applied = await onAccept()
+    setBusy(false)
+    setOffer(null)
+    setDone(applied ? confirmationFor(applied) : 'Das hat gerade nicht geklappt.')
+  }
 
   return (
     <article
@@ -77,7 +136,7 @@ export function ActionItem({
         <CheckRing
           status={status}
           label={item.title}
-          onToggle={() => onStatus(status === 'done' ? 'unknown' : 'done')}
+          onToggle={() => answered(status === 'done' ? 'unknown' : 'done')}
         />
 
         <div className="min-w-0 flex-1 pt-1">
@@ -133,7 +192,7 @@ export function ActionItem({
                 key={option.status}
                 type="button"
                 aria-pressed={status === option.status}
-                onClick={() => onStatus(status === option.status ? 'unknown' : option.status)}
+                onClick={() => answered(status === option.status ? 'unknown' : option.status)}
                 className={`label rounded-[2px] border min-h-11 px-3 py-2 text-[11px] font-semibold transition-colors duration-[var(--motion-tap)] ${
                   status === option.status
                     ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
@@ -144,8 +203,80 @@ export function ActionItem({
               </button>
             ))}
           </div>
+
+          {/* One question, and only after there is something to explain.
+              
+              No free-text field: this appears on a phone, in the evening,
+              about something that already did not happen. A tap is the most
+              anybody will give, so a tap has to be enough. */}
+          {asking && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-[13px] leading-snug text-muted">Woran lag&apos;s?</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {STATUS_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void give(reason)}
+                    className="label min-h-11 rounded-[2px] border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
+                  >
+                    {REASON_LABELS[reason]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* What the app proposes to do about it — and, when it proposes
+              nothing, why not. `none` is shown with the same weight as the
+              others: an app that only speaks up when it has a fix is an app
+              that will invent one. */}
+          {offer && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-sm leading-relaxed text-ink">{offer.message}</p>
+              {offer.kind !== 'none' && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void take()}
+                    className="label min-h-11 rounded-[2px] border border-accent bg-accent px-3 py-2 text-[11px] font-semibold text-[color:var(--accent-ink)] transition-colors duration-[var(--motion-tap)] disabled:opacity-50"
+                  >
+                    Passt
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setOffer(null)
+                      setDone('Alles klar — bleibt, wie es war.')
+                    }}
+                    className="label min-h-11 rounded-[2px] border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
+                  >
+                    Lieber nicht
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {done && (
+            <p className="mt-3 border-t border-line pt-3 text-sm leading-relaxed text-muted">
+              {done}
+            </p>
+          )}
         </div>
       )}
     </article>
   )
+}
+
+/** What actually happened, in the past tense, said once. */
+function confirmationFor(applied: Reaction): string {
+  if (applied.kind === 'move') {
+    return `Verschoben. Steht jetzt am ${WEEKDAY_LABELS[weekdayOf(applied.toDate)]}.`
+  }
+  if (applied.kind === 'shorten') return `Gekürzt auf ${applied.toMinutes} Minuten.`
+  return applied.message
 }

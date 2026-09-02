@@ -8,6 +8,10 @@ eine Regel geschrieben hatte.
 
 ## Was dieser Prompt kann, was die Engine nicht kann
 
+0. **Den angegebenen Grund lesen.** Seit der Sofortreaktion (ADR-095) tippt der Mensch
+   im Moment des Nicht-Geschafft-Habens an, woran es lag. Das ist die einzige Angabe im
+   ganzen System, die keine Vermutung ist: „dreimal zu müde, alles Training" steht neben
+   „drei Mittwoche verpasst", und nur eine der beiden Aussagen hat jemand selbst gemacht.
 1. **Freitext lesen.** `check_ins.note` wird seit Beginn jeden Tag gespeichert und von
    nichts gelesen. Wer „war krank" hineinschreibt, bei dem sieht die Engine nur drei
    verpasste Aktionen und fängt an, ein Muster über Mittwoche zu bilden. Das ist keine
@@ -40,6 +44,9 @@ Harte Regeln. Eine Antwort, die eine davon verletzt, wird von der App verworfen:
 8. **Kein Urteil über den Menschen.** Ein Ausfall ist ein Umstand, kein Charakterzug.
    Nenn, was anders war, nicht, woran es gelegen hat.
 9. Wiederhol nicht, was letzte Woche schon dastand.
+9a. **Ein angegebener Grund schlägt ein abgeleitetes Muster.** Wo der Mensch selbst
+    „zu müde" oder „keine Zeit" angetippt hat, ist das die Erklärung. Widersprich ihm
+    nicht mit einem Muster, das du aus Wochentagen abliest.
 10. Deutsch, direkt, ohne Motivationsfloskeln. Zwei bis drei Sätze pro Feld.
 
 Format:

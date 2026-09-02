@@ -102,6 +102,15 @@ export type WeeklyNoteContext = {
   /** Confirmed personal rules, so it does not propose what is already true. */
   rules: string[]
   /**
+   * Why actions did not happen, said by the person rather than inferred.
+   *
+   * The difference between this and `deviations` is the difference between
+   * knowing somebody and recognising a pattern. "Drei Mittwoche verpasst" is
+   * an inference from a calendar; "zu müde, dreimal, alles Training" is a
+   * statement. Where both exist, this one is the evidence.
+   */
+  reasons: string[]
+  /**
    * The free text. The reason this feature exists.
    *
    * Collected every day since the check-in shipped and read by nothing until
@@ -127,6 +136,10 @@ export function weeklyNoteUserMessage(ctx: WeeklyNoteContext): string {
   if (ctx.deviations.length > 0) {
     lines.push('', 'Was die App selbst schon erkannt hat (nicht wiederholen, ergänzen):',
       ...ctx.deviations.map((d) => `- ${d}`))
+  }
+  if (ctx.reasons.length > 0) {
+    lines.push('', 'Was die Person selbst als Grund angegeben hat (keine Vermutung — das hat sie getippt):',
+      ...ctx.reasons.map((r) => `- ${r}`))
   }
   if (ctx.strengths.length > 0) {
     lines.push('', 'Was zuverlässig läuft:', ...ctx.strengths.map((s) => `- ${s}`))
