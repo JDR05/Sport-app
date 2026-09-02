@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { applyCorrections, respondToExperiment } from '@/app/(app)/actions'
 import { Button, Card, EmptyState, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
+import { TRIGGER_LABELS } from '@/lib/adaptive/labels'
 import { formatGermanDate } from '@/lib/engine/dates'
 import type { Insight } from '@/lib/adaptive'
 import type { AiProposal } from '@/lib/domain/types'
@@ -44,16 +45,22 @@ export type InsightsData = {
   removalCount: number
   weeksWithData: number
   /**
-   * One observation and one suggestion, written from this week's own data —
-   * including the check-in notes nothing else reads. Null most weeks.
+   * The impulses of this week, newest first — one observation and one
+   * suggestion each, written from this week's own data, including the
+   * check-in notes nothing else reads. Empty most weeks.
+   *
+   * A list since ADR-097. An impulse can now be triggered by something that
+   * happened rather than by the calendar, and each occasion produces at most
+   * one, so a busy week can carry two or three.
    */
-  note: {
+  notes: Array<{
     weekStart: string
     observation: string
     suggestion: string
     question: string | null
     evidence: string[]
-  } | null
+    trigger: string
+  }>
   /**
    * Everything the model contributed, gathered in one place.
    *
@@ -106,26 +113,29 @@ export function InsightsView({ data }: { data: InsightsData }) {
           observation and one suggestion, never a list: a weekly feature that
           must fill a screen fills it with the generic advice checkWeeklyNote
           exists to refuse. */}
-      {data.note && (
-        <>
-          <SectionHeading>Diese Woche</SectionHeading>
+      {data.notes.map((note) => (
+        <div key={note.trigger}>
+          {/* The heading names the occasion. "Diese Woche" over a message that
+              arrived on Tuesday because of three „Zu müde" taps would be the
+              app hiding its own reasoning. */}
+          <SectionHeading>{TRIGGER_LABELS[note.trigger] ?? 'Diese Woche'}</SectionHeading>
           <Card tone="accent">
-            <p className="text-sm leading-relaxed text-ink">{data.note.observation}</p>
+            <p className="text-sm leading-relaxed text-ink">{note.observation}</p>
             <p className="mt-3 text-sm font-semibold leading-relaxed text-ink">
-              {data.note.suggestion}
+              {note.suggestion}
             </p>
-            {data.note.question && (
+            {note.question && (
               <p className="mt-3 border-t border-accent/20 pt-3 text-sm leading-relaxed text-muted">
-                {data.note.question}
+                {note.question}
               </p>
             )}
             <p className="mt-3 text-xs text-faint">
-              Aus deinen Daten dieser Woche · <span className="num">{data.note.evidence.length}</span>{' '}
+              Aus deinen Daten dieser Woche · <span className="num">{note.evidence.length}</span>{' '}
               Belege
             </p>
           </Card>
-        </>
-      )}
+        </div>
+      ))}
 
       {/* What the model actually did, in the person's own plan.
           

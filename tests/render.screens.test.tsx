@@ -25,6 +25,7 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('@/app/(app)/actions', () => ({
   loadAskState: async () => ({ available: false, history: [], suggestions: [], exhausted: null }),
+  loadTodaysImpulse: async () => null,
   submitQuestion: async () => ({ ok: false, reason: 'invalid', message: 'x' }),
   setAiConsent: async () => ({ granted: true, at: null, outdated: false }),
   startAiForGoal: async () => ({ questions: [], reclassified: null, failure: null, detail: null }),
@@ -38,6 +39,7 @@ const { AiCatchUpView } = await import('@/app/(app)/ai/AiCatchUpView')
 const { IntakeQuestionsStep } = await import('@/app/onboarding/IntakeQuestionsStep')
 const { ActionItem } = await import('@/components/ActionItem')
 const { AskView } = await import('@/components/AskCard')
+const { ImpulseView } = await import('@/components/ImpulseCard')
 
 const PROPOSAL = {
   headline: 'Drei Anker, die an deinen Abend passen',
@@ -68,7 +70,7 @@ const insights = (over: Partial<Parameters<typeof InsightsView>[0]['data']> = {}
   moveCount: 0,
   removalCount: 0,
   weeksWithData: 2,
-  note: null,
+  notes: [],
   ai: { provider: 'Google (Gemini)', granted: true, proposal: PROPOSAL, openQuestions: [] },
   ...over,
 })
@@ -368,6 +370,39 @@ describe('the question box', () => {
   })
 })
 
+const IMPULSE = {
+  weekStart: '2026-09-07',
+  observation: 'Dreimal „zu müde", alle drei beim Training am Abend.',
+  suggestion: 'Probier eine der drei Einheiten am Morgen.',
+  question: null,
+  evidence: ['reason.too_tired.training'],
+  trigger: 'reason_repeated' as const,
+  writtenOn: '2026-09-08',
+}
+
+describe('the impulse card', () => {
+  it('names the occasion rather than the week', () => {
+    // "Diese Woche" over a message that arrived on Tuesday because of three
+    // „Zu müde" taps is the app hiding its own reasoning — the same rule every
+    // rationale in this product lives under.
+    const html = render(<ImpulseView impulse={IMPULSE} />)
+    expect(html).toContain('Das kam mehrfach')
+    expect(html).not.toContain('Diese Woche')
+  })
+
+  it('still calls the Thursday one what it is', () => {
+    const html = render(<ImpulseView impulse={{ ...IMPULSE, trigger: 'weekly' }} />)
+    expect(html).toContain('Diese Woche')
+  })
+
+  it('shows the observation, the suggestion and how many rows it rests on', () => {
+    const html = render(<ImpulseView impulse={IMPULSE} />)
+    expect(html).toContain('Dreimal „zu müde')
+    expect(html).toContain('am Morgen')
+    expect(html).toContain('Belege')
+  })
+})
+
 describe('the design rules these screens must not break', () => {
   const everything = [
     render(<InsightsView data={insights()} />),
@@ -381,6 +416,7 @@ describe('the design rules these screens must not break', () => {
       />,
     ),
     render(<AskView state={ASK_STATE} today="2026-09-09" />),
+    render(<ImpulseView impulse={IMPULSE} />),
   ].join('\n')
 
   it('actually rendered something', () => {

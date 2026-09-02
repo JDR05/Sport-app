@@ -109,6 +109,7 @@ describe('what the model is shown', () => {
     rules: ['avoid_weekday'],
     reasons: ['Zu müde — 3× bei Training'],
     notes: [{ date: '2026-09-09', text: 'war krank, kaum geschlafen' }],
+    occasion: null,
     previous: 'Letzte Woche lief der Abend besser als der Morgen.',
   }
 
@@ -142,6 +143,23 @@ describe('what the model is shown', () => {
   it('says nothing about reasons when nobody gave one', () => {
     const message = weeklyNoteUserMessage({ ...context, reasons: [] })
     expect(message).not.toContain('keine Vermutung')
+  })
+
+  it('puts the occasion first when there is one', () => {
+    // An impulse triggered by three "zu müde" taps that then reviews the week
+    // in general is the filler the whole feature is built to avoid. The
+    // occasion leads, where a model will not lose it.
+    const message = weeklyNoteUserMessage({
+      ...context,
+      occasion: 'Diese Woche 3× „Zu müde" bei Training — selbst angegeben, nicht abgeleitet.',
+    })
+    expect(message.startsWith('Anlass: Diese Woche 3×')).toBe(true)
+    expect(message).toContain('zu genau diesem Anlass')
+  })
+
+  it('says nothing about an occasion on the ordinary weekly rhythm', () => {
+    const message = weeklyNoteUserMessage(context)
+    expect(message).not.toContain('Anlass')
   })
 
   it('shows last week, so it cannot say the same thing twice', () => {

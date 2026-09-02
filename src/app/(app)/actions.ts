@@ -24,6 +24,7 @@ import { refreshProposal } from '@/lib/db/propose'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
+import { ensureWeeklyNote, type WeeklyNote } from '@/lib/db/weekly-note'
 import { QUESTION_MAX_CHARS } from '@/lib/ai/ask'
 import { STATUS_REASONS, type Reaction } from '@/lib/adaptive/reaction'
 
@@ -241,6 +242,35 @@ export async function acceptReaction(
   if (!id.success || !day.success) return { ok: false, applied: null }
 
   return applyOffer(user.id, id.data, day.data)
+}
+
+// ------------------------------------------------------------------ impulse ---
+
+/**
+ * Checks whether something has happened worth saying, and returns it if it
+ * happened today.
+ *
+ * Called from Today, from the client, *after* the screen has rendered. Two
+ * things follow from that and both are deliberate:
+ *
+ *   * Nothing waits for it. An impulse can cost a model call of ten seconds or
+ *     more, and Today is the screen people open first — the one place in this
+ *     app where a wait was already a bug once (ADR-088).
+ *   * It is what makes the impulse an event at all. The trigger is checked
+ *     whenever somebody opens the app, not when they happen to visit Insights,
+ *     which is the screen they do not open.
+ *
+ * Returns only an impulse written *today*. One from Tuesday is not news on
+ * Thursday, and it is still on Insights where the history belongs.
+ */
+export async function loadTodaysImpulse(today: unknown): Promise<WeeklyNote | null> {
+  const user = await requireUser()
+
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) return null
+
+  const impulse = await ensureWeeklyNote(user.id, parsed.data)
+  return impulse && impulse.writtenOn === parsed.data ? impulse : null
 }
 
 // ------------------------------------------------------------------- asking ---

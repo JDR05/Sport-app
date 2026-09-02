@@ -7,7 +7,7 @@ import { weeklyReview } from '@/lib/db/analysis'
 import {
   concludeIfDue, declinedRules, fingerprint, loadRunningExperiment,
 } from '@/lib/db/experiments'
-import { ensureWeeklyNote } from '@/lib/db/weekly-note'
+import { ensureWeeklyNote, loadWeeklyNotes } from '@/lib/db/weekly-note'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { providerName } from '@/lib/ai'
 import { readConsent } from '@/lib/ai/consent'
@@ -30,10 +30,18 @@ export default async function InsightsPage() {
   const review = await weeklyReview(user.id, today)
   if (!review) redirect('/onboarding')
 
-  // The ongoing half of the AI. Written once a week and then fixed; null is the
-  // normal answer for a quiet week, for no key, and for an answer that did not
-  // survive the safety checks. Never throws — nothing here is worth a screen.
-  const note = await ensureWeeklyNote(user.id, today)
+  // The ongoing half of the AI. Written once per occasion and then fixed; no
+  // impulse at all is the normal answer for a quiet week, for no key, and for
+  // an answer that did not survive the safety checks. Never throws — nothing
+  // here is worth a screen.
+  //
+  // Two calls, and both are cheap unless something actually happened:
+  // `ensureWeeklyNote` checks for an occasion and writes at most one, then the
+  // read returns everything this week has produced. Since ADR-097 that can be
+  // more than one, and showing only the newest would hide Tuesday's the moment
+  // Thursday's arrived.
+  await ensureWeeklyNote(user.id, today)
+  const notes = await loadWeeklyNotes(user.id, today)
 
   // Everything the model has contributed, in one place.
   //
@@ -91,7 +99,7 @@ export default async function InsightsPage() {
     moveCount: analysis.patch.moves.length,
     removalCount: analysis.patch.removals.length,
     weeksWithData: review.weeksWithData,
-    note,
+    notes,
     ai: {
       provider: providerName(),
       granted: consent.granted,

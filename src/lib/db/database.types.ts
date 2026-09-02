@@ -604,6 +604,7 @@ export type Database = {
           question: string | null
           source: string
           suggestion: string
+          trigger: string
           week_start: string
         }
         Insert: {
@@ -615,6 +616,7 @@ export type Database = {
           question?: string | null
           source: string
           suggestion: string
+          trigger?: string
           week_start: string
         }
         Update: {
@@ -626,6 +628,7 @@ export type Database = {
           question?: string | null
           source?: string
           suggestion?: string
+          trigger?: string
           week_start?: string
         }
       }

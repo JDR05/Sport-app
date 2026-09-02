@@ -6,8 +6,12 @@
 // migration and forgets the strategy, or the other way round — and neither
 // mistake shows up until a real user picks the goal that fell through.
 
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { Constants } from '@/lib/db/database.types'
+import { STATUS_REASONS } from '@/lib/adaptive/reaction'
+import { IMPULSE_TRIGGERS } from '@/lib/adaptive/triggers'
 import { GOAL_ARCHETYPES, WEEKDAYS } from '@/lib/domain/types'
 import { ARCHETYPES, strategyFor } from '@/lib/engine'
 
@@ -53,5 +57,45 @@ describe('other shared vocabulary', () => {
   it('weekdays start on Monday', () => {
     expect(WEEKDAYS[0]).toBe('mon')
     expect(WEEKDAYS).toHaveLength(7)
+  })
+})
+
+// Two lists live outside the Postgres enums and therefore outside the
+// generated Constants above: the status reasons and the impulse triggers are
+// text columns with check constraints. The seam is just as real — a value the
+// code can produce and the constraint refuses fails the insert at runtime, in
+// two paths that are specifically written never to throw — so it is checked
+// against the migrations themselves.
+
+const MIGRATIONS = readdirSync('supabase/migrations')
+  .map((name) => readFileSync(join('supabase/migrations', name), 'utf8'))
+  .join('\n')
+
+/** The quoted values of the first `in ( … )` list after a marker. */
+function allowedValuesAfter(marker: string): string[] {
+  const from = MIGRATIONS.indexOf(marker)
+  expect(from, `marker not found: ${marker}`).toBeGreaterThan(-1)
+  const list = MIGRATIONS.slice(from).match(/in \(([^)]*)\)/)
+  expect(list, `no "in ( … )" after ${marker}`).not.toBeNull()
+  return [...list![1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+}
+
+describe('text columns with a check constraint', () => {
+  it('accepts exactly the status reasons the reaction can produce', () => {
+    expect(allowedValuesAfter('plan_items_status_reason_is_known')).toEqual(
+      [...STATUS_REASONS].sort(),
+    )
+  })
+
+  it('accepts exactly the impulse triggers the detector can return', () => {
+    expect(allowedValuesAfter('weekly_notes_trigger_is_known')).toEqual(
+      [...IMPULSE_TRIGGERS].sort(),
+    )
+  })
+
+  it('is actually reading the migrations', () => {
+    // Every assertion above passes against an empty string. Without this, a
+    // wrong path would read as two matching lists.
+    expect(MIGRATIONS.length).toBeGreaterThan(10000)
   })
 })

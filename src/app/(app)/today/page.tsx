@@ -5,6 +5,7 @@ import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
 import { AskCard } from '@/components/AskCard'
 import { CheckInCard } from '@/components/CheckInCard'
+import { ImpulseCard } from '@/components/ImpulseCard'
 import { DailyRules } from '@/components/DailyRules'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { formatGermanDate, weekdayOf } from '@/lib/engine/dates'
@@ -53,6 +54,15 @@ export default function TodayPage() {
                 ? ' · deine Basis'
                 : ' · dein Ziel'}
             </p>
+
+            {/* Above the actions, and only on the day it arrives.
+                
+                An impulse is the app having noticed something — three of the
+                same reason, a domain going nowhere, a run going well — and it
+                is the reason somebody opened the app to find something they
+                did not know. Under the list it would be a footnote; tomorrow
+                it is gone from here and lives on Insights. */}
+            <ImpulseCard today={today} />
 
             {all.length > 0 && (
               <div className="mb-2.5 flex items-baseline justify-between">

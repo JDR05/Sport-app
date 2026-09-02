@@ -7,6 +7,56 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-097: Der Impuls hat einen Anlass — nicht nur einen Wochentag
+
+**Entscheidung:** Der Wochenimpuls wird nicht mehr nur donnerstags geschrieben. Ein
+deterministischer Detektor (`detectTrigger`) prüft bei jedem Öffnen der App, ob **etwas
+passiert ist**, worüber zu reden sich lohnt. Vier Anlässe:
+
+| Anlass | Auslöser |
+| --- | --- |
+| `reason_repeated` | Dreimal derselbe selbst angegebene Grund in einer Woche |
+| `domain_slipping` | Drei Ausfälle in einem Bereich, **und** nichts darin umgesetzt |
+| `going_well` | Fünf Umsetzungen bei mindestens 80 % Quote |
+| `weekly` | Der alte Rhythmus, ab Donnerstag, unverändert |
+
+Jeder Anlass höchstens **einmal pro Woche**, dazu mindestens **zwei Tage** zwischen zwei
+Impulsen. Der Impuls erscheint **auf Heute**, an dem Tag, an dem er entsteht; danach steht er
+auf Insights. Kein „gelesen"-Flag — das Datum sagt schon alles, was ein Flag sagen würde.
+
+**Begründung:** Donnerstag ist ein Kalender, kein Anlass. Wer montags und dienstags dreimal
+denselben Grund angibt, wartete zwei Tage auf eine Reaktion — bis dahin ist die Woche
+entschieden und der Impuls Geschichte statt Hilfe. Montag bis Mittwoch sagte die App gar
+nichts. Und sie sagte es auf **Insights**, dem Screen, den man nicht öffnet: eine Nachricht,
+hinterlegt dort, wo der Mensch nicht ist.
+
+`reason_repeated` gibt es erst seit ADR-095. Vorher war da nichts zu zählen — die App konnte
+Ausfälle sehen, aber nicht deren Grund. Das ist die stärkste Zahl in diesem System, weil sie
+als einzige niemand abgeleitet hat.
+
+**`going_well` ist kein Beiwerk.** Eine App, die sich meldet, wenn etwas schiefgeht, und
+schweigt, wenn es läuft, ist ein Beschwerdemechanismus. „Rückschläge sind Lernsignal, keine
+Schuldmechanik" bedeutet nur dann etwas, wenn die andere Richtung genauso ein Signal ist.
+
+**Die Obergrenze ist der eigentliche Entwurf.** Vier Anlässe, jeder einmal, plus zwei Tage
+Abstand: eine Woche trägt praktisch höchstens drei Impulse. Eine App, die alles kommentiert,
+ist eine, die niemand mehr liest. Die Eindeutigkeit in der Datenbank wandert mit — statt „eine
+Notiz pro Woche" jetzt „eine pro Anlass pro Woche", also weiterhin genau ein Donnerstagsimpuls.
+
+**Was deterministisch bleibt und was nicht:** *Ob* etwas passiert ist, ist eine Zählung über
+Zeilen. *Was* man dazu sagt, ist die Aufgabe des Modells — und es bekommt den Anlass als erste
+Zeile, damit der Impuls davon handelt und nicht allgemein von der Woche.
+
+**Geprüft:** 24 Tests auf dem Detektor, die meisten davon Nachweise, dass **nichts** ausgelöst
+wird; drei Mutationen (Abstandsregel raus, Bereichsregel aufgeweicht, unbekannter Anlass
+erfunden) werden alle gefangen. Ein neuer Vertragstest vergleicht die vier Anlässe und die
+sieben Gründe direkt mit den Check-Constraints in den Migrationen — beides sind Textspalten,
+die die generierten Typen nicht sehen, und ein Wert, den der Code erzeugen und die Datenbank
+ablehnen würde, ließe genau die Pfade werfen, die nie werfen dürfen. Fünf Prüfungen gegen das
+echte Projekt, mit Kontrollzeile.
+
+---
+
 ## 2026-09-02 — ADR-096: Man kann die App etwas fragen — fünfmal am Tag, aus den eigenen Daten
 
 **Entscheidung:** Auf **Heute** steht ein Kasten „Frag nach". Der Nutzer tippt eine Frage zu

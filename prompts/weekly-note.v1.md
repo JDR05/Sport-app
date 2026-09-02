@@ -20,6 +20,18 @@ eine Regel geschrieben hatte.
    Freitag, schlechter Schlaf am Samstag, der Sonntagslauf fällt aus.
 3. **In den Worten des Menschen sprechen**, nicht in denen des Datenmodells.
 
+## Wann er läuft
+
+Nicht mehr nur donnerstags. `detectTrigger` (`src/lib/adaptive/triggers.ts`) entscheidet
+deterministisch, ob **etwas passiert ist**, worüber zu reden sich lohnt — dreimal derselbe
+Grund, ein Bereich, in dem nichts läuft, oder eine Serie, die gerade gut läuft. Der Anlass
+steht als erste Zeile in der Nachricht an das Modell, und die Antwort muss **zu diesem Anlass**
+sein: ein Impuls, der wegen dreier „zu müde"-Angaben ausgelöst wird und dann allgemein über
+die Woche redet, ist genau die Füllung, die dieses Feature vermeiden soll.
+
+Ob etwas passiert ist, ist eine Zählung. Was man dazu sagt, ist die Aufgabe des Modells. Die
+Trennung ist dieselbe wie überall sonst hier (ADR-097).
+
 ## System
 
 Du schreibst einem Menschen einmal pro Woche **eine** Beobachtung und **einen**

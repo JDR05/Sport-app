@@ -221,12 +221,25 @@ export type WeeklyNoteContext = {
    * missed actions and start forming a pattern about Wednesdays.
    */
   notes: Array<{ date: string; text: string }>
+  /**
+   * Why it is being asked *now*.
+   *
+   * Null used to be the only case, because there was only one occasion: it was
+   * Thursday. Now an impulse can be triggered by something that happened — the
+   * same reason given three times, a domain going nowhere, a run going well —
+   * and an impulse that ignores its own occasion and reviews the week in
+   * general is the filler this feature was built to avoid.
+   */
+  occasion: string | null
   /** Last week's observation, so it does not say the same thing twice. */
   previous: string | null
 }
 
 export function weeklyNoteUserMessage(ctx: WeeklyNoteContext): string {
   const lines = [
+    // First, where a model will not lose it. The occasion is what this impulse
+    // is about; everything below is the context it is about it *in*.
+    ...(ctx.occasion ? [`Anlass: ${ctx.occasion}`, ''] : []),
     `Ziel: ${ctx.goalText} (eingeordnet als ${ctx.archetype})`,
     `Woche ab ${ctx.weekStart}`,
     '',
@@ -261,7 +274,9 @@ export function weeklyNoteUserMessage(ctx: WeeklyNoteContext): string {
     lines.push('', `Letzte Woche stand hier: „${ctx.previous}" — sag etwas anderes.`)
   }
 
-  lines.push('', 'Eine Beobachtung, ein Vorschlag. Findest du nichts Belastbares, setz hasSomethingToSay auf false.')
+  lines.push('', ctx.occasion
+    ? 'Eine Beobachtung zu genau diesem Anlass, ein Vorschlag. Findest du nichts Belastbares, setz hasSomethingToSay auf false.'
+    : 'Eine Beobachtung, ein Vorschlag. Findest du nichts Belastbares, setz hasSomethingToSay auf false.')
   return lines.join('\n')
 }
 
