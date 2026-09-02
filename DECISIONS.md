@@ -137,6 +137,60 @@ Marathontraining nichts über ein Schlafziel ein halbes Jahr später sagt.
 
 ---
 
+## 2026-09-01 — ADR-093: Kein kostenloser Trainings-Tarif für fremde Gesundheitsdaten (OFFENER PUNKT)
+
+**Status: offen.** Zu entscheiden, **bevor** sich der erste fremde Mensch anmeldet. Für den
+Product Owner allein, mit seinen eigenen Daten, ist der jetzige Zustand in Ordnung.
+
+**Entscheidung:** Solange ein Modellanbieter die gesendeten Texte für **eigene** Zwecke
+verwenden darf — Training, menschliche Durchsicht —, dürfen dort keine Gesundheitsdaten
+**fremder Nutzer** hingehen. Für den Product Owner selbst gilt das nicht: das sind seine
+eigenen Daten und seine eigene Entscheidung.
+
+**Warum das Häkchen aus ADR-083 dafür nicht genügt.** Eine Einwilligung gilt je Zweck. Die
+vorhandene deckt den Zweck **dieser App** ab: „damit für mich geplant werden kann, gehen diese
+Angaben an <Anbieter>". Training beim Anbieter ist ein **anderer** Zweck, und zwar dessen
+eigener. Zulässig wäre es durchaus — aber nur, wenn im Kästchen sinngemäß stünde: *„<Anbieter>
+darf meine Gesundheitsnotizen behalten, zum Verbessern eigener Modelle verwenden, und
+Mitarbeitende dort können sie lesen."* Das Hindernis ist also nicht das Recht, sondern dass
+das niemand ankreuzt — und es wegzulassen wäre nicht informiert und damit keine gültige
+Einwilligung.
+
+Unabhängig davon: Wer für eigene Zwecke verarbeitet, ist kein Auftragsverarbeiter. Dafür
+braucht es einen Vertrag (Art. 28), den kostenlose Tarife typischerweise nicht anbieten. Eine
+Einwilligung ersetzt ihn nicht.
+
+**Was konkret hinausgeht.** Zieltext, Tagesablauf, Angaben zu Sport, Ernährung und Schlaf —
+alles bewusst vergröbert (`proposeUserMessage`: „geht spät ins Bett", Bänder statt Zahlen, keine
+Uhrzeiten, ADR-084/092) und ohne Name, E-Mail oder Geburtsdatum. Der eine Ausreißer ist der
+**Wochenimpuls**: er sendet `check_ins.note` im Klartext, gekürzt auf 300 Zeichen. Das ist der
+sensibelste Payload der App — und zugleich genau das, was das Feature wertvoll macht (ADR-082).
+
+**Die Optionen, ohne zu bezahlen:**
+
+1. **Eigener Schlüssel je Nutzer** *(empfohlen).* Der Mensch trägt seinen eigenen API-Key ein;
+   seine Daten gehen an sein Konto unter seinen Bedingungen. Kostet den Betreiber dauerhaft
+   nichts, macht den Einwilligungstext kürzer und ehrlicher, und passt zu einer App, deren
+   These ohnehin ist, dass sie ohne KI funktioniert. Preis: Einstiegshürde, die die meisten
+   nicht nehmen — und fremde Schlüssel müssen gespeichert werden, was eigene Sorgfalt verlangt
+   (RLS steht dafür bereits, geprüft in ADR-081).
+2. **KI nur für das eigene Konto.** Aufwand null, alle anderen bekommen die deterministische
+   App. Sie funktioniert vollständig, ist bei ungewöhnlichen Zielen aber deutlich schwächer
+   (`docs/AI_CAPABILITIES.md`).
+3. **Keinen Freitext senden.** Entfernt den größten Teil des Risikos, kostet aber den
+   Wochenimpuls — also das Feature, das die App von einem Chatfenster unterscheidet.
+4. **Einen kostenlosen Tarif ohne Training suchen.** Existiert, ändert sich aber laufend. Zu
+   prüfen ist: werden **API**-Daten (nicht Chat-Daten) zum Training verwendet, wie lange werden
+   sie aufbewahrt, und wird ein AVV angeboten.
+
+**Warum der Wechsel billig ist:** Anbieter sind vier Umgebungsvariablen (`AI_COMPAT_BASE_URL`,
+`AI_COMPAT_KEY`, `AI_COMPAT_MODEL`, `AI_COMPAT_LABEL`) plus ein Deploy — kein Code, keine
+Migration, keine Teständerung, weil Prompts und Sicherheitsprüfungen bewusst vor dem Adapter
+liegen (ADR-080). Der Einwilligungstext zieht automatisch mit: der Anbietername wird aus der
+Base-URL abgeleitet und nicht aus einem Label (ADR-083).
+
+---
+
 ## 2026-09-01 — ADR-092: Der Scheduler setzt durch, die Invariante prüft nach
 
 **Entscheidung:** Was eine Aktion an Erholung braucht, entscheidet der Scheduler anhand der
