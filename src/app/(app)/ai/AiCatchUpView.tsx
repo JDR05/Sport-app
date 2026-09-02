@@ -40,12 +40,15 @@ export function AiCatchUpView({
   classifiedBy,
   hasProposal,
   provider,
+  learnsFromData,
   consent,
 }: {
   goalText: string
   classifiedBy: ClassifiedBy
   hasProposal: boolean
   provider: string | null
+  /** Whether the configured tier lets the provider learn from what is sent. */
+  learnsFromData: boolean
   consent: ConsentView
 }) {
   const router = useRouter()
@@ -145,6 +148,7 @@ export function AiCatchUpView({
           <AiConsent
             initial={consent}
             provider={provider}
+            learnsFromData={learnsFromData}
             onChange={(state) => setGranted(state.granted)}
           />
         </>

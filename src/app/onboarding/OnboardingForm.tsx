@@ -141,6 +141,7 @@ export function OnboardingForm({
   existing,
   today,
   provider,
+  learnsFromData,
   consent,
 }: {
   existing?: StoredPlanInput | null
@@ -148,6 +149,8 @@ export function OnboardingForm({
   today: string
   /** Which company would receive the data. Null when none is configured. */
   provider: string | null
+  /** Whether the configured tier lets the provider learn from what is sent. */
+  learnsFromData: boolean
   consent: ConsentView
 }) {
   const [step, setStep] = useState(0)
@@ -328,7 +331,12 @@ export function OnboardingForm({
           {provider !== null && (
             <div className="mt-6">
               <SectionHeading>KI-Unterstützung</SectionHeading>
-              <AiConsent initial={consent} provider={provider} onChange={setAi} />
+              <AiConsent
+                initial={consent}
+                provider={provider}
+                learnsFromData={learnsFromData}
+                onChange={setAi}
+              />
             </div>
           )}
 

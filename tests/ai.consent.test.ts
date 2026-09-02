@@ -8,7 +8,8 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  classifyGoal, createAdapter, MockAdapter, proposePlan, providerName, readConfig, timeoutFrom,
+  classifyGoal, createAdapter, MockAdapter, proposePlan, providerLearnsFromData, providerName,
+  readConfig, timeoutFrom,
   WithheldAdapter,
 } from '@/lib/ai'
 import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
@@ -336,5 +337,25 @@ describe('an answer the model itself does not believe', () => {
     const classified = await classifyGoal('Ich will besser schlafen', sure(0.9))
     expect(classified.source).toBe('ai')
     expect(classified.value.archetype).toBe('sleep_recovery')
+  })
+})
+
+describe('which tier the consent text describes', () => {
+  it.each([
+    ['nothing configured', {}],
+    ['an empty value', { AI_COMPAT_TRAINS: '' }],
+    ['a word nobody planned for', { AI_COMPAT_TRAINS: 'vielleicht' }],
+  ])('assumes the provider learns from the data when %s', (_case, env) => {
+    // A missing variable must not be able to under-warn. Somebody who has not
+    // thought about it yet is on a free tier, and free tiers generally do
+    // learn from what they are given — so silence defaults to the warning,
+    // never away from it.
+    expect(providerLearnsFromData(env as unknown as NodeJS.ProcessEnv)).toBe(true)
+  })
+
+  it.each(['false', 'FALSE', 'no', '0'])('accepts %s as a deliberate opt-out', (value) => {
+    expect(
+      providerLearnsFromData({ AI_COMPAT_TRAINS: value } as unknown as NodeJS.ProcessEnv),
+    ).toBe(false)
   })
 })

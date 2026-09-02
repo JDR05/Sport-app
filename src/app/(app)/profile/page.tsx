@@ -5,7 +5,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/auth/session'
-import { providerName } from '@/lib/ai'
+import { providerLearnsFromData, providerName } from '@/lib/ai'
 import { readConsent } from '@/lib/ai/consent'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { isTheme, THEME_COOKIE } from '@/lib/theme'
@@ -26,6 +26,7 @@ export default async function ProfilePage() {
       // Both read on the server. The provider name comes from the configured
       // endpoint, which the browser must never see.
       provider={providerName()}
+      learnsFromData={providerLearnsFromData()}
       consent={{ granted: consent.granted, outdated: consent.outdated }}
     />
   )

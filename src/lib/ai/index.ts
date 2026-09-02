@@ -206,6 +206,27 @@ async function attempt<T>(run: () => Promise<AiResult<T>>): Promise<AiResult<T>>
   }
 }
 
+/**
+ * Whether the configured tier lets the provider keep and learn from what is
+ * sent — which decides what the consent text has to say.
+ *
+ * A variable rather than a constant because it is a property of the *tier*,
+ * not of the app: the same provider offers both, and switching is meant to be
+ * four environment variables and a deploy (ADR-080). Hard-coding it would make
+ * the consent text quietly wrong on the day somebody upgrades, in the
+ * direction that matters — still warning about training that no longer
+ * happens is merely annoying, but staying silent about training that does is
+ * an uninformed consent, which is no consent.
+ *
+ * Defaults to true for exactly that reason. A missing variable must not be
+ * able to under-warn; somebody who has not thought about it yet is on a free
+ * tier, and free tiers generally do learn from what they are given.
+ */
+export function providerLearnsFromData(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env.AI_COMPAT_TRAINS?.trim().toLowerCase()
+  return raw !== 'false' && raw !== 'no' && raw !== '0'
+}
+
 export type Classified = {
   value: GoalClassification
   /** Shown to the user, so the app is honest about where the answer came from. */

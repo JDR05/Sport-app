@@ -25,7 +25,7 @@
 // script without a nonce, so the hydration problem cannot come back quietly.
 
 import { requireUser } from '@/lib/auth/session'
-import { providerName } from '@/lib/ai'
+import { providerLearnsFromData, providerName } from '@/lib/ai'
 import { readConsent } from '@/lib/ai/consent'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { serverToday } from '@/lib/db/today'
@@ -83,6 +83,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<'/onboa
       // at all — asking somebody to agree to a transfer that cannot happen is
       // consent theatre, and it would name no recipient.
       provider={provider}
+      learnsFromData={providerLearnsFromData()}
       consent={{ granted: consent.granted, outdated: consent.outdated }}
     />
   )

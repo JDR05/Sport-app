@@ -21,11 +21,20 @@ export type ConsentView = { granted: boolean; outdated: boolean }
 export function AiConsent({
   initial,
   provider,
+  learnsFromData,
   onChange,
 }: {
   initial: ConsentView
   /** Who actually receives the data, so the sentence names a company. */
   provider: string
+  /**
+   * Whether the configured tier lets the provider keep and learn from it.
+   *
+   * Passed in rather than assumed, because it is the difference between two
+   * genuinely different asks — and the second one has to be said out loud or
+   * the consent is not informed.
+   */
+  learnsFromData: boolean
   /**
    * Reports both the value and whether a write is still in flight, so the
    * onboarding can hold its Weiter button. The server reads consent from the
@@ -69,6 +78,19 @@ export function AiConsent({
           Dafür gehen dein Zieltext, dein Tagesablauf, deine Angaben zu Sport, Ernährung und
           Schlaf sowie später deine Notizen aus den Check-ins an {provider}. Ohne Namen,
           E-Mail-Adresse oder Geburtsdatum.
+          {/* Said in the box, not in a link, and in the plainest words there
+              are. This is the sentence that decides whether the consent is
+              informed — and it is the one somebody would be angry about
+              finding out later, so it belongs where they cannot miss it. */}
+          {learnsFromData && (
+            <>
+              {' '}
+              <span className="font-semibold">Wichtig:</span> Auf dem Tarif, den diese App
+              nutzt, darf {provider} diese Texte behalten, zum Verbessern eigener KI-Modelle
+              verwenden, und Mitarbeitende dort können sie lesen. Gesendetes lässt sich nicht
+              zurückholen.
+            </>
+          )}
         </span>
       </label>
 
@@ -88,9 +110,9 @@ export function AiConsent({
 
       <Note>
         Ohne Häkchen läuft die App vollständig weiter: Ziel einordnen, Plan bauen, Muster
-        erkennen und Experimente auswerten passieren in dieser App und ohne KI. Du kannst die
-        Zustimmung jederzeit im Profil zurücknehmen — das stoppt künftige Anfragen, bereits
-        Gesendetes lässt sich nicht zurückholen.
+        erkennen und Experimente auswerten passieren in dieser App und ohne KI. Das ist keine
+        abgespeckte Version — nur die freieren Vorschläge und der Wochenimpuls fehlen. Du kannst
+        die Zustimmung jederzeit im Profil zurücknehmen; das stoppt künftige Anfragen.
       </Note>
     </div>
   )

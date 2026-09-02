@@ -33,7 +33,13 @@ import type { AiAdapter } from './types'
  * quietly widening it under an old yes is the failure mode this number exists
  * to make impossible.
  */
-export const CONSENT_VERSION = 1
+export const CONSENT_VERSION = 2
+
+// Version 1 said the data goes to the provider. It did not say the provider
+// may keep it and learn from it, which is a second purpose and the provider's
+// own — so a version-1 yes was given for something narrower than what
+// actually happens on a free tier. Everyone is asked again rather than being
+// carried over, which is the whole reason this number exists.
 
 export type ConsentState = {
   /** True only for the current version. An older yes is not a yes to this. */

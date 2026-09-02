@@ -170,6 +170,7 @@ describe('the catch-up screen', () => {
     goalText: '5 kg abnehmen',
     hasProposal: false,
     provider: 'Google (Gemini)',
+    learnsFromData: true,
     consent: { granted: true, outdated: false },
   }
 
@@ -186,6 +187,36 @@ describe('the catch-up screen', () => {
     expect(html).not.toContain('KI dazuholen')
   })
 
+  it('says outright that the provider may learn from it', () => {
+    // The sentence that decides whether the consent is informed. It is the one
+    // somebody would be angry about discovering later, so it sits in the box
+    // rather than behind a link — and it is asserted here because a text
+    // nobody checks is a text that gets softened.
+    const html = render(
+      <AiCatchUpView {...base} classifiedBy="keywords" consent={{ granted: false, outdated: false }} />,
+    )
+    expect(html).toContain('behalten')
+    expect(html).toContain('eigener KI-Modelle')
+    expect(html).toContain('können sie lesen')
+    expect(html).toContain('nicht zurückholen')
+  })
+
+  it('drops that sentence on a tier that does not learn', () => {
+    // Still warning about training that no longer happens would be its own
+    // kind of dishonesty, and it would make the switch to a paid tier
+    // invisible to the person it benefits.
+    const html = render(
+      <AiCatchUpView
+        {...base}
+        learnsFromData={false}
+        classifiedBy="keywords"
+        consent={{ granted: false, outdated: false }}
+      />,
+    )
+    expect(html).toContain('Google (Gemini)')
+    expect(html).not.toContain('eigener KI-Modelle')
+  })
+
   it('names the recipient in the consent sentence', () => {
     // Informed consent under Art. 9 (2) (a) has to name who receives the data.
     const html = render(
@@ -198,7 +229,7 @@ describe('the catch-up screen', () => {
 describe('the design rules these screens must not break', () => {
   const everything = [
     render(<InsightsView data={insights()} />),
-    render(<AiCatchUpView goalText="x" classifiedBy="ai" hasProposal provider="Groq" consent={{ granted: true, outdated: false }} />),
+    render(<AiCatchUpView goalText="x" classifiedBy="ai" hasProposal provider="Groq" learnsFromData consent={{ granted: true, outdated: false }} />),
     render(
       <IntakeQuestionsStep
         questions={[{ question: 'Frage?', why: 'Weil.', options: ['a'] }]}

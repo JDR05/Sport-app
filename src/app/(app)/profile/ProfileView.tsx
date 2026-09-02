@@ -30,11 +30,14 @@ export function ProfileView({
   answers,
   theme,
   provider,
+  learnsFromData,
   consent,
 }: {
   answers: StoredPlanInput
   theme: Theme
   provider: string | null
+  /** Whether the configured tier lets the provider learn from what is sent. */
+  learnsFromData: boolean
   consent: ConsentView
 }) {
   const router = useRouter()
@@ -119,7 +122,7 @@ export function ProfileView({
               </Card>
             ) : (
               <>
-                <AiConsent initial={consent} provider={provider} />
+                <AiConsent initial={consent} provider={provider} learnsFromData={learnsFromData} />
                 {consent.granted && (
                   <div className="mt-3">
                     <Button variant="quiet" onClick={() => router.push('/ai')}>

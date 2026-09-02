@@ -137,15 +137,56 @@ Marathontraining nichts über ein Schlafziel ein halbes Jahr später sagt.
 
 ---
 
-## 2026-09-01 — ADR-093: Kein kostenloser Trainings-Tarif für fremde Gesundheitsdaten (OFFENER PUNKT)
+## 2026-09-01 — ADR-094: Der Einwilligungstext sagt das Training ausdrücklich — und wir warten ab
 
-**Status: offen.** Zu entscheiden, **bevor** sich der erste fremde Mensch anmeldet. Für den
-Product Owner allein, mit seinen eigenen Daten, ist der jetzige Zustand in Ordnung.
+**Entscheidung des Product Owners:** Statt den Anbieter zu wechseln oder die KI einzuschränken,
+**sagt der Einwilligungstext, was tatsächlich passiert** — einschließlich dessen, dass der
+Anbieter die Texte behalten, daraus lernen und sie lesen darf. Ob Menschen das annehmen, wird
+beobachtet statt vorausgesetzt. Kommen mehr Nutzer und stört es sie, greifen die Optionen aus
+ADR-093, die dafür stehen bleiben.
 
-**Entscheidung:** Solange ein Modellanbieter die gesendeten Texte für **eigene** Zwecke
-verwenden darf — Training, menschliche Durchsicht —, dürfen dort keine Gesundheitsdaten
-**fremder Nutzer** hingehen. Für den Product Owner selbst gilt das nicht: das sind seine
-eigenen Daten und seine eigene Entscheidung.
+**Begründung:** Die Annahme „das kreuzt niemand an" war meine, nicht gemessen. Sie kann falsch
+sein, und sie zu testen kostet nichts außer Ehrlichkeit im Text. Das ist eine zulässige
+Produktwette, und sie ist billiger als ein Anbieterwechsel, den vielleicht niemand braucht.
+
+**Die eine Asymmetrie, festgehalten damit sie später nicht überrascht:** Die Wette ist nur in
+eine Richtung auflösbar. Stellt sich heraus, dass es stört, lässt sich der Text ändern — die
+Notizen der ersten Nutzer sind dann aber bereits dort. Genau deshalb steht der Satz **im
+Kästchen und nicht hinter einem Link**, in den einfachsten Worten, die es dafür gibt.
+
+**`CONSENT_VERSION` 1 → 2, und das ist ihr erster echter Einsatz.** Version 1 sagte, wohin die
+Daten gehen. Sie sagte nicht, dass der Anbieter sie behalten und daraus lernen darf — ein
+zweiter Zweck, und zwar dessen eigener. Ein Ja zu Version 1 wurde also für etwas Engeres
+gegeben als das, was auf einem kostenlosen Tarif geschieht. Alle werden neu gefragt, statt
+übernommen zu werden. Genau dafür wurde die Zahl in ADR-083 eingebaut, und sie hat das ohne
+weiteres Zutun geleistet.
+
+**`AI_COMPAT_TRAINS` entscheidet, ob der Absatz erscheint.** Eine Eigenschaft des *Tarifs*, nicht
+der App: derselbe Anbieter bietet beides an, und der Wechsel soll vier Variablen bleiben
+(ADR-080). Hart verdrahtet wäre der Text an dem Tag still falsch, an dem jemand upgradet.
+
+**Der Standard ist „ja".** Eine fehlende Variable darf nie zu **weniger** Warnung führen. Wer
+noch nicht darüber nachgedacht hat, ist auf einem kostenlosen Tarif, und kostenlose Tarife
+lernen in der Regel mit. Über einen Warnhinweis zu viel ärgert man sich; über einen zu wenig
+verklagt man jemanden.
+
+**Geprüft:** Der Text wird im Rendering-Test festgenagelt — „behalten", „eigener KI-Modelle",
+„können sie lesen", „nicht zurückholen" —, weil ein Satz, den nichts prüft, ein Satz ist, der
+mit der Zeit weichgespült wird. Und die Gegenprobe: auf einem Tarif ohne Training verschwindet
+der Absatz, denn vor etwas zu warnen, das nicht mehr passiert, wäre seine eigene Art von
+Unehrlichkeit.
+
+---
+
+## 2026-09-01 — ADR-093: Kein kostenloser Trainings-Tarif für fremde Gesundheitsdaten
+
+**Status: entschieden, anders als hier zunächst vorgeschlagen — siehe ADR-094.** Der Eintrag
+bleibt stehen, weil seine Begründung und die vier Optionen weiter gelten, falls die Wette in
+ADR-094 nicht aufgeht.
+
+**Ursprünglicher Vorschlag:** Solange ein Modellanbieter die gesendeten Texte für **eigene**
+Zwecke verwenden darf — Training, menschliche Durchsicht —, dürfen dort keine
+Gesundheitsdaten **fremder Nutzer** hingehen.
 
 **Warum das Häkchen aus ADR-083 dafür nicht genügt.** Eine Einwilligung gilt je Zweck. Die
 vorhandene deckt den Zweck **dieser App** ab: „damit für mich geplant werden kann, gehen diese
