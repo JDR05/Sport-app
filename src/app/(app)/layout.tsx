@@ -12,6 +12,7 @@ import { PlanProvider } from '@/components/PlanProvider'
 import { BottomNav } from '@/components/BottomNav'
 import { TimeZoneSync } from '@/components/TimeZoneSync'
 import { AppHeader } from '@/components/AppHeader'
+import { AppRefresh } from '@/components/AppRefresh'
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const user = await requireUser()
@@ -23,9 +24,13 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
   return (
     <PlanProvider>
       <TimeZoneSync />
-      <AppHeader />
-      <main>{children}</main>
-      <BottomNav />
+      {/* Inside the provider, because refreshing means re-fetching the week as
+          well as re-rendering the server components. */}
+      <AppRefresh>
+        <AppHeader />
+        <main>{children}</main>
+        <BottomNav />
+      </AppRefresh>
     </PlanProvider>
   )
 }

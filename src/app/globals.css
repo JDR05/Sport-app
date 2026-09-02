@@ -160,7 +160,14 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* The app is a mobile surface; rubber-band scrolling on the shell looks broken. */
+  /* The app is a mobile surface; rubber-band scrolling on the shell looks broken.
+     
+     This also switches off the browser's own pull-to-refresh, which is why the
+     app brings its own (PullToRefresh). That is the better trade rather than a
+     regrettable one: the native gesture reloads the whole document — a second
+     of white, the week fetched from scratch, every open card closed — and it
+     does not exist at all in an installed app, where there is no browser
+     chrome. The app's own re-fetches the data in place, everywhere. */
   html {
     overscroll-behavior-y: none;
   }

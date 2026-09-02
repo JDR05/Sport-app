@@ -74,6 +74,15 @@ type PlanContextValue = {
   movedAway: Record<string, string>
   /** Load the week again. Only meaningful from `failed`. */
   retry: () => void
+  /**
+   * Fetch the week again and resolve when it is back.
+   *
+   * `retry` bumps a counter and returns at once, which is right for a button
+   * that says "nochmal versuchen" and wrong for a gesture: a pull-to-refresh
+   * whose indicator vanishes before the data arrives has told the person the
+   * screen is current when it is not.
+   */
+  refresh: () => Promise<void>
 }
 
 const PlanContext = createContext<PlanContextValue | null>(null)
@@ -168,6 +177,25 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const refresh = useCallback(async () => {
+    if (today === null) return
+    // Deliberately not routed through the `attempt` counter that `retry` uses.
+    // That counter exists to re-run the effect; this has to be able to say
+    // when it is finished, which an effect cannot.
+    const result = await loadWeek(today).catch(() => null)
+    if (!result) {
+      setAnswer({ key, state: 'failed' })
+      return
+    }
+    if (result.ok) {
+      setWeek(result.week)
+      setPlanError(null)
+    } else {
+      setPlanError(result.reason === 'unsafe' ? result.message : null)
+    }
+    setAnswer({ key, state: planStateOf(result) })
+  }, [today, key])
+
   const [movedAway, setMovedAway] = useState<Record<string, string>>({})
 
   /**
@@ -248,8 +276,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       accept,
       movedAway,
       retry,
+      refresh,
     }),
-    [today, state, week, planError, setStatus, submitAnswer, accept, movedAway, retry],
+    [today, state, week, planError, setStatus, submitAnswer, accept, movedAway, retry, refresh],
   )
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>
