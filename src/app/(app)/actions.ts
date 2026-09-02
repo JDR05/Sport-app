@@ -25,6 +25,9 @@ import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
 import { ensureWeeklyNote, type WeeklyNote } from '@/lib/db/weekly-note'
+import { loadCommitments, saveCommitments } from '@/lib/db/commitments'
+import { commitmentSchema } from '@/lib/db/schemas'
+import type { Commitment } from '@/lib/domain/types'
 import { QUESTION_MAX_CHARS } from '@/lib/ai/ask'
 import { STATUS_REASONS, type Reaction } from '@/lib/adaptive/reaction'
 
@@ -242,6 +245,40 @@ export async function acceptReaction(
   if (!id.success || !day.success) return { ok: false, applied: null }
 
   return applyOffer(user.id, id.data, day.data)
+}
+
+// -------------------------------------------------------------- commitments ---
+
+export async function getCommitments(): Promise<Commitment[]> {
+  const user = await requireUser()
+  return loadCommitments(user.id)
+}
+
+/**
+ * Replaces the week the person already has.
+ *
+ * Deliberately does **not** rebuild the current week's plan. A plan already
+ * written is a promise already made (ADR-037), and rewriting Tuesday under
+ * somebody who is halfway through it is the failure that rule exists to
+ * prevent — it would also throw away the statuses that week already carries.
+ * The next week is built from the new list, and the screen says so rather
+ * than leaving the person to notice.
+ *
+ * The commitments themselves show up on Today and in the week view
+ * immediately, because those are read live: what somebody has on Wednesday is
+ * a fact about Wednesday, even when the plan around it is last Monday's.
+ */
+export async function updateCommitments(payload: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+
+  const parsed = z.array(commitmentSchema).max(30).safeParse(payload)
+  if (!parsed.success) return { ok: false }
+
+  const result = await saveCommitments(user.id, parsed.data as Commitment[])
+  // The week is read on the server for several screens; a stale one would
+  // still be showing the old Tuesday.
+  if (result.ok) revalidatePath('/', 'layout')
+  return result
 }
 
 // ------------------------------------------------------------------ impulse ---

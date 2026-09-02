@@ -5,6 +5,7 @@ import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
 import { AskCard } from '@/components/AskCard'
 import { CheckInCard } from '@/components/CheckInCard'
+import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
 import { ImpulseCard } from '@/components/ImpulseCard'
 import { DailyRules } from '@/components/DailyRules'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
@@ -31,7 +32,11 @@ export default function TodayPage() {
         // things specific to today are not buried under them.
         const rules = all.filter((i) => i.cadence === 'daily')
         const items = all.filter((i) => i.cadence !== 'daily')
-        const restToday = !items.some((i) => i.domain === 'training')
+        const fixed = commitmentsForDay(week.commitments, weekdayOf(today))
+        // A day with football on it is not a day without training, whatever
+        // the plan happens to contain.
+        const restToday =
+          !items.some((i) => i.domain === 'training') && !fixed.some((c) => c.kind === 'sport')
 
         return (
           <Screen>
@@ -64,12 +69,27 @@ export default function TodayPage() {
                 it is gone from here and lives on Insights. */}
             <ImpulseCard today={today} />
 
-            {all.length > 0 && (
+            {(all.length > 0 || fixed.length > 0) && (
               <div className="mb-2.5 flex items-baseline justify-between">
                 <SectionHeading>Heute</SectionHeading>
-                <span className="num text-[11px] text-faint">
-                  {all.filter((i) => i.status === 'done').length}/{all.length}
-                </span>
+                {/* Counts only what the app planned. A fixed appointment is
+                    not something it may claim credit for, and a ratio that
+                    silently included it would make the completion figure mean
+                    two different things on two different days. */}
+                {all.length > 0 && (
+                  <span className="num text-[11px] text-faint">
+                    {all.filter((i) => i.status === 'done').length}/{all.length}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* What the person already had, before the app said anything.
+                First because it is fixed and the rest is not: the plan was
+                built around this. */}
+            {fixed.length > 0 && (
+              <div className="mb-3">
+                <DayCommitments commitments={week.commitments} weekday={weekdayOf(today)} />
               </div>
             )}
 
@@ -79,14 +99,14 @@ export default function TodayPage() {
               </div>
             )}
 
-            {items.length === 0 && rules.length === 0 ? (
+            {items.length === 0 && rules.length === 0 && fixed.length === 0 ? (
               <Card>
                 <p className="text-sm font-semibold text-ink">Heute steht nichts an.</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted">
                   Das ist kein Versäumnis, sondern geplant. Ruhetage gehören zum Plan.
                 </p>
               </Card>
-            ) : (
+            ) : items.length === 0 ? null : (
               <div className="flex flex-col gap-3">
                 {items.map((item) => (
                   <ActionItem

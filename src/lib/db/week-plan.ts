@@ -23,8 +23,9 @@ import { generatePlan } from '@/lib/engine'
 import { startOfWeek } from '@/lib/engine/dates'
 import { PlanInvariantError } from '@/lib/engine/errors'
 import { fromRow, materialise, toInsert, type ItemRow } from './item-mapping'
+import { loadCommitments } from './commitments'
 import type {
-  Assumption, PlanItemStatus, PlannedItem, Rationale, WeekStrategy,
+  Assumption, Commitment, PlanItemStatus, PlannedItem, Rationale, WeekStrategy,
 } from '@/lib/domain/types'
 
 /** A planned action that now exists as a row, so a status can point at it. */
@@ -40,6 +41,17 @@ export type StoredWeek = {
   rationale: Rationale[]
   assumptions: Assumption[]
   items: StoredItem[]
+  /**
+   * The week this person already had before the app said anything.
+   *
+   * Carried alongside the plan rather than fetched separately, because the two
+   * are read together on every screen that shows a day. Today looked empty on
+   * the evening somebody has football — the app knew about the training well
+   * enough to plan around it (`sportDays`) and then showed a screen that said
+   * nothing was on. That is the app hiding the largest part of somebody's own
+   * week from them.
+   */
+  commitments: Commitment[]
 }
 
 export type WeekResult =
@@ -189,6 +201,11 @@ async function readWeek(
     rationale: (planRow.data.rationale ?? []) as unknown as Rationale[],
     assumptions: (planRow.data.assumptions ?? []) as unknown as Assumption[],
     items,
+    // Read live rather than frozen into the plan row. The plan a person worked
+    // through must not rewrite itself (ADR-037), but a commitment they added
+    // on Wednesday is a fact about Wednesday — showing them last week's
+    // version of their own life would be a strange kind of consistency.
+    commitments: await loadCommitments(profileId),
   }
 }
 

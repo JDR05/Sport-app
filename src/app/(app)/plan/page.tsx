@@ -15,6 +15,7 @@
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
+import { CommitmentLine, commitmentsForDay } from '@/components/DayCommitments'
 import { Card, DomainBadge, Note, Screen, ScreenTitle, SectionHeading, Reasoning } from '@/components/ui'
 import { addDays, formatGermanDate } from '@/lib/engine/dates'
 import { WEEKDAYS } from '@/lib/domain/types'
@@ -61,6 +62,7 @@ export default function PlanPage() {
             {WEEKDAYS.map((weekday, index) => {
               const date = addDays(plan.strategy.weekStart, index)
               const items = plan.items.filter((i) => i.scheduledOn === date)
+              const fixed = commitmentsForDay(plan.commitments, weekday)
               const isToday = date === today
               // No `today` yet means the client's date has not arrived. Treat
               // the week as unanswerable rather than guessing which days passed.
@@ -73,8 +75,23 @@ export default function PlanPage() {
                     {isToday && <span className="ml-2 text-accent">heute</span>}
                   </SectionHeading>
 
+                  {/* The week the person already has, on the day it happens.
+                      Without it the calendar showed a rest day on the evening
+                      somebody plays football — the app planning around a
+                      commitment it then refuses to draw. */}
+                  {fixed.length > 0 && (
+                    <div className="mb-2 flex flex-col gap-2">
+                      {fixed.map((commitment) => (
+                        <CommitmentLine
+                          key={`${commitment.start}-${commitment.label}`}
+                          commitment={commitment}
+                        />
+                      ))}
+                    </div>
+                  )}
+
                   {items.length === 0 ? (
-                    <p className="text-sm text-faint">Ruhetag</p>
+                    fixed.length === 0 && <p className="text-sm text-faint">Ruhetag</p>
                   ) : (
                     <div className="flex flex-col gap-2">
                       {items.map((item) =>

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { RequirePlan } from '@/components/RequirePlan'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeSetting } from '@/components/ThemeSetting'
-import { Button, Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { Button, Card, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { AiConsent, type ConsentView } from '@/components/AiConsent'
 
 import type { GoalArchetype } from '@/lib/domain/types'
@@ -75,12 +75,31 @@ export function ProfileView({
               <dl className="space-y-2 text-sm">
                 <Row label="Rhythmus" value={WORK_PATTERN[answers!.schedule.workPattern ?? ''] ?? 'Keine Angabe'} />
                 <Row label="Freie Tage" value={`${answers!.schedule.freeSlots.length} pro Woche`} />
+                <Row
+                  label="Feste Termine"
+                  value={
+                    answers!.schedule.commitments.length > 0
+                      ? `${answers!.schedule.commitments.length} pro Woche`
+                      : 'Keine eingetragen'
+                  }
+                  numeric={answers!.schedule.commitments.length > 0}
+                />
                 <Row label="Leistungsstand" value={p.sport.experience ?? 'Keine Angabe'} />
                 <Row
                   label="Ausgeschlossen"
                   value={p.sport.dislikedActivities.length > 0 ? p.sport.dislikedActivities.join(', ') : 'Nichts'}
                 />
               </dl>
+
+              {/* The one thing on this screen that changes rather than
+                  reports. A week is not fixed — a season starts, a shift
+                  pattern changes — and it used to be enterable only once, at
+                  signup, on the day nobody has their week straight. */}
+              <div className="mt-4">
+                <LinkButton href="/commitments" variant="quiet">
+                  Feste Termine ändern
+                </LinkButton>
+              </div>
             </Card>
 
             {week.assumptions.length > 0 && (

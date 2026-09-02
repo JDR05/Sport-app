@@ -7,6 +7,70 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-098: Die App bringt ihre eigene Ziehen-zum-Aktualisieren-Geste mit
+
+**Entscheidung:** Runterziehen lädt neu — mit einer eigenen Geste, die die Daten **an Ort und
+Stelle** neu holt, statt die Seite neu zu laden. `overscroll-behavior-y: none` bleibt.
+
+**Begründung:** Die Geste fehlte nicht, sie war abgeschaltet. `overscroll-behavior-y: none`
+verhindert das Gummiband der Hülle und nimmt das eingebaute Ziehen-zum-Aktualisieren mit —
+also tat das Erste, was jeder probiert, wenn ein Screen alt aussieht, gar nichts.
+
+Die eingebaute Geste zurückzuholen hieße: kompletter Seiten-Neuaufbau, eine Sekunde Weiß, die
+Woche von vorn geladen, jede offene Karte zu — und in einer installierten App gibt es gar
+keine Browserleiste, aus der neu geladen werden könnte. Die eigene holt die Woche über den
+Provider und ruft `router.refresh()` für die serverseitige Hälfte. Der Balken bleibt stehen,
+bis die Daten wirklich da sind, statt zu verschwinden, sobald die Anfrage raus ist.
+
+Nur ganz oben, nur nach unten, nur ein Finger, und mit halber Fingergeschwindigkeit. Eine
+Geste, die versehentlich auslöst, ist schlimmer als eine, die fehlt.
+
+**Geprüft:** 11 Tests auf der Arithmetik der Geste — ein Zug nach oben bleibt bei null, ein
+kurzes Zupfen löst nicht aus, die Obergrenze liegt über der Schwelle (sonst könnte sie nie
+auslösen und sähe die ganze Zeit so aus, als würde sie gleich), und ein unsinniger Wert ergibt
+null statt einer NaN-Höhe. Die Geste selbst braucht ein Handy — das ist ein Review-Schritt.
+
+---
+
+## 2026-09-02 — ADR-099: Die eigene Woche ist sichtbar und änderbar
+
+**Entscheidung:** Feste Termine — Fußballtraining, Spätschicht, Vorlesung — stehen jetzt in
+**Heute** und im **Wochenplan**, und lassen sich unter `/commitments` jederzeit ändern, nicht
+mehr nur einmal im Onboarding. Sie sind bewusst **keine Plan-Aktion**: kein Ring, kein Haken,
+keine Statuszeile.
+
+**Begründung:** Die Engine kannte die Termine seit ADR-042 — `sportDays` ist der Grund, warum
+am Fußballabend keine zweite Einheit geplant wird. Die *Screens* kannten sie nicht: Heute war
+an dem Abend leer und der Wochenplan schrieb „Ruhetag". Die App plante um etwas herum, das sie
+sich weigerte anzuzeigen — „ich hab nichts über mein Training drin, und es ist ja trotzdem ein
+essentieller Anteil".
+
+**Warum nicht abhakbar:** Die App hat den Termin nicht geplant und kann ihn nicht beurteilen.
+Ein verpasstes eigenes Fußballtraining ist kein Versagen des Plans, und in die
+Abschlussquoten aufgenommen würde etwas, das die App nie entschieden hat, zu Evidenz, aus der
+sie lernt. Der Termin steht als das da, was er ist: ein Fixpunkt, um den herum geplant wurde.
+Der Tageszähler zählt weiterhin nur geplante Aktionen — sonst hieße dieselbe Zahl an zwei
+Tagen zweierlei.
+
+**Warum änderbar:** Niemand hat seine Woche am Tag der Anmeldung im Kopf, und eine Woche ist
+nichts Festes — eine Saison beginnt, ein Schichtplan ändert sich, ein Semester endet. Bisher
+hätte man dafür das ganze Onboarding wiederholen müssen und dabei die Historie des Ziels
+verloren.
+
+**Die Grenze, ausgesprochen statt versteckt:** Der Plan der laufenden Woche wird **nicht**
+rückwirkend umgebaut. Ein geschriebener Plan ist ein gegebenes Versprechen (ADR-037), und
+Dienstag unter jemandem umzuschreiben, der mitten drin steckt, ist genau der Fehler, den diese
+Regel verhindert — die schon vergebenen Status wären mit weg. Der Termin selbst erscheint
+sofort, weil er live gelesen wird; der Plan zieht ab der nächsten Woche nach. Der Screen sagt
+das, statt es die Person herausfinden zu lassen.
+
+**Geprüft:** 14 Tests, darunter die beiden Regeln, die die Sache ehrlich halten — die Karte
+enthält nachweislich **kein** Bedienelement (nicht „sie sagt, dass man nichts abhaken kann",
+sondern „es gibt nichts abzuhaken"), und die Sortierung verändert das Array des Aufrufers
+nicht, das an mehreren Stellen gerendert wird.
+
+---
+
 ## 2026-09-02 — ADR-097: Der Impuls hat einen Anlass — nicht nur einen Wochentag
 
 **Entscheidung:** Der Wochenimpuls wird nicht mehr nur donnerstags geschrieben. Ein
