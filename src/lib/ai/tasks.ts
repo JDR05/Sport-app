@@ -1,4 +1,4 @@
-// The two things the app ever asks a model, defined once.
+// Everything the app ever asks a model, defined once.
 //
 // Prompt, context, schema and safety gate live here rather than inside an
 // adapter, and that is the whole point of the file: there are two adapters now
@@ -11,10 +11,10 @@
 // refused identically no matter who hosts it, and a cheaper model will produce
 // that sentence more often, not less.
 
-import { goalClassificationSchema, intakeQuestionsSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
-import { checkClassification, checkProposal, checkQuestions, checkWeeklyNote } from './validate'
-import { CLASSIFY_SYSTEM, PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
-import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import { askAnswerSchema, goalClassificationSchema, intakeQuestionsSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
+import { checkAnswer, checkClassification, checkProposal, checkQuestions, checkWeeklyNote } from './validate'
+import { ASK_SYSTEM, CLASSIFY_SYSTEM, PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
+import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** What a parse attempt can say. `implausible` means a safety rule fired. */
@@ -87,6 +87,109 @@ export const weeklyNoteTask: AiTask<WeeklyNote> = {
     }
     return { ok: true, value: parsed.data }
   },
+}
+
+export const askTask: AiTask<AskAnswer> = {
+  name: 'ask',
+  system: ASK_SYSTEM,
+  // Somebody is waiting for this with the screen open, which is the one place
+  // in the app where that is true of a model call. Still `high`: a fast wrong
+  // answer about their own week is worse than a slow right one, and the
+  // budget below is small enough that the difference is seconds.
+  effort: 'high',
+  maxTokens: 1200,
+  parse: (json) => {
+    const parsed = askAnswerSchema.safeParse(json)
+    if (!parsed.success) return { ok: false, detail: parsed.error.message }
+    const violations = checkAnswer(parsed.data)
+    if (violations.length > 0) {
+      return { ok: false, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+    }
+    return { ok: true, value: parsed.data }
+  },
+}
+
+/**
+ * Everything the model may see when answering a question.
+ *
+ * Wider than the weekly note's context, and deliberately so: the note looks
+ * back at one finished week, while a question can be about today, this
+ * evening, or why Tuesday looks the way it does. Narrower than "the database",
+ * equally deliberately — this is somebody's health data going to a third
+ * party, and every field here had to earn its place by being the answer to a
+ * question people actually ask.
+ */
+export type AskContext = {
+  question: string
+  goalText: string
+  archetype: string
+  today: string
+  /** What is on today, with what became of it. */
+  todayItems: Array<{
+    title: string
+    domain: string
+    minutes: number | null
+    status: string
+    rationale: string
+  }>
+  /** The rest of the week as shape rather than detail: how full each day is. */
+  weekShape: Array<{ date: string; planned: number; done: number }>
+  completion: Array<{ domain: string; done: number; resolved: number }>
+  /** What deterministic detection found, so an answer does not contradict it. */
+  deviations: string[]
+  /** Reasons the person gave themselves. Outrank anything inferred. */
+  reasons: string[]
+  rules: string[]
+  notes: Array<{ date: string; text: string }>
+  /** Earlier questions today, so it neither repeats itself nor loses the thread. */
+  history: Array<{ question: string; answer: string }>
+}
+
+export function askUserMessage(ctx: AskContext): string {
+  const lines = [
+    `Frage: ${ctx.question}`,
+    '',
+    `Ziel: ${ctx.goalText} (eingeordnet als ${ctx.archetype})`,
+    `Heute ist der ${ctx.today}.`,
+    '',
+    'Heute geplant:',
+    ...(ctx.todayItems.length > 0
+      ? ctx.todayItems.map(
+          (i) =>
+            `- ${i.title} (${i.domain}${i.minutes ? `, ${i.minutes} min` : ''}, Status: ${i.status})` +
+            (i.rationale ? ` — geplant, weil: ${i.rationale}` : ''),
+        )
+      : ['- nichts (Ruhetag)']),
+  ]
+
+  if (ctx.weekShape.length > 0) {
+    lines.push('', 'Die Woche im Überblick (Datum: geplant/erledigt):',
+      ...ctx.weekShape.map((d) => `- ${d.date}: ${d.planned} geplant, ${d.done} erledigt`))
+  }
+  if (ctx.completion.length > 0) {
+    lines.push('', 'Umsetzung nach Bereich:',
+      ...ctx.completion.map((c) => `- ${c.domain}: ${c.done} von ${c.resolved} bewerteten Aktionen`))
+  }
+  if (ctx.reasons.length > 0) {
+    lines.push('', 'Gründe, die die Person selbst angegeben hat (keine Vermutung):',
+      ...ctx.reasons.map((r) => `- ${r}`))
+  }
+  if (ctx.deviations.length > 0) {
+    lines.push('', 'Muster, die die App selbst erkannt hat:', ...ctx.deviations.map((d) => `- ${d}`))
+  }
+  if (ctx.rules.length > 0) {
+    lines.push('', 'Bestätigte persönliche Regeln:', ...ctx.rules.map((r) => `- ${r}`))
+  }
+  if (ctx.notes.length > 0) {
+    lines.push('', 'Eigene Notizen:', ...ctx.notes.map((n) => `- ${n.date}: ${n.text}`))
+  }
+  if (ctx.history.length > 0) {
+    lines.push('', 'Was heute schon gefragt und beantwortet wurde:',
+      ...ctx.history.map((h) => `- Frage: ${h.question}\n  Antwort: ${h.answer}`))
+  }
+
+  lines.push('', 'Antworte auf die Frage oben. Steht die Antwort nicht in diesen Daten, sag das und schreib in needs, was du wissen müsstest.')
+  return lines.join('\n')
 }
 
 /** Everything the weekly note is allowed to see. Assembled by the caller. */

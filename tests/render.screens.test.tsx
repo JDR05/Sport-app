@@ -24,6 +24,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, refresh: () => {} }),
 }))
 vi.mock('@/app/(app)/actions', () => ({
+  loadAskState: async () => ({ available: false, history: [], suggestions: [], exhausted: null }),
+  submitQuestion: async () => ({ ok: false, reason: 'invalid', message: 'x' }),
   setAiConsent: async () => ({ granted: true, at: null, outdated: false }),
   startAiForGoal: async () => ({ questions: [], reclassified: null, failure: null, detail: null }),
   finishAiForGoal: async () => ({ ok: true }),
@@ -35,6 +37,7 @@ const { InsightsView } = await import('@/app/(app)/insights/InsightsView')
 const { AiCatchUpView } = await import('@/app/(app)/ai/AiCatchUpView')
 const { IntakeQuestionsStep } = await import('@/app/onboarding/IntakeQuestionsStep')
 const { ActionItem } = await import('@/components/ActionItem')
+const { AskView } = await import('@/components/AskCard')
 
 const PROPOSAL = {
   headline: 'Drei Anker, die an deinen Abend passen',
@@ -282,6 +285,89 @@ describe('the action card', () => {
   })
 })
 
+const ASK_STATE = {
+  available: true,
+  history: [],
+  suggestions: [
+    { label: 'Warum heute das?', question: 'Warum steht „Ganzkörper ohne Geräte" heute auf meinem Plan?' },
+  ],
+  exhausted: null,
+}
+
+describe('the question box', () => {
+  it('offers something to tap before it offers something to type', () => {
+    // An empty text field on a phone is a wall. The openers come from this
+    // person's own week, so the first use costs no typing at all.
+    const html = render(<AskView state={ASK_STATE} today="2026-09-09" />)
+    expect(html).toContain('Warum heute das?')
+    expect(html).toContain('Deine Frage')
+  })
+
+  it('shows nothing at all when no model can answer', () => {
+    // Not a disabled box and not an explanation: an input that replies "das
+    // weiß ich nicht" to everything is worse than no input.
+    const html = render(<AskView state={{ ...ASK_STATE, available: false }} today="2026-09-09" />)
+    expect(html).toBe('')
+  })
+
+  it('shows a refusal as an answer, not as an error', () => {
+    // `canAnswer: false` plus `needs` is the app taking an interest. Styling
+    // it as a failure would teach people not to ask.
+    const html = render(
+      <AskView
+        state={{
+          ...ASK_STATE,
+          history: [
+            {
+              id: 'a',
+              question: 'Wann soll ich abends essen?',
+              canAnswer: false,
+              answer: 'Das steht nicht in deinen Daten.',
+              needs: 'Wann du abends nach Hause kommst.',
+              evidence: [],
+            },
+          ],
+        }}
+        today="2026-09-09"
+      />,
+    )
+    expect(html).toContain('Dafür müsste ich wissen')
+    expect(html).toContain('Wann du abends nach Hause kommst.')
+  })
+
+  it('names the rows an answer came from', () => {
+    // Principle 4 on screen: a recommendation that cannot point at its input
+    // must not exist.
+    const html = render(
+      <AskView
+        state={{
+          ...ASK_STATE,
+          history: [
+            {
+              id: 'a',
+              question: 'Warum steht heute Training?',
+              canAnswer: true,
+              answer: 'Weil Mittwoch dein freier Abend ist.',
+              needs: null,
+              evidence: ['item.2026-09-09.training'],
+            },
+          ],
+        }}
+        today="2026-09-09"
+      />,
+    )
+    expect(html).toContain('item.2026-09-09.training')
+  })
+
+  it('says why the questions ran out, rather than just disabling the field', () => {
+    const html = render(
+      <AskView state={{ ...ASK_STATE, exhausted: 'Für heute aufgebraucht.' }} today="2026-09-09" />,
+    )
+    expect(html).toContain('Für heute aufgebraucht.')
+    expect(html).not.toContain('Deine Frage')
+  })
+})
+
 describe('the design rules these screens must not break', () => {
   const everything = [
     render(<InsightsView data={insights()} />),
@@ -294,6 +380,7 @@ describe('the design rules these screens must not break', () => {
         error={null}
       />,
     ),
+    render(<AskView state={ASK_STATE} today="2026-09-09" />),
   ].join('\n')
 
   it('actually rendered something', () => {

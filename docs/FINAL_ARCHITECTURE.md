@@ -153,13 +153,21 @@ proposeExperiment(hypothesis, input): Experiment | null      // null, wenn Invar
 evaluateExperiment(experiment, behaviorMetrics): Decision    // NUR BehaviorMetric
 derivePersonalRule(experiment, decision): PersonalRule | null
 
-// lib/ai — Schritt 7
+// lib/ai — Schritt 7, gewachsen: fünf Aufgaben statt drei
 interface AiAdapter {
-  suggestHypothesis(ctx): Promise<Result<Hypothesis>>
-  phrasePlan(plan, ctx): Promise<Result<PlanCopy>>
-  summarizeWeek(analysis): Promise<Result<InsightDraft[]>>
+  classifyGoal(rawText): Promise<AiResult<GoalClassification>>
+  proposePlan(input): Promise<AiResult<PlanProposal>>       // ADR-041
+  askQuestions(input): Promise<AiResult<IntakeQuestions>>   // ADR-084
+  weeklyNote(ctx): Promise<AiResult<WeeklyNote>>            // ADR-086
+  ask(ctx): Promise<AiResult<AskAnswer>>                    // ADR-096
 }
 ```
+
+Die letzte ist die einzige, die **der Mensch** anstößt. Alle anderen sind die App, die redet.
+
+Jede Aufgabe hat Prompt, Schema und Sicherheitsprüfung an einer Stelle (`lib/ai/tasks.ts`),
+gemeinsam für alle Adapter — ein schwächeres Modell erzeugt unsichere Formulierungen öfter,
+nicht seltener, also muss das Gatter davor genau dasselbe sein.
 
 Zwei Signaturen geben absichtlich `null` zurück: nicht jede Abweichung verdient eine
 Hypothese, und nicht jede Hypothese ein zulässiges Experiment. Ein leeres Ergebnis ist der

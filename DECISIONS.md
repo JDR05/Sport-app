@@ -7,6 +7,60 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-096: Man kann die App etwas fragen — fünfmal am Tag, aus den eigenen Daten
+
+**Entscheidung:** Auf **Heute** steht ein Kasten „Frag nach". Der Nutzer tippt eine Frage zu
+Plan, Woche oder Ziel; das Modell antwortet **ausschließlich aus seinen eigenen Zeilen** und
+nennt, worauf es sich stützt. Steht die Antwort nicht in den Daten, sagt es das und schreibt
+dazu, **was es wissen müsste**. Höchstens **fünf Fragen pro Tag**. Drei antippbare
+Einstiegsfragen, deterministisch aus der echten Woche gebildet, damit die erste Nutzung kein
+Tippen kostet.
+
+**Begründung:** Alle bisherigen KI-Aufrufe hat die App angestoßen — Ziel einordnen, Aktionen
+vorschlagen, Wochenimpuls schreiben, vor dem Planen nachfragen. Vier Mal die App, die redet.
+Man konnte die App beantworten, aber nicht befragen. Das ist die Richtung, die aus einem
+Formular ein Gegenüber macht, und sie beantwortet die Frage des Product Owners — „warum sollte
+man die app öffnen?" — an einem Dienstag, an dem nichts ansteht und nichts schiefgegangen ist.
+
+**Die Regel, die es sonst nirgends gibt:** *Das Modell ändert nichts.* Jede andere KI-Ausgabe
+ist ein Vorschlag neben einem Knopf. Eine Antwort ist Fließtext in der Ich-Form, und ein
+Modell, das gefragt wird „kannst du das verschieben?", antwortet bereitwillig „ich habe es auf
+Samstag gelegt". Verschoben wurde nichts. Der Mensch macht es dann nicht, und die App hat über
+genau die Art von Tatsache gelogen, für deren Richtigkeit sie existiert. Deshalb steht die
+Regel im Prompt **und** als `FALSE_ACTION_CLAIM` im Code: ein Prompt ist eine Bitte, die
+Prüfung ist die Zusage. Zehn Formulierungen dieser Behauptung werden abgewiesen, acht legitime
+Sätze — darunter „du kannst die Einheit auf Samstag legen" — gehen durch.
+
+**Warum eine Obergrenze:** nicht wegen der Kosten (ADR-094 hat einen kostenlosen Anbieter
+gewählt), sondern weil eine App, die auf beliebig viel Tippen antwortet, zu dem zweiten Job
+wird, den CLAUDE.md ausschließt. Die Grenze wird aus der Datenbank gezählt, nicht aus einer
+Zahl im Browser.
+
+**Zwei Sicherheitsfamilien wurden dabei verbreitert**, und beide Lücken waren schon vorher über
+den Wochenimpuls erreichbar:
+
+* **`MEDICAL` erkannte die Sprache der Medizin, aber nicht die Medizin.** „Das klingt nach
+  einem Eisenmangel" enthält keines der sieben bisherigen Wörter und ist der wahrscheinlichste
+  unsichere Satz, den dieses Produkt erzeugen kann — jemand tippt „ich bin immer müde, woran
+  liegt das?" und ein Modell spekuliert. Neu erkannt: benannte Zustände, Nährstoffmängel und
+  spekulative Zuschreibungen. Bewusst **nicht** erkannt: einen Umstand zur Kenntnis nehmen, den
+  der Mensch selbst genannt hat („nach dem Infekt letzte Woche"), und „Schlafmangel", das
+  gewöhnliches Deutsch ist und dem Wochenimpuls gehört.
+* **`VERDICT` erkannte Beschimpfungen, aber kein Urteil, das konstruktiv klingt.** „Da fehlt
+  dir die Disziplin" enthielt keines der acht bisherigen Muster und ist der wahrscheinlichere
+  Satz.
+
+**Ohne Modell erscheint der Kasten gar nicht.** Kein deterministischer Ersatz, und das ist die
+klarste der vier Absagen im `MockAdapter`: eine Wortliste kann einen Satz nicht beantworten,
+den niemand vorhergesehen hat. Ein Eingabefeld, das auf alles „das weiß ich nicht" antwortet,
+ist schlechter als kein Eingabefeld.
+
+**Geprüft:** 50 Tests auf Prüfung, Grenze, Einstiegsfragen und Kontext; fünf RLS-Prüfungen
+gegen das echte Projekt (39–43 in `verify_rls_isolation.sql`), jeweils mit einer Kontrollzeile,
+die beweist, dass die Prüfung anschlägt; die drei Tabellen-Constraints ebenso. 1607 Tests grün.
+
+---
+
 ## 2026-09-02 — ADR-095: Die App fragt im Moment nach — und die Antwort ändert den Plan sofort
 
 **Entscheidung:** Wer eine Aktion auf „Verschoben", „Nicht geschafft" oder „Passte nicht"

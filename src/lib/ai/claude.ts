@@ -13,12 +13,12 @@ import Anthropic from '@anthropic-ai/sdk'
 import {
   classifyTask, classifyUserMessage, knownFields, proposeTask, proposeUserMessage,
   questionsTask, questionsUserMessage, stripCodeFence,
-  weeklyNoteTask, weeklyNoteUserMessage,
-  type AiTask, type WeeklyNoteContext,
+  weeklyNoteTask, weeklyNoteUserMessage, askTask, askUserMessage,
+  type AiTask, type AskContext, type WeeklyNoteContext,
 } from './tasks'
 import { logAiFailure } from './log'
 import type { AiAdapter, AiConfig, AiResult } from './types'
-import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 export class ClaudeAdapter implements AiAdapter {
@@ -50,6 +50,10 @@ export class ClaudeAdapter implements AiAdapter {
       this.config.proposeModel,
       questionsUserMessage(input),
     )
+  }
+
+  async ask(context: AskContext): Promise<AiResult<AskAnswer>> {
+    return this.call(askTask, this.config.proposeModel, askUserMessage(context))
   }
 
   /** Wrapped so every failure is written down once. See log.ts. */

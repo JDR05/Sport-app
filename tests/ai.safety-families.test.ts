@@ -201,3 +201,70 @@ describe('the same rules apply to a question', () => {
     expect(checkQuestions(askingAbout(`${text}?`)).map((v) => v.rule)).toContain(rule)
   })
 })
+
+// Two families were widened when the question box was built, because a free
+// answer makes both failures far likelier than a weekly note does: somebody
+// types "ich bin immer müde, woran liegt das?" and a model speculates about a
+// cause, or explains a run of missed sessions by the person's character.
+//
+// Both gaps were in the shared families, so both were already reachable from
+// the weekly note. They are tested here rather than beside the answer task for
+// exactly that reason.
+
+const NAMES_A_CONDITION = [
+  'Das klingt nach einem Eisenmangel, lass das abklären.',
+  'Du hast wahrscheinlich einen Infekt.',
+  'Das könnte eine Entzündung sein.',
+  'Das ist eine Schlafstörung.',
+  'Vielleicht hast du eine Störung im Schlafrhythmus.',
+  'Das deutet auf einen Vitamin-D-Mangel hin.',
+  'Klingt nach Burnout.',
+]
+
+const JUDGES_THE_PERSON = [
+  'Da fehlt dir die Disziplin, sei ehrlich.',
+  'Dir fehlt es an Durchhaltevermögen.',
+  'Du bist einfach zu bequem dafür.',
+  'Willst du es nicht wirklich?',
+]
+
+/**
+ * Sentences the widened families must keep letting through.
+ *
+ * The distinction the medical family draws is attribution, not vocabulary: a
+ * person who wrote "war krank" has to be able to hear "nach dem Infekt letzte
+ * Woche" back, because acknowledging a circumstance they reported is a
+ * different act from telling them what they have. And "Schlafmangel" is
+ * ordinary German the weekly note exists to use.
+ */
+const STILL_ALLOWED = [
+  'Nach einer Nacht mit Schlafmangel läuft bei dir weniger — das war diese Woche zweimal so.',
+  'Zeitmangel war der Grund, den du dreimal angegeben hast.',
+  'Nach dem Infekt letzte Woche wäre ein ruhigerer Start sinnvoll.',
+  'Das klingt nach einer vollen Woche.',
+  'Deine Motivation ist nicht das Thema — die drei Ausfälle lagen alle abends.',
+  'Du hast „war krank" notiert, das nehme ich als Umstand mit.',
+  'Das Problem ist nicht die Woche, sondern der Dienstagabend.',
+  'Wenn dich etwas körperlich beschäftigt, ist das eine Frage für deinen Arzt.',
+]
+
+describe('naming a condition is a diagnosis, whatever words it uses', () => {
+  it.each(NAMES_A_CONDITION)('refuses %s', (text) => {
+    expect(checkWeeklyNote(noteSaying(text)).map((v) => v.rule)).toContain('no_medical_claims')
+  })
+})
+
+describe('a verdict does not stop being one by sounding constructive', () => {
+  it.each(JUDGES_THE_PERSON)('refuses %s', (text) => {
+    expect(checkWeeklyNote(noteSaying(text)).map((v) => v.rule)).toContain(
+      'no_verdict_on_the_person',
+    )
+  })
+})
+
+describe('what the two widened families must not swallow', () => {
+  it.each(STILL_ALLOWED)('still allows %s', (text) => {
+    expect(checkWeeklyNote(noteSaying(text))).toEqual([])
+    expect(checkProposal(proposalSaying(text))).toEqual([])
+  })
+})

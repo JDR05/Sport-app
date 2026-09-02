@@ -134,3 +134,29 @@ export const intakeQuestionsSchema = z.object({
 
 export type IntakeQuestion = z.infer<typeof intakeQuestionSchema>
 export type IntakeQuestions = z.infer<typeof intakeQuestionsSchema>
+
+// ----------------------------------------------------- answering a question ---
+
+/**
+ * What the model may say when the person asks something.
+ *
+ * `canAnswer` is the field that keeps this honest, and it is the same idea as
+ * `hasSomethingToSay` on the weekly note: a feature that must produce an
+ * answer produces one whether or not the data supports it, and a confident
+ * sentence about a week the model never saw is worse than "das weiß ich
+ * nicht".
+ *
+ * `needs` is the other half of that, and it is the reason this feature is
+ * interesting rather than just a chat box. When the answer is not in the data,
+ * the model says what it would need to know — which is the app taking an
+ * interest instead of shrugging.
+ */
+export const askAnswerSchema = z.object({
+  canAnswer: z.boolean(),
+  answer: z.string().max(700),
+  /** What would have to be known. Only meaningful when `canAnswer` is false. */
+  needs: z.string().max(200).nullable(),
+  basedOn: z.array(z.string().max(80)).max(12),
+})
+
+export type AskAnswer = z.infer<typeof askAnswerSchema>

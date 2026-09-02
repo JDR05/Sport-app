@@ -23,6 +23,8 @@ import { loadPlanInput } from '@/lib/db/plan-input'
 import { refreshProposal } from '@/lib/db/propose'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
+import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
+import { QUESTION_MAX_CHARS } from '@/lib/ai/ask'
 import { STATUS_REASONS, type Reaction } from '@/lib/adaptive/reaction'
 
 // Shared with the onboarding: a shape check is not a value check.
@@ -239,6 +241,47 @@ export async function acceptReaction(
   if (!id.success || !day.success) return { ok: false, applied: null }
 
   return applyOffer(user.id, id.data, day.data)
+}
+
+// ------------------------------------------------------------------- asking ---
+
+/**
+ * What the Today screen needs to draw the question box.
+ *
+ * Read on every load of Today, so it does exactly two queries and never calls
+ * a model: the openers are deterministic, from this person's own week. A
+ * doorway that needs a model call before it can be drawn is a doorway people
+ * watch a spinner in front of.
+ */
+export async function loadAskState(today: unknown): Promise<AskState> {
+  const user = await requireUser()
+
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) {
+    return { available: false, history: [], suggestions: [], exhausted: null }
+  }
+
+  return askState(user.id, parsed.data)
+}
+
+/**
+ * One question to the model, answered from this person's own rows.
+ *
+ * The context is assembled on the server and never taken from the payload —
+ * this request carries a question and a date, nothing else. A request that
+ * carried the data the model reasons over would be a request that can choose
+ * what the model believes about somebody.
+ */
+export async function submitQuestion(question: unknown, today: unknown): Promise<AskResult> {
+  const user = await requireUser()
+
+  const text = z.string().max(QUESTION_MAX_CHARS).safeParse(question)
+  const day = isoDate.safeParse(today)
+  if (!text.success || !day.success) {
+    return { ok: false, reason: 'invalid', message: 'Das war zu kurz für eine Frage.' }
+  }
+
+  return askQuestion(user.id, text.data, day.data)
 }
 
 /**

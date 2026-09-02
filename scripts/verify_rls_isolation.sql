@@ -1,4 +1,4 @@
--- Two users, thirteen tables, read and write.
+-- Two users, fourteen tables, read and write.
 --
 -- verify_schema.sql proves the policies exist. This proves they *hold* — that
 -- one person cannot reach another's health data by any route the database
@@ -84,6 +84,10 @@ insert into public.weekly_notes (profile_id, week_start, observation, suggestion
   ('aaaaaaaa-0000-4000-8000-000000000001','2026-09-07','Beobachtung A','Vorschlag A','["item.a"]','test'),
   ('bbbbbbbb-0000-4000-8000-000000000002','2026-09-07','Beobachtung B','Vorschlag B','["item.b"]','test');
 
+insert into public.ai_questions (profile_id, asked_on, question, can_answer, answer, evidence, source) values
+  ('aaaaaaaa-0000-4000-8000-000000000001','2026-09-09','Frage A',true,'Antwort A','["item.a"]','test'),
+  ('bbbbbbbb-0000-4000-8000-000000000002','2026-09-09','Frage B',true,'Antwort B','["item.b"]','test');
+
 create temp table ergebnis (nr int, pruefung text, ausgang text, erwartet text);
 grant all on ergebnis to authenticated, anon;
 
@@ -109,7 +113,12 @@ insert into ergebnis values
   (15,'A sieht Ergebnisse B', (select count(*) from public.experiment_results where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
   (16,'A sieht Bs Notiztext', (select coalesce(string_agg(note,','),'nichts') from public.check_ins where note = 'B privat'), 'nichts'),
   (37,'A sieht Wochenimpuls B', (select count(*) from public.weekly_notes where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
-  (38,'Gegenprobe: A sieht eigenen Wochenimpuls', (select count(*) from public.weekly_notes where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1');
+  (38,'Gegenprobe: A sieht eigenen Wochenimpuls', (select count(*) from public.weekly_notes where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1'),
+  -- Eine gestellte Frage ist der Wortlaut dessen, was jemanden gerade
+  -- beschaeftigt. Der Text selbst wird geprueft, nicht nur die Zeilenzahl.
+  (39,'A sieht Fragen B', (select count(*) from public.ai_questions where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
+  (40,'A sieht Bs Fragetext', (select coalesce(string_agg(question,','),'nichts') from public.ai_questions where question = 'Frage B'), 'nichts'),
+  (41,'Gegenprobe: A sieht eigene Fragen', (select count(*) from public.ai_questions where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1');
 
 -- ------------------------------------------------------------ A schreibt --
 do $$
@@ -227,6 +236,7 @@ insert into ergebnis select 29,'Anonym sieht Check-ins', count(*)::text, '0' fro
 insert into ergebnis select 30,'Anonym sieht Aktionen', count(*)::text, '0' from public.plan_items;
 insert into ergebnis select 31,'Anonym sieht Messungen', count(*)::text, '0' from public.measurements;
 insert into ergebnis select 36,'Anonym sieht Wochenimpulse', count(*)::text, '0' from public.weekly_notes;
+insert into ergebnis select 42,'Anonym sieht Fragen', count(*)::text, '0' from public.ai_questions;
 
 reset role;
 select nr, pruefung, ausgang, erwartet,

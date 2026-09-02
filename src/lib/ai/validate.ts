@@ -7,7 +7,7 @@
 // Violations are rejected, never repaired. Silently fixing a bad proposal
 // would hide that the model produced one.
 
-import type { GoalClassification, IntakeQuestions, WeeklyNote } from './schemas'
+import type { AskAnswer, GoalClassification, IntakeQuestions, WeeklyNote } from './schemas'
 
 export type Violation = { rule: string; detail: string }
 
@@ -140,6 +140,32 @@ const SLEEP_REDUCTION = [
 const MEDICAL = [
   /\bdiagnos/i, /\bheil(t|en|ung)\b/i, /\bkrankheit\b/i, /\bmedikament/i,
   /\bnahrungsergänzung/i, /\bsupplement/i, /\bpräparat/i,
+
+  // Naming a condition is a diagnosis whether or not the word "Diagnose"
+  // appears. The list above caught the vocabulary of medicine and missed
+  // medicine itself: "das klingt nach einem Eisenmangel" contains none of
+  // those seven and is the single most likely unsafe sentence this product can
+  // produce — somebody types "ich bin immer müde, woran liegt das?" and a
+  // model speculates.
+  //
+  // The nutrient list is enumerated rather than matched on `\w*mangel`,
+  // because "Schlafmangel" and "Zeitmangel" are ordinary German this app has
+  // to be able to say: "nach Schlafmangel läuft es schlechter" is exactly the
+  // observation the weekly note exists to make. The clinical nouns below do
+  // take a compound prefix — "Schlafstörung" has no word boundary before
+  // "störung", and a rule that misses it misses the commonest form.
+  /\b(eisen|vitamin[\s-]?[a-d]?\d*[\s-]?|magnesium|n(ä|ae)hrstoff|hormon|schilddr(ü|ue)sen)mangel\b/i,
+  /\b(depression|burnout|burn-out|an(ä|ae)mie|diabetes|reizdarm|migr(ä|ae)ne|schlafapnoe|apnoe|hashimoto|erschöpfungssyndrom)\b/i,
+  // Attributing a condition, not merely naming one. The distinction is
+  // deliberate and it is the prompt's own rule: a person who wrote "war krank"
+  // must be able to hear "nach dem Infekt letzte Woche" back, because
+  // acknowledging a circumstance they reported is different from telling them
+  // what they have.
+  /\b(hast|h(ä|ae)ttest|hat)\b[^.!?]{0,30}\b\w*(st(ö|oe)rung|syndrom|entz(ü|ue)ndung|infekt|erkrankung)\b/i,
+  /\b(ist|w(ä|ae)re|k(ö|oe)nnte)\b[^.!?]{0,25}\bein(e|en|er)?\b[^.!?]{0,20}\b\w*(st(ö|oe)rung|syndrom|entz(ü|ue)ndung|infekt|erkrankung)\b/i,
+  // Speculating towards a condition, without ever naming one outright.
+  /\bklingt nach\b(?=[^.!?]*\b\w*(mangel|st(ö|oe)rung|syndrom|infekt|entz(ü|ue)ndung|erkrankung|problem)\b)/i,
+  /\bdeutet\b[^.!?]{0,40}\b\w*(mangel|st(ö|oe)rung|syndrom|infekt|erkrankung)\b/i,
 ]
 
 function scan(text: string, patterns: RegExp[], rule: string): Violation[] {
@@ -219,11 +245,23 @@ const GENERIC_FILLER = [
   /\bh(ö|oe)r auf deinen k(ö|oe)rper\b/i,
 ]
 
-/** Judging the person rather than naming what was different. */
+/**
+ * Judging the person rather than naming what was different.
+ *
+ * The first line covers the words somebody would use to insult themselves. The
+ * second covers the same verdict phrased as a diagnosis of character — "da
+ * fehlt dir die Disziplin" contains none of the words above and is the more
+ * likely sentence, because it sounds constructive.
+ */
 const VERDICT = [
   /\bdisziplinlos\b/i, /\bfaul\b/i, /\bkeine disziplin\b/i,
   /\bdu musst dich\b/i, /\breiß dich\b/i, /\bausrede/i,
   /\bmangelnde motivation\b/i, /\bwillensschw/i,
+
+  /\b(fehlt dir|fehlt es dir|dir fehlt)\b[^.!?]{0,25}\b(disziplin|willenskraft|durchhalteverm(ö|oe)gen|motivation|ehrgeiz|konsequenz)\b/i,
+  /\bzu bequem\b/i,
+  /\b(du willst|willst du) es (gar )?nicht (genug|wirklich|richtig)\b/i,
+  /\bnimmst du (es|das) nicht ernst\b/i,
 ]
 
 /**
@@ -256,6 +294,76 @@ export function checkWeeklyNote(value: WeeklyNote): Violation[] {
   }
   if (value.observation.trim().length < 20 || value.suggestion.trim().length < 20) {
     violations.push({ rule: 'too_thin', detail: 'observation or suggestion is a fragment' })
+  }
+
+  return violations
+}
+
+/**
+ * Claiming to have done something the app did not do.
+ *
+ * This family exists only for the answer task, and it is the one risk that is
+ * specific to it. Every other AI output in this product is a proposal shown
+ * next to a button; an answer is prose in the first person, and a model asked
+ * "kann ich das Training verschieben?" will happily reply "ich habe es auf
+ * Samstag gelegt". Nothing was moved. The person then does not do it, and the
+ * app has lied about the one kind of fact it exists to keep straight.
+ *
+ * Written as verb-first rather than as whole sentences because German puts the
+ * participle at the end of the clause: "ich habe dein Training für morgen
+ * abend verschoben" has eight words between the two halves.
+ */
+const FALSE_ACTION_CLAIM = [
+  /\bich habe\b(?=[^.!?]*\b(verschoben|ge(ä|ae)ndert|angepasst|gel(ö|oe)scht|entfernt|hinzugef(ü|ue)gt|eingetragen|gek(ü|ue)rzt|umgeplant)\b)/i,
+  /\bich hab\b(?=[^.!?]*\b(verschoben|ge(ä|ae)ndert|angepasst|gel(ö|oe)scht|entfernt|hinzugef(ü|ue)gt|eingetragen|gek(ü|ue)rzt|umgeplant)\b)/i,
+  /\bhabe (ich )?(das|dein|deine|deinen|die|den)\b(?=[^.!?]*\b(verschoben|ge(ä|ae)ndert|angepasst|gek(ü|ue)rzt)\b)/i,
+  /\bist (jetzt )?(verschoben|ge(ä|ae)ndert|angepasst|gek(ü|ue)rzt|eingetragen)\b/i,
+  /\bich (verschiebe|(ä|ae)ndere|passe .{0,20}an|k(ü|ue)rze|trage .{0,20}ein) (das|dein|deine|deinen|die|den|es)\b/i,
+  /\b(hab|habe) ich (f(ü|ue)r dich )?(erledigt|gemacht|umgestellt)\b/i,
+]
+
+/**
+ * Plausibility for a free answer.
+ *
+ * The same six families as the weekly note — an answer is text a person acts
+ * on, and the rules cannot be softer because the person asked for it — plus
+ * the one above, which nothing else needs.
+ *
+ * `canAnswer: false` is checked too, unlike `hasSomethingToSay: false` on the
+ * weekly note. The difference is that a declined note shows nothing at all,
+ * while a declined answer still puts `needs` on screen: "dafür müsste ich
+ * wissen, wie viel du abends noch isst" is a sentence a person reads, so it
+ * goes through the same gate as any other.
+ */
+export function checkAnswer(value: AskAnswer): Violation[] {
+  const violations: Violation[] = []
+
+  for (const text of [value.answer, value.needs ?? '']) {
+    violations.push(...scan(text, RESTRICTIVE, 'additive_only'))
+    violations.push(...scan(text, NUMERIC_HEALTH_CLAIM, 'no_numeric_health_claims'))
+    violations.push(...scan(text, SLEEP_REDUCTION, 'never_less_sleep'))
+    violations.push(...scan(text, MEDICAL, 'no_medical_claims'))
+    violations.push(...scan(text, GENERIC_FILLER, 'not_generic'))
+    violations.push(...scan(text, VERDICT, 'no_verdict_on_the_person'))
+    violations.push(...scan(text, FALSE_ACTION_CLAIM, 'must_not_claim_to_have_acted'))
+  }
+
+  if (value.canAnswer) {
+    // An answer is a statement about this person's data, so it has to name
+    // which part. Without this the model can produce a fluent paragraph about
+    // a week it never read — the failure mode `basedOn` exists to prevent
+    // everywhere else in this file.
+    if (value.basedOn.length === 0) {
+      violations.push({ rule: 'must_cite_evidence', detail: 'basedOn is empty' })
+    }
+    if (value.answer.trim().length < 15) {
+      violations.push({ rule: 'too_thin', detail: 'the answer is a fragment' })
+    }
+  } else if (value.needs === null || value.needs.trim().length < 10) {
+    // Declining is allowed and often right. Declining without saying what
+    // would have helped is a shrug, and a shrug is what this feature is
+    // supposed to replace.
+    violations.push({ rule: 'must_say_what_is_missing', detail: 'needs is empty' })
   }
 
   return violations

@@ -3,6 +3,7 @@
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
+import { AskCard } from '@/components/AskCard'
 import { CheckInCard } from '@/components/CheckInCard'
 import { DailyRules } from '@/components/DailyRules'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
@@ -100,6 +101,11 @@ export default function TodayPage() {
             </Note>
 
             <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />
+
+            {/* Last, and deliberately so. Today's job is the three things due
+                today; asking a question is what somebody does after they have
+                looked at them, not instead. */}
+            <AskCard today={today} />
           </Screen>
         )
       }}

@@ -4,8 +4,8 @@
 // Claude adapter, and a null adapter used to prove the product works with no AI
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
-import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
-import type { WeeklyNoteContext } from './tasks'
+import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import type { AskContext, WeeklyNoteContext } from './tasks'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** Never throws. A failed call is a value, so callers cannot forget to handle it. */
@@ -73,6 +73,17 @@ export interface AiAdapter {
    * not a model noticing a gap.
    */
   askQuestions(input: PlanInput): Promise<AiResult<IntakeQuestions>>
+  /**
+   * The only call a person starts. They type a question, this answers it from
+   * their own data.
+   *
+   * No deterministic stand-in, for the plainest reason of the four: a word
+   * list cannot answer a question nobody wrote down in advance. Without a
+   * model the box does not appear at all — an app that replies "das kann ich
+   * nicht beantworten" to everything is worse than one that does not offer to
+   * be asked.
+   */
+  ask(context: AskContext): Promise<AiResult<AskAnswer>>
 }
 
 export type AiConfig = {

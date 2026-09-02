@@ -122,6 +122,9 @@ describe('without a model', () => {
       askQuestions: async () => {
         throw new Error('nope')
       },
+      ask: async () => {
+        throw new Error('nope')
+      },
       // Throws, like the other three. The point of the fixture is a throwing
       // adapter, and this was the one method the assertion actually called —
       // so it returned a value and the test passed without exercising a throw

@@ -23,6 +23,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_questions: {
+        Row: {
+          answer: string
+          asked_on: string
+          can_answer: boolean
+          created_at: string
+          evidence: Json
+          id: string
+          needs: string | null
+          profile_id: string
+          question: string
+          source: string
+        }
+        Insert: {
+          answer: string
+          asked_on: string
+          can_answer: boolean
+          created_at?: string
+          evidence?: Json
+          id?: string
+          needs?: string | null
+          profile_id: string
+          question: string
+          source: string
+        }
+        Update: {
+          answer?: string
+          asked_on?: string
+          can_answer?: boolean
+          created_at?: string
+          evidence?: Json
+          id?: string
+          needs?: string | null
+          profile_id?: string
+          question?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_questions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       check_ins: {
         Row: {
           checked_in_on: string

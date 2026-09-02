@@ -231,6 +231,7 @@ describe('who counts as having used the model', () => {
     proposePlan: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
     weeklyNote: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
     askQuestions: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+    ask: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
   })
 
   it('credits a provider that is not Claude', async () => {
@@ -268,6 +269,9 @@ describe('the never-throws contract, enforced rather than trusted', () => {
     askQuestions: async () => {
       throw new Error('boom')
     },
+    ask: async () => {
+      throw new Error('boom')
+    },
   }
 
   it('still classifies when the adapter throws', async () => {
@@ -302,6 +306,7 @@ describe('an answer the model itself does not believe', () => {
     proposePlan: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
     weeklyNote: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
     askQuestions: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
+    ask: async () => ({ ok: false as const, reason: 'api_error' as const, detail: 'x' }),
   })
 
   it('does not run the gate against the deterministic classifier', async () => {

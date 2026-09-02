@@ -7,7 +7,7 @@
 
 import { classifyGoalText } from '@/lib/engine'
 import type { AiAdapter, AiResult } from './types'
-import type { GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
   body_composition: { key: 'weight_kg', unit: 'kg' },
@@ -88,6 +88,17 @@ export class MockAdapter implements AiAdapter {
   async askQuestions(): Promise<AiResult<IntakeQuestions>> {
     return { ok: false, reason: 'no_api_key', detail: 'a fixed question list is just a longer form' }
   }
+
+  /**
+   * Answers nothing, deliberately — and this is the least arguable of the
+   * four. Classification is a word list's job; answering a sentence nobody
+   * anticipated is not. Without a key the question box is not offered, which
+   * is honest, where a canned "das kann ich dir nicht sagen" to every question
+   * would be an insult dressed as a feature.
+   */
+  async ask(): Promise<AiResult<AskAnswer>> {
+    return { ok: false, reason: 'no_api_key', detail: 'answering a free question needs a model' }
+  }
 }
 
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
@@ -123,6 +134,9 @@ export class NullAdapter implements AiAdapter {
   async askQuestions(): Promise<AiResult<IntakeQuestions>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
+  async ask(): Promise<AiResult<AskAnswer>> {
+    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
+  }
 }
 
 /**
@@ -151,6 +165,9 @@ export class WithheldAdapter implements AiAdapter {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
   async askQuestions(): Promise<AiResult<IntakeQuestions>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async ask(): Promise<AiResult<AskAnswer>> {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
 }
