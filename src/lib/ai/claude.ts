@@ -14,12 +14,15 @@ import {
   classifyTask, classifyUserMessage, knownFields, proposeTask, proposeUserMessage,
   questionsTask, questionsUserMessage, stripCodeFence,
   weeklyNoteTask, weeklyNoteUserMessage, askTask, askUserMessage,
-  followUpTask, followUpUserMessage,
-  type AiTask, type AskContext, type FollowUpContext, type WeeklyNoteContext,
+  followUpTask, followUpUserMessage, commitmentsTask, commitmentsUserMessage,
+  type AiTask, type AskContext, type CommitmentsContext, type FollowUpContext,
+  type WeeklyNoteContext,
 } from './tasks'
 import { logAiFailure } from './log'
 import type { AiAdapter, AiConfig, AiResult } from './types'
-import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import type {
+  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+} from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 export class ClaudeAdapter implements AiAdapter {
@@ -62,6 +65,14 @@ export class ClaudeAdapter implements AiAdapter {
       followUpTask(context.known),
       this.config.proposeModel,
       followUpUserMessage(context),
+    )
+  }
+
+  async judgeCommitments(context: CommitmentsContext): Promise<AiResult<CommitmentInsights>> {
+    return this.call(
+      commitmentsTask(context.commitments.map((c) => c.label)),
+      this.config.proposeModel,
+      commitmentsUserMessage(context),
     )
   }
 

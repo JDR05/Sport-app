@@ -21,6 +21,7 @@ import { restartAi, type AiRestart } from '@/lib/db/ai-restart'
 import { saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { refreshProposal } from '@/lib/db/propose'
+import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
@@ -323,9 +324,26 @@ export async function updateCommitments(payload: unknown): Promise<{ ok: boolean
   if (!parsed.success) return { ok: false }
 
   const result = await saveCommitments(user.id, parsed.data as Commitment[])
+  if (!result.ok) return result
+
+  // A changed week is a changed question. The stored judgement was made about
+  // the old one and is already ignored by `loadPlanInput` — this asks for a
+  // new one rather than leaving the plan on the fallback tables until the
+  // person happens to visit /ai.
+  //
+  // Deliberately not awaited for its result: a judgement that fails must not
+  // make saving a commitment look like it failed. Awaited at all, because a
+  // floating promise in a server action is not guaranteed to run.
+  const input = await loadPlanInput(user.id)
+  if (input) {
+    await ensureCommitmentInsights(user.id, { ...input, today: await serverToday() }).catch(
+      () => [],
+    )
+  }
+
   // The week is read on the server for several screens; a stale one would
   // still be showing the old Tuesday.
-  if (result.ok) revalidatePath('/', 'layout')
+  revalidatePath('/', 'layout')
   return result
 }
 
@@ -476,7 +494,14 @@ export async function finishAiForGoal(payload: unknown): Promise<{ ok: boolean }
   // `written`, not `aiProposal != null`: the old proposal is still in `input`
   // precisely because it was not erased, so the presence of one says nothing
   // about whether this call achieved anything.
-  const { written } = await refreshProposal(user.id, { ...input, today })
+  const withToday = { ...input, today }
+  const [{ written }] = await Promise.all([
+    refreshProposal(user.id, withToday),
+    // Judged in the same breath as the proposal: both are about how this
+    // person's week should be built, and asking one without the other leaves
+    // the plan reasoning from a table about the other half.
+    ensureCommitmentInsights(user.id, withToday),
+  ])
 
   revalidatePath('/', 'layout')
   return { ok: written }

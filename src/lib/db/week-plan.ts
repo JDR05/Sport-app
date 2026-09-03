@@ -24,6 +24,9 @@ import { startOfWeek } from '@/lib/engine/dates'
 import { PlanInvariantError } from '@/lib/engine/errors'
 import { fromRow, materialise, toInsert, type ItemRow } from './item-mapping'
 import { loadCommitments } from './commitments'
+import {
+  commitmentsSignature, readCommitmentInsights,
+} from '@/lib/domain/commitmentInsights'
 import type {
   Assumption, Commitment, PlanItemStatus, PlannedItem, Rationale, WeekStrategy,
 } from '@/lib/domain/types'
@@ -52,6 +55,14 @@ export type StoredWeek = {
    * week from them.
    */
   commitments: Commitment[]
+  /**
+   * What the model judged each of those to be worth for this goal, by label.
+   *
+   * The half of the judgement the person actually reads. The plan uses
+   * `doesGoalWork`; this is the sentence that says how to get the most out of
+   * their own training — which is the part a lookup table could never produce.
+   */
+  commitmentNotes: Record<string, string>
 }
 
 export type WeekResult =
@@ -206,7 +217,37 @@ async function readWeek(
     // on Wednesday is a fact about Wednesday — showing them last week's
     // version of their own life would be a strange kind of consistency.
     commitments: await loadCommitments(profileId),
+    commitmentNotes: await loadCommitmentNotes(profileId),
   }
+}
+
+/**
+ * The judgement notes, by commitment label, or nothing.
+ *
+ * Read here rather than through `loadPlanInput`, which pulls the whole intake
+ * to build a plan. Two screens want one sentence per appointment, and paying
+ * for the profile, the constraints and the personal rules to draw it is the
+ * kind of round trip that makes a phone app feel slow.
+ */
+async function loadCommitmentNotes(profileId: string): Promise<Record<string, string>> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('goals')
+    .select('commitment_insights, commitment_insights_for')
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!data) return {}
+
+  const commitments = await loadCommitments(profileId)
+  // Only while the judgement still describes this week — the same rule
+  // loadPlanInput applies before letting it near a plan.
+  if (data.commitment_insights_for !== commitmentsSignature(commitments)) return {}
+
+  return Object.fromEntries(
+    readCommitmentInsights(data.commitment_insights).map((i) => [i.label, i.note]),
+  )
 }
 
 /** Null when the unique index rejected the insert, i.e. another request won. */

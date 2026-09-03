@@ -6,8 +6,12 @@
 // rather than a claim.
 
 import { classifyGoalText } from '@/lib/engine'
+import { ENDURANCE_ACTIVITIES, STRENGTH_ACTIVITIES } from '@/lib/engine/constants'
+import type { CommitmentsContext } from './tasks'
 import type { AiAdapter, AiResult } from './types'
-import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import type {
+  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+} from './schemas'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
   body_composition: { key: 'weight_kg', unit: 'kg' },
@@ -109,6 +113,41 @@ export class MockAdapter implements AiAdapter {
   async followUp(): Promise<AiResult<IntakeQuestions>> {
     return { ok: false, reason: 'no_api_key', detail: 'a fixed question is a survey, not interest' }
   }
+
+  /**
+   * The lookup table, and the only place in this adapter that answers rather
+   * than declines.
+   *
+   * It is here on purpose and labelled as what it is. The engine used to
+   * consult this table directly and call the result a decision about a person;
+   * CLAUDE.md now forbids that, and this is where the table belongs instead —
+   * behind the same interface as the judgement, explicitly the worse answer
+   * for an account with no model.
+   *
+   * The note says so rather than inventing personal advice. A generic sentence
+   * dressed as insight is exactly what the rule exists to prevent, and the
+   * screen showing "ohne KI eingeordnet" is the honest version.
+   */
+  async judgeCommitments(context: CommitmentsContext): Promise<AiResult<CommitmentInsights>> {
+    const counts: readonly string[] =
+      context.archetype === 'endurance'
+        ? ENDURANCE_ACTIVITIES
+        : context.archetype === 'strength' || context.archetype === 'body_composition'
+          ? STRENGTH_ACTIVITIES
+          : []
+
+    return {
+      ok: true,
+      source: 'ai',
+      value: {
+        insights: context.commitments.map((c) => ({
+          label: c.label,
+          doesGoalWork: c.activity !== null && counts.includes(c.activity),
+          note: 'Ohne KI eingeordnet, nur anhand der Sportart — nicht anhand deines Ziels.',
+        })),
+      },
+    }
+  }
 }
 
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
@@ -150,6 +189,9 @@ export class NullAdapter implements AiAdapter {
   async followUp(): Promise<AiResult<IntakeQuestions>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
+  async judgeCommitments(): Promise<AiResult<CommitmentInsights>> {
+    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
+  }
 }
 
 /**
@@ -184,6 +226,9 @@ export class WithheldAdapter implements AiAdapter {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
   async followUp(): Promise<AiResult<IntakeQuestions>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async judgeCommitments(): Promise<AiResult<CommitmentInsights>> {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
 }

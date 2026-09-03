@@ -36,9 +36,18 @@ export function commitmentsForDay(commitments: Commitment[], weekday: Weekday): 
 export function DayCommitments({
   commitments,
   weekday,
+  notes,
 }: {
   commitments: Commitment[]
   weekday: Weekday
+  /**
+   * What the model judged this training to be worth for this goal, by label.
+   *
+   * The reason this card is worth more than a calendar entry. Absent for an
+   * account with no model, and then the card is what it was before — the
+   * appointment, and why nothing is planned on top of it.
+   */
+  notes?: Record<string, string>
 }) {
   const today = commitmentsForDay(commitments, weekday)
   if (today.length === 0) return null
@@ -66,6 +75,18 @@ export function DayCommitments({
             </div>
           </div>
 
+          {/* What this particular training is worth for this particular goal,
+              and how to get the most out of it.
+              
+              Above the standing line on purpose: it is the sentence somebody
+              actually reads, and it is the one a lookup table could never
+              produce. "Fußball hält deine Grundlagenausdauer hoch, ersetzt
+              aber kein Krafttraining für die Beine" is about them; "Sport"
+              is a category. */}
+          {notes?.[commitment.label] && (
+            <p className="mt-2 text-sm leading-relaxed text-ink">{notes[commitment.label]}</p>
+          )}
+
           {/* Why it is here without a ring next to it. Without this line the
               card reads as an action somebody forgot to tick. */}
           <p className="mt-2 text-xs leading-relaxed text-faint">
@@ -80,7 +101,13 @@ export function DayCommitments({
 }
 
 /** Named export used by the week view, where space is tighter. */
-export function CommitmentLine({ commitment }: { commitment: Commitment }) {
+export function CommitmentLine({
+  commitment,
+  note,
+}: {
+  commitment: Commitment
+  note?: string
+}) {
   return (
     <div className="rounded-[2px] border border-dashed border-line bg-sunken/40 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -91,6 +118,7 @@ export function CommitmentLine({ commitment }: { commitment: Commitment }) {
         {KIND_LABEL[commitment.kind]} · <span className="num">{commitment.minutes}</span> min ·
         dein Termin
       </p>
+      {note && <p className="mt-1.5 text-sm leading-relaxed text-muted">{note}</p>}
     </div>
   )
 }

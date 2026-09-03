@@ -7,7 +7,9 @@
 // Violations are rejected, never repaired. Silently fixing a bad proposal
 // would hide that the model produced one.
 
-import type { AskAnswer, GoalClassification, IntakeQuestions, WeeklyNote } from './schemas'
+import type {
+  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, WeeklyNote,
+} from './schemas'
 
 export type Violation = { rule: string; detail: string }
 
@@ -164,7 +166,9 @@ const MEDICAL = [
   /\b(hast|h(ä|ae)ttest|hat)\b[^.!?]{0,30}\b\w*(st(ö|oe)rung|syndrom|entz(ü|ue)ndung|infekt|erkrankung)\b/i,
   /\b(ist|w(ä|ae)re|k(ö|oe)nnte)\b[^.!?]{0,25}\bein(e|en|er)?\b[^.!?]{0,20}\b\w*(st(ö|oe)rung|syndrom|entz(ü|ue)ndung|infekt|erkrankung)\b/i,
   // Speculating towards a condition, without ever naming one outright.
-  /\bklingt nach\b(?=[^.!?]*\b\w*(mangel|st(ö|oe)rung|syndrom|infekt|entz(ü|ue)ndung|erkrankung|problem)\b)/i,
+  // "klingen nach" as well as "klingt nach": the plural is the likelier form,
+  // because the subject is usually symptoms rather than a symptom.
+  /\bkling(t|en) nach\b(?=[^.!?]*\b\w*(mangel|st(ö|oe)rung|syndrom|infekt|entz(ü|ue)ndung|erkrankung|problem)\b)/i,
   /\bdeutet\b[^.!?]{0,40}\b\w*(mangel|st(ö|oe)rung|syndrom|infekt|erkrankung)\b/i,
 ]
 
@@ -256,6 +260,14 @@ export function checkProposal(proposal: {
 const PERSONAL_PROMISE = [
   /\b(verbessert|senkt|erh(ö|oe)ht|steigert|reduziert|st(ä|ae)rkt|repariert|beschleunigt)\b[^.!?]{0,20}\bdein(e|en|em|er)?\b/i,
   /\bdu wirst\b[^.!?]{0,40}\b(abnehmen|zunehmen|schlafen|schaffen|erreichen|merken)\b/i,
+  // "Das macht dich schneller" is the same guarantee in four words, and it is
+  // the form a model reaches for when the subject is somebody's own training.
+  //
+  // Narrowed to the adjectives that claim an improvement, because the same
+  // three words carry a plain observation just as often: "das Spiel macht dich
+  // müde" is a true and useful thing to say about a Tuesday, and refusing it
+  // would cost the feature more than the rule protects.
+  /\bmacht dich\b[^.!?]{0,15}\b(schneller|st(ä|ae)rker|fitter|ausdauernder|schlanker|ges(ü|ue)nder|besser|leistungsf(ä|ae)higer)\b/i,
   /\bgarantiert\b/i,
   /\bin \d+ (tagen|wochen|monaten)\b[^.!?]{0,30}\b(wirst|hast|bist)\b/i,
 ]
@@ -281,7 +293,9 @@ const GENERIC_FILLER = [
   /\bjeder schritt z(ä|ae)hlt\b/i,
   /\bdu schaffst das\b/i, /\bsei stolz\b/i, /\bglaub an dich\b/i,
   /\bkleine schritte f(ü|ue)hren zum ziel\b/i,
-  /\bh(ö|oe)r auf deinen k(ö|oe)rper\b/i,
+  // The filler survives an adverb: "hör einfach auf deinen Körper" is the same
+  // empty sentence with one more word in it.
+  /\bh(ö|oe)r\b[^.!?]{0,15}\bauf deinen k(ö|oe)rper\b/i,
 ]
 
 /**
@@ -403,6 +417,58 @@ export function checkAnswer(value: AskAnswer): Violation[] {
     // would have helped is a shrug, and a shrug is what this feature is
     // supposed to replace.
     violations.push({ rule: 'must_say_what_is_missing', detail: 'needs is empty' })
+  }
+
+  return violations
+}
+
+/**
+ * Plausibility for a judgement about somebody's own training.
+ *
+ * The families are the ones every other output here goes through, plus
+ * `PERSONAL_PROMISE`, which matters more in this task than anywhere else: the
+ * note is advice about training, and "das macht dich schneller" is exactly the
+ * sentence a model reaches for.
+ *
+ * `RESTRICTIVE` is deliberately absent, and this is the one place that is
+ * right. That family exists to refuse food restriction — "verzichte auf",
+ * "lass das Brot weg" — and it fires on the shape "kein <thing>". Half the
+ * honest answers here have that shape: "das ersetzt kein Krafttraining" is a
+ * factual statement about what a session is, not an instruction to give
+ * something up. The food-restriction risk is covered because the note is about
+ * sport and the model is told so; a nutrition instruction here would still be
+ * caught by the numeric and medical families.
+ */
+export function checkCommitmentInsights(
+  value: CommitmentInsights,
+  /** The labels the model was given. It may not invent a commitment. */
+  known: string[] = [],
+): Violation[] {
+  const violations: Violation[] = []
+
+  for (const [index, insight] of value.insights.entries()) {
+    const where = `insight[${index}]`
+
+    violations.push(...scan(insight.note, NUMERIC_HEALTH_CLAIM, 'no_numeric_health_claims'))
+    violations.push(...scan(insight.note, SLEEP_REDUCTION, 'never_less_sleep'))
+    violations.push(...scan(insight.note, MEDICAL, 'no_medical_claims'))
+    violations.push(...scan(insight.note, GENERIC_FILLER, 'not_generic'))
+    violations.push(...scan(insight.note, VERDICT, 'no_verdict_on_the_person'))
+    violations.push(...scan(insight.note, PERSONAL_PROMISE, 'no_promise_about_this_person'))
+
+    // A judgement about a commitment nobody has is a judgement about nothing,
+    // and it would be matched against the real week by label — so an invented
+    // one either does nothing or, worse, shadows a real entry.
+    if (known.length > 0 && !known.includes(insight.label)) {
+      violations.push({ rule: 'unknown_commitment', detail: `${where}: "${insight.label}"` })
+    }
+  }
+
+  // Two judgements about the same commitment cannot both be applied, and
+  // picking one would be picking the answer we prefer.
+  const labels = value.insights.map((i) => i.label)
+  if (new Set(labels).size !== labels.length) {
+    violations.push({ rule: 'duplicate_commitment', detail: labels.join(', ') })
   }
 
   return violations

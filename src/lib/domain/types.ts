@@ -258,6 +258,20 @@ export type ProposedAction = {
   preferredSlot: TimeSlot | 'any'
 }
 
+/**
+ * The model's judgement about one commitment, as the engine reads it.
+ *
+ * `doesGoalWork` is the only field the plan acts on, and it can only say
+ * whether a session is the same kind of work. Every safety limit — rest days,
+ * weekly load, growth — is counted from the commitment itself and stays in
+ * code, so a judgement can never move one.
+ */
+export type CommitmentInsight = {
+  label: string
+  doesGoalWork: boolean
+  note: string
+}
+
 export type AiProposal = {
   headline: string
   actions: ProposedAction[]
@@ -283,6 +297,16 @@ export type PlanInput = {
   personalRules: PersonalRule[]
   /** Absent when no key is configured, or when the model failed or was refused. */
   aiProposal?: AiProposal | null
+  /**
+   * What the model judged this person's own training to be worth, for this
+   * goal.
+   *
+   * Arrives as input like the proposal, so `generatePlan` stays a pure
+   * function of what it is handed. Absent means nobody has judged it and the
+   * activity tables decide — the fallback, not the rule (CLAUDE.md, "Keine
+   * Nachschlagetabellen über Menschen").
+   */
+  commitmentInsights?: CommitmentInsight[] | null
   /**
    * Answers to questions the model asked before planning.
    *

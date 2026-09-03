@@ -15,6 +15,9 @@
 // be is one refactor away from reading everything.
 
 import 'server-only'
+import {
+  commitmentsSignature, readCommitmentInsights,
+} from '@/lib/domain/commitmentInsights'
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -184,6 +187,13 @@ export const loadPlanInput = cache(async function loadPlanInput(
     schedule,
     personalRules,
     aiProposal: readAiProposal(g.ai_proposal),
+    // The stored judgement is used only while it still describes this week.
+    // Commitments are editable, and an insight about a training somebody has
+    // since dropped would keep shaping the plan from a row nobody can see.
+    commitmentInsights:
+      g.commitment_insights_for === commitmentsSignature(schedule.commitments)
+        ? readCommitmentInsights(g.commitment_insights)
+        : null,
     intakeAnswers: readIntakeAnswers(g.intake_answers),
   }
 })

@@ -7,6 +7,65 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-103: Die KI ordnet den eigenen Sport ein — keine Tabelle mehr
+
+**Entscheidung:** Das Modell beurteilt **jeden festen Sporttermin** dieses Menschen für
+**dieses** Ziel: ob er eine Einheit ersetzt, die die App sonst geplant hätte
+(`doesGoalWork`), und — der eigentliche Punkt — **wie er am meisten daraus holt** (`note`,
+sichtbar auf Heute und im Wochenplan). Die Aktivitätslisten aus ADR-102 bleiben als
+**Rückfall** ohne Modell und sind ausdrücklich die schlechtere Antwort.
+
+Dazu eine neue Dauerregel in `CLAUDE.md`: **„Keine Nachschlagetabellen über Menschen."**
+
+**Begründung:** Der Product Owner hat es benannt, und er hatte recht — über genau den Code,
+den ich einen Commit vorher geschrieben hatte:
+
+> „Die KI soll das Gym oder halt was ich sonst machen will wie Schwimmen, Rennen … selber
+> einordnen und sagen wie es effektiv am besten ist. Personalisiert ist das Stichwort. Es ist
+> alles zu generisch."
+
+`STRENGTH_ACTIVITIES = ['gym','bodyweight','climbing']` ist für den Durchschnitt plausibel und
+für jeden Einzelnen generisch. Ob Schwimmen für dieses Ziel Ausdauerarbeit ist, ob Klettern
+für diesen Menschen das Krafttraining ersetzt: das ist eine Einschätzung, keine Eigenschaft
+des Wortes „Schwimmen".
+
+**Die Aufteilung, die dabei verbindlich wird:**
+
+- **Die KI ordnet ein**, wo Urteilsvermögen nötig ist.
+- **Der Code hält die Grenzen.** Belastung, Ruhetage und Steigerungsraten werden aus den
+  Terminen selbst gezählt. Ein Modell, das behauptet, fünf Vereinsabende zählten nicht,
+  bekommt trotzdem keine sechs Trainingstage — dafür gibt es einen Test.
+- **Die Tabelle bleibt als Rückfall**, und der `MockAdapter` schreibt in die Notiz, was sie
+  ist: „Ohne KI eingeordnet, nur anhand der Sportart — nicht anhand deines Ziels."
+
+**Die gefährliche Richtung ist begrenzt:** `doesGoalWork: true` *reduziert*, was geplant wird
+(sichere Richtung); `false` erhöht es — und bleibt vom Ruhetagebudget gedeckelt, das jeden
+Sporttag zählt, unabhängig davon, was das Modell über ihn denkt.
+
+**Die Einschätzung verfällt mit der Woche.** Termine sind seit ADR-099 änderbar, also wird die
+Signatur der Woche mitgespeichert. Ändert sie sich, wird die alte Beurteilung weder gelesen
+noch angewendet, und beim nächsten Speichern neu gefragt. Eine Einschätzung über ein Training,
+das jemand aufgegeben hat, wäre schlimmer als keine — sie würde den Plan unsichtbar weiter
+formen.
+
+**Drei Lücken, die die Tests dieser Aufgabe in den gemeinsamen Sicherheitsfamilien gefunden
+haben** — alle drei waren auch von den anderen Aufgaben aus erreichbar:
+
+* `PERSONAL_PROMISE` kannte „verbessert deinen …", aber nicht **„macht dich schneller"** — vier
+  Wörter, dieselbe Zusage. Bewusst auf Verbesserungs-Adjektive verengt: „das Spiel macht dich
+  müde" ist eine wahre und nützliche Aussage über einen Dienstag.
+* `MEDICAL` kannte „klingt nach", aber nicht **„klingen nach"** — der Plural ist die häufigere
+  Form, weil das Subjekt meist Beschwerden sind.
+* `GENERIC_FILLER` kannte „hör auf deinen Körper", aber nicht **„hör einfach auf deinen
+  Körper"** — derselbe leere Satz mit einem Wort mehr.
+
+**Geprüft:** 29 Tests. Zwei Mutationen sichern beide Seiten: die Einschätzung zu ignorieren
+lässt vier Tests fallen, und das Ruhetagebudget auf die Einschätzung hören zu lassen lässt die
+gesamte AI-Umgehungssuite fallen. Acht legitime Sätze über echtes Training gehen durch die
+verschärften Familien. 1745 Tests grün.
+
+---
+
 ## 2026-09-02 — ADR-102: Fußball ist Training, aber kein Bankdrücken
 
 **Entscheidung:** Ein fester Sporttermin ersetzt eine geplante Einheit nur dann, wenn er

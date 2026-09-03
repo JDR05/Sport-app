@@ -11,10 +11,21 @@
 // refused identically no matter who hosts it, and a cheaper model will produce
 // that sentence more often, not less.
 
-import { askAnswerSchema, goalClassificationSchema, intakeQuestionsSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
-import { checkAnswer, checkClassification, checkProposal, checkQuestions, checkWeeklyNote } from './validate'
-import { ASK_SYSTEM, CLASSIFY_SYSTEM, FOLLOWUP_SYSTEM, PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
-import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
+import {
+  askAnswerSchema, commitmentInsightsSchema, goalClassificationSchema, intakeQuestionsSchema,
+  planProposalSchema, weeklyNoteSchema,
+} from './schemas'
+import {
+  checkAnswer, checkClassification, checkCommitmentInsights, checkProposal, checkQuestions,
+  checkWeeklyNote,
+} from './validate'
+import {
+  ASK_SYSTEM, CLASSIFY_SYSTEM, COMMITMENTS_SYSTEM, FOLLOWUP_SYSTEM, PROPOSE_SYSTEM,
+  QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM,
+} from './prompts'
+import type {
+  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+} from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** What a parse attempt can say. `implausible` means a safety rule fired. */
@@ -183,6 +194,66 @@ export function followUpUserMessage(ctx: FollowUpContext): string {
 
   lines.push('', 'Gibt es genau eine Sache, die du über seinen Alltag wissen müsstest, um besser zu planen? Wenn nicht, sag das — needsMore false, leere Liste.')
   return lines.join('\n')
+}
+
+/**
+ * What this person's own training is worth, for the goal they actually have.
+ *
+ * The task that exists because the engine answered this with a lookup table.
+ * The gate is built per call, like `questionsTask`, because "did it invent a
+ * commitment" depends on which commitments this person has.
+ */
+export function commitmentsTask(known: string[]): AiTask<CommitmentInsights> {
+  return {
+    name: 'commitments',
+    system: COMMITMENTS_SYSTEM,
+    // Judging what somebody's sport contributes to a goal it was not chosen
+    // for is the kind of reasoning the cheap setting is worst at, and the
+    // answer shapes every week from here on.
+    effort: 'high',
+    maxTokens: 1500,
+    parse: (json) => {
+      const parsed = commitmentInsightsSchema.safeParse(json)
+      if (!parsed.success) return { ok: false, detail: parsed.error.message }
+      const violations = checkCommitmentInsights(parsed.data, known)
+      if (violations.length > 0) {
+        return { ok: false, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+      }
+      return { ok: true, value: parsed.data }
+    },
+  }
+}
+
+/** What the model sees when it judges somebody's existing training. */
+export type CommitmentsContext = {
+  goalText: string
+  archetype: string
+  /** What the goal track would otherwise plan, in words. */
+  planWouldPlan: string
+  experience: string
+  /** The person's own week, one line each. */
+  commitments: Array<{ label: string; weekday: string; minutes: number; activity: string | null }>
+  /** Sports they said they dislike, so nothing is suggested around them. */
+  disliked: string[]
+}
+
+export function commitmentsUserMessage(ctx: CommitmentsContext): string {
+  return [
+    `Ziel: ${ctx.goalText} (eingeordnet als ${ctx.archetype})`,
+    `Was die App für dieses Ziel sonst plant: ${ctx.planWouldPlan}`,
+    `Leistungsstand: ${ctx.experience}`,
+    ...(ctx.disliked.length > 0 ? [`Mag er nicht: ${ctx.disliked.join(', ')}`] : []),
+    '',
+    'Seine festen Termine:',
+    ...ctx.commitments.map(
+      (c) =>
+        `- ${c.label} (${c.weekday}, ${c.minutes} min` +
+        (c.activity ? `, Sportart: ${c.activity}` : '') +
+        ')',
+    ),
+    '',
+    'Beurteile jeden Termin: ersetzt er eine Einheit für dieses Ziel, und wie holt er das Meiste daraus?',
+  ].join('\n')
 }
 
 export const askTask: AiTask<AskAnswer> = {

@@ -85,6 +85,7 @@ export default function PlanPage() {
                         <CommitmentLine
                           key={`${commitment.start}-${commitment.label}`}
                           commitment={commitment}
+                          note={plan.commitmentNotes?.[commitment.label]}
                         />
                       ))}
                     </div>

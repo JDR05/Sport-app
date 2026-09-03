@@ -245,12 +245,17 @@ export const MIN_NIGHT_HOURS = 7
 //
 // A commitment always costs recovery and always eats into the rest-day budget.
 // Whether it *replaces* a session the archetype would otherwise plan is a
-// different question, and these lists are the answer to it.
+// different question, and these lists are the **fallback** answer to it.
 //
-// The engine used to assume any sport replaced any session, which is how
-// somebody with football twice a week ended up with one gym session instead of
-// three — while three evenings of their week stood empty. Football is training.
-// It is not a bench press, and it is not a tempo run.
+// Fallback, and not the rule. CLAUDE.md forbids a hardcoded list deciding
+// something about a person, and this is the list it names: plausible for an
+// average and generic for everybody. Whether swimming is endurance work for
+// *this* goal is a judgement, and the model makes it (ADR-103). These are what
+// an account with no model gets, and the app says as much on screen.
+//
+// They are still here, and they still matter: without a model the engine must
+// not fall back to "any sport replaces any session", which is how somebody
+// with football twice a week ended up with one gym session instead of three.
 
 /** Sport that is itself resistance work. */
 export const STRENGTH_ACTIVITIES = ['gym', 'bodyweight', 'climbing'] as const

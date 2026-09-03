@@ -14,7 +14,9 @@
 // thing that matters is the weekday and the minutes it occupies.
 
 import { MIN_VIABLE_SESSION_MINUTES } from './constants'
-import type { Activity, Commitment, FreeSlot, Weekday } from '@/lib/domain/types'
+import type {
+  Activity, Commitment, CommitmentInsight, FreeSlot, Weekday,
+} from '@/lib/domain/types'
 
 /** 'HH:MM' as minutes since midnight. Malformed input yields NaN-free 0. */
 export function minutesOfDay(time: string): number {
@@ -115,16 +117,34 @@ export function freeSlotsMinusCommitments(
 export function goalSessions(
   commitments: Commitment[],
   counts: readonly Activity[] | undefined,
+  /**
+   * The model's judgement, per commitment label. Where it exists it decides,
+   * because whether somebody's swimming is endurance work *for this goal* is
+   * an assessment and not a property of the word "swimming".
+   */
+  insights?: CommitmentInsight[] | null,
 ): number {
   // No list means "any sport does this job" — the old behaviour, kept for any
   // archetype that has not thought about it.
-  if (!counts) return sportSessionsPerWeek(commitments)
+  if (!counts && !insights) return sportSessionsPerWeek(commitments)
+
+  const judged = new Map((insights ?? []).map((i) => [i.label, i.doesGoalWork]))
 
   const days = new Set<Weekday>()
   for (const c of commitments) {
-    if (c.kind === 'sport' && c.activity !== null && counts.includes(c.activity)) {
-      days.add(c.weekday)
-    }
+    if (c.kind !== 'sport') continue
+
+    // The judgement first, the table second. That order is the whole point:
+    // the table is what an account with no model gets, not what everybody gets.
+    const judgement = judged.get(c.label)
+    const doesTheWork =
+      judgement !== undefined
+        ? judgement
+        : counts
+          ? c.activity !== null && counts.includes(c.activity)
+          : true
+
+    if (doesTheWork) days.add(c.weekday)
   }
   return days.size
 }

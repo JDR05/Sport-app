@@ -4,8 +4,12 @@
 // Claude adapter, and a null adapter used to prove the product works with no AI
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
-import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
-import type { AskContext, FollowUpContext, WeeklyNoteContext } from './tasks'
+import type {
+  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+} from './schemas'
+import type {
+  AskContext, CommitmentsContext, FollowUpContext, WeeklyNoteContext,
+} from './tasks'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** Never throws. A failed call is a value, so callers cannot forget to handle it. */
@@ -96,6 +100,16 @@ export interface AiAdapter {
    * everybody is a form, which is the thing this is the opposite of.
    */
   followUp(context: FollowUpContext): Promise<AiResult<IntakeQuestions>>
+  /**
+   * What this person's own training is worth, for the goal they actually have.
+   *
+   * The one call with a real deterministic stand-in, and the only place in
+   * this interface where that is not a compromise: the fallback is the
+   * activity table the engine used to rely on outright, kept as the worse
+   * answer for an account with no model rather than as the rule (CLAUDE.md,
+   * "Keine Nachschlagetabellen über Menschen").
+   */
+  judgeCommitments(context: CommitmentsContext): Promise<AiResult<CommitmentInsights>>
 }
 
 export type AiConfig = {

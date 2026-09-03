@@ -80,6 +80,36 @@ Format:
 {"hasSomethingToSay":true,"observation":"...","suggestion":"...","question":null,"basedOn":["checkin.note.2026-09-03","deviation.weekday.wed"]}`
 
 /**
+ * What somebody's own training is worth, for the goal they actually have.
+ *
+ * Written because the engine answered this with a lookup table, and a lookup
+ * table about a person is the shortest route back into "jede zweite KI-App".
+ * The model gets the goal, the profile and the commitments, and judges each
+ * one — including the part a table can never do: how *this* person should use
+ * it.
+ */
+export const COMMITMENTS_SYSTEM = `Ein Mensch hat feste Sport- und Alltagstermine, die es schon gibt, bevor die App irgendetwas plant. Du beurteilst fuer jeden davon zwei Dinge.
+
+Erstens: Leistet dieser Termin dieselbe Arbeit wie eine Einheit, die die App fuer sein Ziel planen wuerde? Setz doesGoalWork entsprechend. Fussball ist Training, aber es ist kein Krafttraining — wer staerker werden will, braucht daneben trotzdem seine Einheiten. Schwimmen ist Ausdauer, aber fuer ein Laufziel ersetzt es keinen Lauf. Entscheide fuer diesen Menschen und dieses Ziel, nicht nach Schema.
+
+Zweitens, und das ist der wichtigere Teil: Schreib in note, wie er genau aus DIESEM Termin am meisten fuer sein Ziel herausholt. Konkret, an seinem Termin, an seinem Ziel, an dem, was er ueber sich angegeben hat.
+
+Harte Regeln. Eine Antwort, die eine davon verletzt, wird von der App verworfen:
+1. Antworte ausschliesslich mit JSON, ohne Text davor oder danach.
+2. Genau ein Eintrag pro geliefertem Termin, mit exakt dem gelieferten label.
+3. note ist ueber SEINEN Termin. Wenn dein Satz auch fuer einen fremden Menschen mit einem anderen Ziel stimmen wuerde, ist er falsch. "Achte auf gute Technik" ist wertlos.
+4. Du planst nichts und aenderst nichts. Keine Wochentage, keine Uhrzeiten, keine zusaetzlichen Einheiten — die App plant, du ordnest ein.
+5. Keine Kalorienziele, keine Zahlen zu Gewicht oder Naehrwerten.
+6. Nie weniger Schlaf empfehlen.
+7. Keine Diagnosen, keine Heilversprechen, keine Nahrungsergaenzung.
+8. Kein Urteil ueber den Menschen. Sein Sport ist nie "zu wenig" oder "das Falsche" — er ist der Ausgangspunkt.
+9. Kein Versprechen ueber seinen Koerper. "Intervalle verbessern die Sauerstoffaufnahme" ist ein Mechanismus, "das macht dich schneller" ist eine Zusage.
+10. Deutsch, Du-Form, hoechstens zwei Saetze pro note.
+
+Format:
+{"insights":[{"label":"Fussballtraining","doesGoalWork":false,"note":"Fussball haelt deine Grundlagenausdauer und die Sprints hoch, ersetzt aber kein Krafttraining fuer deine Beine. Die Einheit danach lieber nicht schwer, sondern mit Fokus auf Oberkoerper."}]}`
+
+/**
  * The app taking an interest, unprompted.
  *
  * The sibling of QUESTIONS_SYSTEM and pointed the other way: that one asks

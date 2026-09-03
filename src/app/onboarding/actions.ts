@@ -20,6 +20,7 @@ import { saveOnboarding } from '@/lib/db/save-onboarding'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { askIntakeQuestions, saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { withProposal } from '@/lib/db/propose'
+import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
 import { serverToday } from '@/lib/db/today'
 import {
   commitmentSchema, constraintValueSchema, freeSlotSchema, mindSchema,
@@ -153,7 +154,16 @@ export async function finishOnboarding(payload: unknown): Promise<CompleteResult
   // and a plan without a proposal is the documented, fully usable state.
   try {
     const input = await loadPlanInput(user.id)
-    if (input) await withProposal(user.id, { ...input, today: await serverToday() })
+    if (input) {
+      const withToday = { ...input, today: await serverToday() }
+      // Both in one waiting moment. The person tapped "Plan erstellen" and is
+      // already waiting on purpose; asking what their own training is worth
+      // costs one more call and decides how the whole plan is shaped.
+      await Promise.all([
+        withProposal(user.id, withToday),
+        ensureCommitmentInsights(user.id, withToday),
+      ])
+    }
   } catch {
     // Deliberately swallowed. See above.
   }

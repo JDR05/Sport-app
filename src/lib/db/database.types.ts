@@ -311,6 +311,8 @@ export type Database = {
         Row: {
           ai_proposal: Json | null
           ai_proposal_at: string | null
+          commitment_insights: Json | null
+          commitment_insights_for: string | null
           intake_answers: Json
           intake_asked_at: string | null
           archetype: Database["public"]["Enums"]["goal_archetype"]
@@ -327,6 +329,8 @@ export type Database = {
         Insert: {
           ai_proposal?: Json | null
           ai_proposal_at?: string | null
+          commitment_insights?: Json | null
+          commitment_insights_for?: string | null
           intake_answers?: Json
           intake_asked_at?: string | null
           archetype?: Database["public"]["Enums"]["goal_archetype"]
@@ -343,6 +347,8 @@ export type Database = {
         Update: {
           ai_proposal?: Json | null
           ai_proposal_at?: string | null
+          commitment_insights?: Json | null
+          commitment_insights_for?: string | null
           intake_answers?: Json
           intake_asked_at?: string | null
           archetype?: Database["public"]["Enums"]["goal_archetype"]

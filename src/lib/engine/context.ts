@@ -377,7 +377,11 @@ export function planTrainingDays(
   const maxByRest = 7 - minRestDays
   const restRoom = Math.max(0, maxByRest - ctx.committedSessions)
   // The goal's own work is counted only from the sport that does it.
-  const alreadyDoingTheWork = goalSessions(ctx.commitments, countsAsGoalWork)
+  const alreadyDoingTheWork = goalSessions(
+    ctx.commitments,
+    countsAsGoalWork,
+    ctx.input.commitmentInsights,
+  )
   const stillWanted = Math.max(0, desired - alreadyDoingTheWork)
 
   const wanted = Math.max(

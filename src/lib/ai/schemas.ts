@@ -174,3 +174,39 @@ export const askAnswerSchema = z.object({
 })
 
 export type AskAnswer = z.infer<typeof askAnswerSchema>
+
+// ------------------------------------- what somebody's own training is worth ---
+
+/**
+ * The model's judgement about one thing this person already does.
+ *
+ * This replaces a hardcoded list — gym/bodyweight/climbing was "strength",
+ * running/cycling/swimming was "endurance" — which was plausible for an
+ * average and generic for everybody. Whether swimming is endurance work *for
+ * this goal*, whether climbing replaces a gym session *for this person*: that
+ * is a judgement, and CLAUDE.md now forbids answering it with a table.
+ *
+ * `doesGoalWork` is the only field the plan reads, and it can only ever say
+ * that a session is or is not the same work. Every safety limit — rest days,
+ * weekly load, growth rates — is counted from the commitment itself and stays
+ * in code, so this cannot move one.
+ */
+export const commitmentInsightSchema = z.object({
+  /** Must match one of the labels the model was given. */
+  label: z.string().min(1).max(80),
+  /** Does this replace a session the plan would otherwise make for the goal? */
+  doesGoalWork: z.boolean(),
+  /**
+   * How this person gets the most out of it, for this goal. One or two
+   * sentences, about their training rather than about training in general —
+   * this is the field the whole feature exists for.
+   */
+  note: z.string().min(20).max(300),
+})
+
+export const commitmentInsightsSchema = z.object({
+  insights: z.array(commitmentInsightSchema).max(10),
+})
+
+export type CommitmentInsight = z.infer<typeof commitmentInsightSchema>
+export type CommitmentInsights = z.infer<typeof commitmentInsightsSchema>

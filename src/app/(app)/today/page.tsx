@@ -96,7 +96,11 @@ export default function TodayPage() {
                 built around this. */}
             {fixed.length > 0 && (
               <div className="mb-3">
-                <DayCommitments commitments={week.commitments} weekday={weekdayOf(today)} />
+                <DayCommitments
+                  commitments={week.commitments}
+                  weekday={weekdayOf(today)}
+                  notes={week.commitmentNotes}
+                />
               </div>
             )}
 

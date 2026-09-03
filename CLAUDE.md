@@ -130,6 +130,32 @@ dokumentieren. 4. Implementierung klein schneiden. 5. Tests schreiben. 6. Implem
 **One Change at a Time** gilt auch für die Entwicklung: pro Schritt ein Thema, danach Stopp
 und Review durch den Product Owner. Nicht die komplette App auf einmal bauen.
 
+## Keine Nachschlagetabellen über Menschen
+
+**Eine fest verdrahtete Liste, die etwas über den Nutzer entscheidet, ist ein Fehler — auch
+wenn sie funktioniert.** Sie ist der kürzeste Weg zurück in „jede zweite KI-App", und sie
+entsteht immer gleich: eine Zuordnung, die für den Durchschnitt stimmt, wird als Code
+festgeschrieben und gilt dann für alle.
+
+Beispiel, an dem die Regel entstanden ist: `STRENGTH_ACTIVITIES = ['gym','bodyweight',
+'climbing']` sollte entscheiden, ob das Vereinstraining einer Person eine Krafteinheit
+ersetzt. Für den Durchschnitt plausibel — und trotzdem generisch. Ob Schwimmen für *dieses*
+Ziel Ausdauer ist, ob Klettern für *diese* Person Krafttraining ersetzt, ob das Fußballtraining
+im Winter etwas anderes ist als im Sommer: das ist eine Einschätzung, keine Tabelle.
+
+**Die Aufteilung:**
+
+- **Die KI ordnet ein**, wo Urteilsvermögen nötig ist: was der Sport dieses Menschen für
+  dieses Ziel leistet, und wie er ihn am wirksamsten einsetzt.
+- **Der Code hält die Grenzen**: Belastung, Ruhetage, Steigerungsraten, Kalorien-Untergrenzen.
+  Die Einschätzung der KI darf nie eine Sicherheitsgrenze verschieben.
+- **Die Tabelle bleibt als Rückfall**, nicht als Regel. Ohne Modell muss das Produkt
+  funktionieren — aber die Tabelle ist dann ausdrücklich die schlechtere Antwort und nicht der
+  Normalfall.
+
+Prüffrage vor jeder solchen Konstante: *Würde ein Mensch, der genau das tut, sich hier
+wiedererkennen — oder ist das der Durchschnitt, dem er gerade zugeordnet wurde?*
+
 ## Die wichtigste Qualitätsprüfung
 
 Echte Personalisierung, in **zwei** Dimensionen. Wenn zehn deutlich unterschiedliche Profile
