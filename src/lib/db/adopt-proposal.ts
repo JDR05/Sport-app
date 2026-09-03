@@ -17,6 +17,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { generatePlan } from '@/lib/engine'
 import { assertPlanInvariants } from '@/lib/engine/safety'
+import { shapeOwnedDomains } from '@/lib/engine/proposed'
 import { startOfWeek } from '@/lib/engine/dates'
 import { fromRow, materialise, toInsert, type ItemRow } from './item-mapping'
 import { loadPlanInput } from './plan-input'
@@ -24,7 +25,7 @@ import type {
   Assumption, PlannedItem, Rationale, PlanInput, WeekStrategy,
 } from '@/lib/domain/types'
 
-export type AdoptionResult = { added: number }
+export type AdoptionResult = { added: number; shaped: number }
 
 /**
  * Adds the proposal's actions to the current week, once.
@@ -40,7 +41,7 @@ export async function adoptProposalIntoCurrentWeek(
   try {
     return await run(profileId, today)
   } catch {
-    return { added: 0 }
+    return { added: 0, shaped: 0 }
   }
 }
 
@@ -54,7 +55,7 @@ async function run(profileId: string, today: string): Promise<AdoptionResult> {
     .eq('profile_id', profileId)
     .eq('status', 'active')
     .maybeSingle()
-  if (!goal.data) return { added: 0 }
+  if (!goal.data) return { added: 0, shaped: 0 }
 
   const planRow = await supabase
     .from('plans')
@@ -68,7 +69,7 @@ async function run(profileId: string, today: string): Promise<AdoptionResult> {
   // No week yet is the good case: the next one will be built from the proposal
   // like any other input.
   const plan = planRow.data
-  if (!plan) return { added: 0 }
+  if (!plan) return { added: 0, shaped: 0 }
 
   const itemRows = await supabase
     .from('plan_items')
@@ -79,13 +80,30 @@ async function run(profileId: string, today: string): Promise<AdoptionResult> {
 
   // Already carries the model's work. Adding it twice is the one outcome worse
   // than adding it late.
-  if (existing.some((i) => isProposed(i))) return { added: 0 }
-
   const input = await loadPlanInput(profileId)
-  if (!input?.aiProposal) return { added: 0 }
+  if (!input?.aiProposal) return { added: 0, shaped: 0 }
+
+  const strategy = plan.strategy as unknown as WeekStrategy
+
+  // Naming the sessions this week already has.
+  //
+  // A separate thing from adding actions, and the one that matters on a
+  // body-composition goal: that archetype owns training, movement and
+  // nutrition, so a weight-loss proposal has no open domain to be added to and
+  // used to reach the plan not at all. What it may do is say what the session
+  // the engine planned actually is.
+  //
+  // This edits a running week, which ADR-037 otherwise forbids. The rule
+  // exists to stop a plan rewriting itself under somebody — moving a day,
+  // dropping an action they had already ticked. Nothing here moves or drops
+  // anything: the day, the duration, the domain and the status stay exactly as
+  // they were, and only the title and the reasoning change. Rows in the past
+  // and rows already answered are left alone regardless, because renaming
+  // those would change what the person answered about.
+  const shaped = await shapeExistingWeek(profileId, existing, strategy, input.aiProposal, today)
 
   const wanted = proposedFor({ ...input, today }, weekStart, today)
-  if (wanted.length === 0) return { added: 0 }
+  if (wanted.length === 0) return { added: 0, shaped }
 
   // The combined week has to survive the same checks the plan was built under.
   // Fail closed: a week that would break a rest day, a per-day ceiling or the
@@ -94,7 +112,7 @@ async function run(profileId: string, today: string): Promise<AdoptionResult> {
   try {
     assertPlanInvariants(
       {
-        strategy: plan.strategy as unknown as WeekStrategy,
+        strategy,
         items: combined,
         rationale: (plan.rationale ?? []) as unknown as Rationale[],
         assumptions: (plan.assumptions ?? []) as unknown as Assumption[],
@@ -102,14 +120,14 @@ async function run(profileId: string, today: string): Promise<AdoptionResult> {
       { ...input, today },
     )
   } catch {
-    return { added: 0 }
+    return { added: 0, shaped }
   }
 
   const inserted = await supabase
     .from('plan_items')
     .insert(wanted.map((item) => toInsert(item, plan.id, profileId)))
 
-  if (inserted.error) return { added: 0 }
+  if (inserted.error) return { added: 0, shaped }
 
   // The row now describes a week the model helped build, and the Insights
   // screen reads this to say which it was.
@@ -119,7 +137,58 @@ async function run(profileId: string, today: string): Promise<AdoptionResult> {
     .eq('id', plan.id)
     .eq('profile_id', profileId)
 
-  return { added: wanted.length }
+  return { added: wanted.length, shaped }
+}
+
+/**
+ * Rewrites the titles the model has better words for. Returns how many.
+ *
+ * Only rows that are still ahead and still unanswered, and only the three
+ * fields that carry words. `shapeOwnedDomains` decides which items qualify —
+ * sessions, never standing rules and never a row whose title carries a
+ * computed value — so this function does no judging of its own.
+ */
+async function shapeExistingWeek(
+  profileId: string,
+  existing: Array<PlannedItem & { id: string; status: string }>,
+  strategy: WeekStrategy,
+  proposal: NonNullable<PlanInput['aiProposal']>,
+  today: string,
+): Promise<number> {
+  const open = existing.filter(
+    (item) =>
+      item.scheduledOn >= today && (item.status === 'unknown' || item.status === 'planned'),
+  )
+  if (open.length === 0) return 0
+
+  const { items, shaped } = shapeOwnedDomains(
+    open,
+    proposal.actions,
+    strategy.goalTrack.archetype,
+  )
+  if (shaped === 0) return 0
+
+  const supabase = await createClient()
+  let written = 0
+
+  for (const [index, next] of items.entries()) {
+    if (next.title === open[index].title) continue
+
+    const update = await supabase
+      .from('plan_items')
+      .update({
+        title: next.title,
+        rationale: next.rationale.text,
+        rationale_based_on: next.rationale.basedOn,
+        details: { ...next.details, cadence: next.cadence ?? 'weekly' },
+      })
+      .eq('id', open[index].id)
+      .eq('profile_id', profileId)
+
+    if (!update.error) written++
+  }
+
+  return written
 }
 
 /**

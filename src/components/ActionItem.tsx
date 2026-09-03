@@ -28,6 +28,7 @@
 import { useState } from 'react'
 import { CheckRing } from '@/components/CheckRing'
 import { DomainBadge } from '@/components/ui'
+import { isAiAuthored } from '@/lib/engine/proposed'
 import { WEEKDAY_LABELS } from '@/lib/adaptive/labels'
 import { asksForReason, REASON_LABELS, STATUS_REASONS } from '@/lib/adaptive/reaction'
 import type { Reaction, StatusReason } from '@/lib/adaptive/reaction'
@@ -294,10 +295,12 @@ export function ActionItem({
   )
 }
 
-/** Whether the model proposed this action, rather than the archetype. */
-function isProposed(item: PlannedItem): boolean {
-  return (item.details as Record<string, unknown> | undefined)?.kind === 'ai_proposed'
-}
+/**
+ * Whether the model wrote this line — added it, or named the session the
+ * archetype planned. Both count: from the sofa there is no difference between
+ * "the AI put this here" and "the AI decided this is what it is".
+ */
+const isProposed = isAiAuthored
 
 /**
  * The mechanism the model gave for an AI-proposed action, if it gave one.

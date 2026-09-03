@@ -178,7 +178,8 @@ export function InsightsView({ data }: { data: InsightsData }) {
               <p className="mt-3 text-xs text-faint">
                 {data.ai.proposal.mode === 'takeover'
                   ? 'Diese Aktionen sind deine Zielspur.'
-                  : 'Zusätzlich zu dem, was der Archetyp geplant hat.'}
+                  : 'Manche kommen dazu, andere benennen eine Einheit, die ohnehin geplant war. ' +
+                    'Im Plan und unter Heute sind sie mit KI markiert.'}
               </p>
             </Card>
           ) : (

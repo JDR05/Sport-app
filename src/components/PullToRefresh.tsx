@@ -160,10 +160,19 @@ export function PullToRefresh({
       {/* A hairline that fills, not a spinning circle. The app is a measuring
           instrument: a bar that is either short of the mark or past it says
           more than a shape that spins whatever happens. */}
+      {/* Opaque, and only while it is doing something.
+          
+          It sits above the sticky header, so a transparent strip put "Wird
+          geladen" straight across "Trace — Heute" — two labels in the same
+          twelve pixels, which is what the screenshot showed. A pull-down shade
+          that covers the header while it is pulled reads as one gesture; a
+          floating word over the wordmark reads as a broken screen. */}
       <div
         aria-hidden={!busy}
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-end justify-center overflow-hidden"
+        className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex items-end justify-center overflow-hidden ${
+          active ? 'bg-paper' : ''
+        }`}
         style={{
           height: `${height}px`,
           // No transition while the finger is down — the bar has to track it

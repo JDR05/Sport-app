@@ -14,10 +14,12 @@
 
 import { describe, expect, it } from 'vitest'
 import { generatePlan } from '@/lib/engine'
+import { isAiAuthored } from '@/lib/engine/proposed'
+import { assertPlanInvariants } from '@/lib/engine/safety'
 import { materialise } from '@/lib/db/item-mapping'
 import { startOfWeek, addDays } from '@/lib/engine/dates'
 import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
-import type { PlanInput } from '@/lib/domain/types'
+import type { AiProposal, PlanInput } from '@/lib/domain/types'
 
 /** The real account's week, field for field. */
 function realAccount(today: string): PlanInput {
@@ -134,5 +136,109 @@ describe('a full week is still a full week', () => {
       expect(count, day).toBeLessThanOrEqual(previous)
       previous = count
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The model's actions, in the week that is already running.
+//
+// The proposal on the real account, copied from the database, names the gym
+// session in so many words: "45 Minuten Krafttraining im Gym absolvieren,
+// 2× pro Woche". It sat on Insights and appeared nowhere else, and the week it
+// should have joined was written on a Tuesday — so the two failures compounded.
+// Even once adoption ran, an action placed on the Monday would have been thrown
+// away again at the storage boundary.
+//
+// These tests are the measurable version of "ich sehe immernoch nicht die
+// Aktion von der ki im Feld Heute": the action exists, it survives, and it
+// lands on a day the person can still act on.
+
+describe('the gym session the model proposed reaches the running week', () => {
+  /** Field for field from the row on the real account. */
+  const REAL_PROPOSAL: AiProposal = {
+    headline: 'Dein Gym-Training, zweimal die Woche',
+    reasoning: 'Aus deinen Angaben zu Gym und freien Abenden abgeleitet.',
+    mode: 'augment',
+    actions: [
+      {
+        title: '45 Minuten Krafttraining im Gym absolvieren',
+        reasoning: 'Du hast angegeben, dass du gerne ins Gym gehst und drei freie Zeitfenster pro Woche hast.',
+        domain: 'training',
+        minutes: 45,
+        timesPerWeek: 2,
+        preferredSlot: 'any',
+      },
+      {
+        title: 'Einen 30-Minuten-Lauf im Freien machen',
+        reasoning: 'Du hast angegeben, dass du gerne laufen gehst.',
+        domain: 'movement',
+        minutes: 30,
+        timesPerWeek: 1,
+        preferredSlot: 'any',
+      },
+      {
+        title: 'Eine eiweissreiche Mahlzeit kochen',
+        reasoning: 'Du hast angegeben, dass du manchmal kochst.',
+        domain: 'nutrition',
+        minutes: 30,
+        timesPerWeek: 3,
+        preferredSlot: 'any',
+      },
+    ],
+  }
+
+  const withProposal = (today: string): PlanInput => ({
+    ...realAccount(today),
+    aiProposal: REAL_PROPOSAL,
+  })
+
+
+  it('plans the gym session as the model described it', () => {
+    const proposed = generatePlan(withProposal('2026-09-03')).items.filter(isAiAuthored)
+    expect(proposed.some((i) => i.title.includes('Gym'))).toBe(true)
+  })
+
+  it('keeps it through the storage boundary, on every day that still has a slot', () => {
+    // The whole failure, in one loop. The plan is built on whichever day
+    // somebody opens the app, and the old engine placed the session behind
+    // them on four of those days.
+    //
+    // Monday to Thursday, because those are the evenings this person offered:
+    // free slots on Mon, Wed and Thu. From Friday on there is no evening left
+    // for a gym session, and the honest week is one without one — see below.
+    const weekStart = startOfWeek('2026-09-01')
+
+    for (let offset = 0; offset <= 3; offset++) {
+      const today = addDays(weekStart, offset)
+      const authored = generatePlan(withProposal(today)).items.filter(isAiAuthored)
+      const kept = materialise(authored, weekStart, today).filter((i) => i.scheduledOn >= today)
+
+      expect(kept.length, `nothing survived on ${today}`).toBeGreaterThan(0)
+      expect(
+        kept.some((i) => i.title.includes('Gym')),
+        `the gym session was lost on ${today}`,
+      ).toBe(true)
+    }
+  })
+
+  it('promises no gym session once the evenings for one have gone', () => {
+    // Friday, Saturday, Sunday: the free slots this person named are Mon, Wed
+    // and Thu, and football has the other three evenings. A week that still
+    // said "2× Gym" here would be the original bug wearing the fix — a
+    // headline outliving the action it describes.
+    const friday = addDays(startOfWeek('2026-09-01'), 4)
+    const plan = generatePlan(withProposal(friday))
+
+    expect(plan.items.filter(isAiAuthored).some((i) => i.title.includes('Gym'))).toBe(false)
+    expect(plan.items.filter((i) => i.domain === 'training')).toHaveLength(0)
+  })
+
+  it('does not touch the safety limits to make room for it', () => {
+    // Adoption fails closed: a combined week that breaks an invariant gets
+    // nothing rather than something. So this passing is what makes the feature
+    // reach the screen at all — and it must pass because the week is safe, not
+    // because a limit was loosened.
+    const input = withProposal('2026-09-03')
+    expect(() => assertPlanInvariants(generatePlan(input), input)).not.toThrow()
   })
 })

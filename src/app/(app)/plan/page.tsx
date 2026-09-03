@@ -1,29 +1,28 @@
 'use client'
 
-// The week, and the only place a past day can still be answered.
+// The week, around the day the person is in.
 //
-// Today shows today. That was fine until the rings on Progress started saying
-// "19 Aktionen hast du nicht bewertet" about a week whose earlier days had no
-// screen left that could reach them — the number named a gap and then offered
-// no way to close it, which is worse than not showing it.
+// Two rules, both from the same complaint. The week no longer opens at Monday
+// on a Thursday: every day is a row, and only the day you are in is open. And
+// every day up to and including today can still be answered — "ich möcht
+// nachhinein nachtragen können, dass ich gestern was nicht gemacht hab … und da
+// meine wirkliche Kontrolle haben."
 //
-// So every day up to and including today carries the same control as Today.
-// Later days stay read-only: an action that has not happened yet cannot have
+// The second rule is older than the first and is why this screen exists: the
+// rings on Progress started saying "19 Aktionen hast du nicht bewertet" about a
+// week whose earlier days had no screen that could reach them. A number that
+// names a gap and offers no way to close it is worse than no number.
+//
+// Later days stay read-only. An action that has not happened yet cannot have
 // been missed, and offering the choice would invite an answer that means
 // nothing.
 
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
-import { ActionItem } from '@/components/ActionItem'
-import { CommitmentLine, commitmentsForDay } from '@/components/DayCommitments'
-import { Card, DomainBadge, Note, Screen, ScreenTitle, SectionHeading, Reasoning } from '@/components/ui'
+import { dayPosition, openCount, PlanDay } from '@/components/PlanDay'
+import { Card, Note, Screen, ScreenTitle } from '@/components/ui'
 import { addDays, formatGermanDate } from '@/lib/engine/dates'
 import { WEEKDAYS } from '@/lib/domain/types'
-
-const WEEKDAY_LONG: Record<string, string> = {
-  mon: 'Montag', tue: 'Dienstag', wed: 'Mittwoch', thu: 'Donnerstag',
-  fri: 'Freitag', sat: 'Samstag', sun: 'Sonntag',
-}
 
 export default function PlanPage() {
   const { today, setStatus, answer, accept } = usePlan()
@@ -31,9 +30,20 @@ export default function PlanPage() {
   return (
     <RequirePlan>
       {(plan) => {
-        const open = plan.items.filter(
-          (i) => i.scheduledOn <= (today ?? '') && (i.status === 'unknown' || i.status === 'planned'),
-        ).length
+        const days = WEEKDAYS.map((weekday, index) => {
+          const date = addDays(plan.strategy.weekStart, index)
+          return {
+            weekday,
+            date,
+            position: dayPosition(date, today),
+            items: plan.items.filter((i) => i.scheduledOn === date),
+          }
+        })
+
+        // What the person still owes the week, counted the same way the day
+        // rows count it — one rule, so the note and the badges can never
+        // disagree about what "offen" means.
+        const open = days.reduce((sum, day) => sum + openCount(day.items, day.position), 0)
 
         return (
           <Screen>
@@ -42,6 +52,9 @@ export default function PlanPage() {
               subtitle={`Ab ${formatGermanDate(plan.strategy.weekStart)}`}
             />
 
+            {/* The goal, and what the week is supposed to do about it. It stays
+                open at the top: it is the one thing on this screen that is true
+                for all seven days. */}
             <Card tone="accent">
               <p className="text-sm font-semibold text-ink">{plan.strategy.goalTrack.headline}</p>
               <ul className="mt-2 space-y-1 text-sm text-muted">
@@ -54,82 +67,27 @@ export default function PlanPage() {
             {open > 0 && (
               <Note>
                 {open === 1
-                  ? 'Eine Aktion aus dieser Woche ist noch offen. Du kannst sie hier nachtragen.'
-                  : `${open} Aktionen aus dieser Woche sind noch offen. Du kannst sie hier nachtragen — auch für vergangene Tage.`}
+                  ? 'Ein Tag davor hat noch eine offene Aktion. Tag aufklappen und nachtragen.'
+                  : `${open} Aktionen aus den Tagen davor sind noch offen. Tag aufklappen und nachtragen.`}
               </Note>
             )}
 
-            {WEEKDAYS.map((weekday, index) => {
-              const date = addDays(plan.strategy.weekStart, index)
-              const items = plan.items.filter((i) => i.scheduledOn === date)
-              const fixed = commitmentsForDay(plan.commitments, weekday)
-              const isToday = date === today
-              // No `today` yet means the client's date has not arrived. Treat
-              // the week as unanswerable rather than guessing which days passed.
-              const answerable = today !== null && date <= today
-
-              return (
-                <section key={weekday}>
-                  <SectionHeading>
-                    {WEEKDAY_LONG[weekday]}
-                    {isToday && <span className="ml-2 text-accent">heute</span>}
-                  </SectionHeading>
-
-                  {/* The week the person already has, on the day it happens.
-                      Without it the calendar showed a rest day on the evening
-                      somebody plays football — the app planning around a
-                      commitment it then refuses to draw. */}
-                  {fixed.length > 0 && (
-                    <div className="mb-2 flex flex-col gap-2">
-                      {fixed.map((commitment) => (
-                        <CommitmentLine
-                          key={`${commitment.start}-${commitment.label}`}
-                          commitment={commitment}
-                          note={plan.commitmentNotes?.[commitment.label]}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {items.length === 0 ? (
-                    fixed.length === 0 && <p className="text-sm text-faint">Ruhetag</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {items.map((item) =>
-                        answerable ? (
-                          <ActionItem
-                            key={item.id}
-                            item={item}
-                            status={item.status}
-                            onStatus={(status) => setStatus(item.id, status)}
-                            onAnswer={(status, reason, note) =>
-                              answer(item.id, status, reason, note)
-                            }
-                            onAccept={() => accept(item.id)}
-                          />
-                        ) : (
-                          <div key={item.id} className="rounded-[2px] border border-line bg-surface p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-sm font-medium text-ink">{item.title}</p>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                {(item.details as Record<string, unknown>)?.kind ===
-                                  'ai_proposed' && (
-                                  <span className="label rounded-[2px] border border-line px-1.5 py-px text-[10px] font-semibold text-faint">
-                                    KI
-                                  </span>
-                                )}
-                                <DomainBadge domain={item.domain} track={item.track} />
-                              </div>
-                            </div>
-                            <Reasoning>{item.rationale.text}</Reasoning>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  )}
-                </section>
-              )
-            })}
+            <div className="flex flex-col gap-2">
+              {days.map((day) => (
+                <PlanDay
+                  key={day.weekday}
+                  weekday={day.weekday}
+                  date={day.date}
+                  items={day.items}
+                  commitments={plan.commitments}
+                  commitmentNotes={plan.commitmentNotes}
+                  position={day.position}
+                  onStatus={setStatus}
+                  onAnswer={answer}
+                  onAccept={accept}
+                />
+              ))}
+            </div>
 
             <Note>
               Der Plan ist eine Start-Hypothese, kein Urteil. Er verändert sich, sobald die App sieht,

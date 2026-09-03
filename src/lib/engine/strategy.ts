@@ -10,7 +10,9 @@ import { isExertion, weeklyMinutes } from './safety'
 import { buildContext, type PlanContext } from './context'
 import { planBaseline } from './baseline'
 import { strategyFor } from './archetypes'
-import { isOpenDomain, MAX_AUGMENT_ACTIONS, scheduleProposed, trainingDaysOf } from './proposed'
+import {
+  isOpenDomain, MAX_AUGMENT_ACTIONS, scheduleProposed, shapeOwnedDomains, trainingDaysOf,
+} from './proposed'
 import type {
   Assumption, BaselineTrack, GoalTrack, PlanDomain, PlanInput, PlannedItem, Rationale,
   WeekStrategy,
@@ -135,14 +137,29 @@ function withProposed(ctx: PlanContext, track: GoalTrack): GoalTrack {
     }
   }
 
+  // Two different things the model may do, and the difference is load.
+  //
+  // In a domain the archetype does not own it may add an action of its own. In
+  // a domain the archetype does own it may only say what the session already
+  // planned there actually is — same day, same duration, same count, so every
+  // limit still counts what it counted before. Without the second half, a
+  // body-composition goal could never show a single line the model wrote: it
+  // owns training, movement and nutrition, which is every domain a weight-loss
+  // proposal lands in.
   const open = proposal.actions.filter((a) => isOpenDomain(archetype, a.domain))
   const extra = scheduleProposed(ctx, open, MAX_AUGMENT_ACTIONS, trainingDaysOf(track.items))
-  if (extra.length === 0) return track
+  const { items: shapedItems, shaped } = shapeOwnedDomains(
+    track.items,
+    proposal.actions,
+    archetype,
+  )
+
+  if (extra.length === 0 && shaped === 0) return track
 
   ctx.rationale.push({ text: proposal.reasoning, basedOn: ['ai.proposal', 'goal.rawText'] })
   return {
     ...track,
-    items: [...track.items, ...extra],
+    items: [...shapedItems, ...extra],
     signature: { ...track.signature, source: 'engine+ai' },
   }
 }

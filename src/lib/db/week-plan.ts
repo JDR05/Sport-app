@@ -113,8 +113,12 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
     // Insights and zero in a week of twenty-five. The plan row says which it
     // is, so the check costs nothing on a week that already has them.
     if (existing.generatedBy === 'engine') {
-      const added = await adoptProposalIntoCurrentWeek(profileId, today)
-      if (added.added > 0) {
+      const result = await adoptProposalIntoCurrentWeek(profileId, today)
+      // Shaped counts as much as added. On a body-composition goal the model
+      // has no open domain to add to, so naming the sessions the engine
+      // planned is the *only* way its work reaches this week — and a refresh
+      // that ignored it would leave the old titles on screen until Monday.
+      if (result.added > 0 || result.shaped > 0) {
         const refreshed = await readWeek(profileId, weekStart, goalId)
         if (refreshed) return { ok: true, week: refreshed }
       }

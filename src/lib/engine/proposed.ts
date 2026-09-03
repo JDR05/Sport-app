@@ -71,6 +71,19 @@ const OWNED_DOMAINS: Record<GoalArchetype, readonly PlanDomain[]> = {
   general_health: [],
 }
 
+/**
+ * Whether the model wrote this line.
+ *
+ * Two kinds, one question. `ai_proposed` is an action the model added in a
+ * domain the archetype left open; `ai_shaped` is a session the archetype
+ * planned and the model named. Every screen that marks the model's
+ * contribution means both, and asking for one of them is the bug that made
+ * "Was die KI beiträgt" list three actions the plan showed none of.
+ */
+export function isAiAuthored(item: { details: Record<string, unknown> }): boolean {
+  return item.details?.kind === 'ai_proposed' || item.details?.kind === 'ai_shaped'
+}
+
 /** Whether a proposed action may be scheduled alongside this archetype. */
 export function isOpenDomain(archetype: GoalArchetype, domain: PlanDomain): boolean {
   return !OWNED_DOMAINS[archetype].includes(domain)
@@ -210,4 +223,87 @@ function resolveSlot(
   if (ctx.rules.preferredSlot) return slotOf(ctx.input, day, ctx.rules.preferredSlot)
   if (preferred !== 'any') return preferred
   return slotOf(ctx.input, day)
+}
+
+/**
+ * The model's words on the archetype's sessions.
+ *
+ * The hole this closes was the whole of "die KI versteckt alles". A
+ * body-composition goal owns training, movement and nutrition — every domain a
+ * weight-loss proposal naturally lands in — so on the real account all three
+ * proposed actions, including "45 Minuten Krafttraining im Gym", were filtered
+ * out before they were ever placed. Insights listed them under "Was die KI
+ * beiträgt"; the plan could not contain a single one of them, that week or any
+ * week. The app described a plan it was structurally unable to make.
+ *
+ * The restriction itself is right and stays: a proposal may not *add* load to a
+ * domain whose limits an archetype is counting. What it may do is say what the
+ * session already in the plan actually is. That is the split CLAUDE.md asks
+ * for — the code holds the limits, the model supplies the judgement:
+ *
+ *   * the archetype decides **that** there are two 45-minute sessions, on which
+ *     days, with which rest days between them;
+ *   * the model decides **what** they are — "45 Minuten Krafttraining im Gym"
+ *     rather than a generic session — and why they help this person.
+ *
+ * So nothing here may touch a day, a duration, a domain or a count. Every
+ * invariant counts exactly what it counted before, because the same items are
+ * still there in the same places. Only the title and the reasoning change.
+ *
+ * And only on sessions. An item without a duration is a standing rule or a
+ * computed target — a calorie corridor, a bedtime — and its title carries a
+ * number that safety depends on. **The model may name a session; it may never
+ * rewrite a value.**
+ */
+export function shapeOwnedDomains(
+  items: PlannedItem[],
+  actions: ProposedAction[],
+  archetype: GoalArchetype,
+): { items: PlannedItem[]; shaped: number } {
+  const shapeable = (item: PlannedItem) =>
+    item.track === 'goal' &&
+    item.cadence !== 'daily' &&
+    item.plannedDurationMin !== null &&
+    item.details.kind !== 'ai_proposed' &&
+    item.details.kind !== 'ai_shaped'
+
+  const next = [...items]
+  let shaped = 0
+
+  for (const action of actions) {
+    // Open domains are placed as actions of their own; this is only for the
+    // ones that would otherwise be dropped.
+    if (isOpenDomain(archetype, action.domain)) continue
+    if (action.minutes <= 0) continue
+
+    let left = action.timesPerWeek
+    for (let i = 0; i < next.length && left > 0; i++) {
+      const item = next[i]
+      if (item.domain !== action.domain || !shapeable(item)) continue
+
+      next[i] = {
+        ...item,
+        title: action.title,
+        rationale: {
+          text: action.reasoning,
+          // Both sources named, because both are true of this item: the model
+          // chose the words, the archetype chose the slot.
+          basedOn: [...item.rationale.basedOn, 'ai.proposal'],
+        },
+        details: {
+          ...item.details,
+          kind: 'ai_shaped',
+          // What the archetype called it, kept rather than overwritten. It is
+          // the evidence that the load is still the engine's — and without it
+          // a shaped item is indistinguishable from an invented one.
+          plannedAs: item.title,
+          ...(action.effect ? { effect: action.effect } : {}),
+        },
+      }
+      left--
+      shaped++
+    }
+  }
+
+  return { items: next, shaped }
 }

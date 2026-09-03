@@ -7,6 +7,84 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-03 — ADR-108: Der Plan öffnet beim heutigen Tag
+
+**Entscheidung:** Der Wochenplan zeigt sieben Zeilen. Aufgeklappt ist **der Tag, in dem man
+gerade ist**; alle anderen sind eine Zeile und lassen sich einzeln öffnen. Jeder Tag bis
+einschließlich heute bleibt beantwortbar, spätere Tage nicht.
+
+**Begründung:** „da möchte ich nicht allen bei Montag stehen, obwohl grad Donnerstag ist …
+und ich möcht nachhinein nachtragen können, dass ich gestern was nicht gemacht hab. Und da
+meine wirkliche Kontrolle haben."
+
+Der Screen zeichnete alle sieben Tage vollständig aus, immer ab Montag. An einem Donnerstag
+scrollt man damit an drei erledigten Tagen vorbei, bevor der eigene Tag kommt — und
+ausgerechnet die Tage davor, die als einzige noch korrigierbar sind, lagen am tiefsten.
+
+**Zugeklappt heißt nicht versteckt.** Die Zeile nennt weiter den festen Termin, die Aktionen,
+die Tagesregeln und den Stand (`2/4`). Ein eingeklappter Tag, der nur „Donnerstag" sagt, wäre
+eine schlechtere Wochenansicht als die Wand, die er ersetzt — deshalb ist das ein Test und
+kein Vorsatz.
+
+**Spätere Tage bleiben lesend.** Eine Aktion, die noch nicht stattgefunden hat, kann nicht
+„nicht geschafft" sein; die Antwort ginge als Verhalten in die Mustererkennung ein. Solange
+das Datum des Clients fehlt, gilt die ganze Woche als „später" — in beide Richtungen die
+sichere Lesart.
+
+---
+
+## 2026-09-03 — ADR-107: Die KI benennt die Einheit, der Code plant sie
+
+**Entscheidung:** Ein Vorschlag darf in einer Domain, die der Archetyp besitzt, **keine
+Aktion hinzufügen** — das bleibt so — aber er darf **sagen, was die dort geplante Einheit
+ist**. Tag, Dauer, Domain und Anzahl bleiben unverändert; nur Titel und Begründung wechseln.
+Markiert als `ai_shaped`, mit dem ursprünglichen Titel unter `plannedAs` daneben.
+
+**Begründung, und es ist die eigentliche Antwort auf eine alte Beschwerde.** Der Product Owner
+sagte: „es ist doch der Sinn der App, dass die KI alles plant und an mich anpasst, aber du hast
+es so gebaut, dass sie alles versteckt." Das war keine Anzeigefrage. Gemessen am echten Konto:
+
+| | |
+| --- | --- |
+| Ziel | „5 kg abnehmen" → Archetyp `body_composition` |
+| Vorschlag der KI | 3 Aktionen, u. a. „45 Minuten Krafttraining im Gym absolvieren" |
+| Domains der Aktionen | training, movement, nutrition |
+| Domains, die `body_composition` besitzt | **training, movement, nutrition** |
+| Aktionen, die den Plan erreichen konnten | **0** |
+
+`OWNED_DOMAINS` filterte jede einzelne heraus, bevor sie überhaupt platziert wurde. Insights
+listete sie unter „Was die KI beiträgt"; der Plan konnte keine davon enthalten — nicht diese
+Woche und keine andere. Die App beschrieb einen Plan, den zu bauen sie strukturell außerstande
+war.
+
+**Warum die Sperre trotzdem richtig bleibt.** Sie verhindert, dass ein Vorschlag *Last* in eine
+Domain schiebt, deren Grenzen ein Archetyp zählt — Ruhetage, Wochenkilometer, „eine Änderung
+zur Zeit". Das ist keine Stilfrage, das sind die Invarianten.
+
+**Die Aufteilung ist genau die aus CLAUDE.md** („Keine Nachschlagetabellen über Menschen"):
+
+- **Der Code hält die Grenzen:** dass es zwei Einheiten à 45 Minuten gibt, an welchen Tagen,
+  mit welchem Abstand.
+- **Die KI ordnet ein:** was diese Einheiten *sind* — „45 Minuten Krafttraining im Gym" statt
+  einer generischen Einheit — und warum das dieser Person hilft.
+
+Jede Invariante zählt danach exakt dieselben Items an denselben Stellen. Der Test dazu ist die
+stärkste Aussage, die dieses Design machen kann: die Struktursignatur eines geformten Plans
+ist **identisch** mit der des ungeformten. Weicht sie irgendwo ab, wurde eine Grenze verschoben.
+
+**Eine harte Grenze innerhalb der Grenze:** geformt werden nur *Einheiten*. Ein Item ohne
+Dauer ist eine Tagesregel oder ein berechneter Zielwert — ein Kalorienkorridor, eine
+Schlafenszeit — und sein Titel trägt eine Zahl, an der die Sicherheit hängt. **Die KI darf eine
+Einheit benennen; einen Wert darf sie nie umschreiben.**
+
+**Und in der laufenden Woche.** Das Umbenennen greift auch in eine bereits geschriebene Woche,
+was ADR-037 sonst untersagt. Die Regel dort existiert, damit ein Plan sich nicht unter jemandem
+umschreibt — Tage verschiebt, abgehakte Aktionen entfernt. Hier wird nichts verschoben und
+nichts entfernt: vergangene Tage und bereits beantwortete Aktionen bleiben unberührt, weil ein
+nachträglicher Titel ändern würde, worauf die Person geantwortet hat.
+
+---
+
 ## 2026-09-03 — ADR-106: Eine Woche, die heute anfängt — nicht am Montag
 
 **Entscheidung:** Die Engine plant nur noch auf Tage, die die Woche **noch hat**. `PlanContext`
