@@ -6,6 +6,7 @@ import { ActionItem } from '@/components/ActionItem'
 import { AskCard } from '@/components/AskCard'
 import { CheckInCard } from '@/components/CheckInCard'
 import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
+import { FollowUpCard } from '@/components/FollowUpCard'
 import { ImpulseCard } from '@/components/ImpulseCard'
 import { DailyRules } from '@/components/DailyRules'
 import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
@@ -68,6 +69,12 @@ export default function TodayPage() {
                 did not know. Under the list it would be a footnote; tomorrow
                 it is gone from here and lives on Insights. */}
             <ImpulseCard today={today} />
+
+            {/* The app asking, rather than waiting to be asked. Above the
+                actions, because a question that arrives under the list is a
+                question nobody answers — and at most one exists at a time, by
+                a unique index rather than by good intentions. */}
+            <FollowUpCard today={today} />
 
             {(all.length > 0 || fixed.length > 0) && (
               <div className="mb-2.5 flex items-baseline justify-between">

@@ -26,7 +26,8 @@ import {
   classifyTask, classifyUserMessage, knownFields, proposeTask, proposeUserMessage,
   questionsTask, questionsUserMessage, stripCodeFence,
   weeklyNoteTask, weeklyNoteUserMessage, askTask, askUserMessage,
-  type AiTask, type AskContext, type WeeklyNoteContext,
+  followUpTask, followUpUserMessage,
+  type AiTask, type AskContext, type FollowUpContext, type WeeklyNoteContext,
 } from './tasks'
 import { logAiFailure } from './log'
 import type { AiAdapter, AiResult } from './types'
@@ -86,6 +87,14 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
 
   async ask(context: AskContext): Promise<AiResult<AskAnswer>> {
     return this.call(askTask, this.config.proposeModel, askUserMessage(context))
+  }
+
+  async followUp(context: FollowUpContext): Promise<AiResult<IntakeQuestions>> {
+    return this.call(
+      followUpTask(context.known),
+      this.config.proposeModel,
+      followUpUserMessage(context),
+    )
   }
 
   /**

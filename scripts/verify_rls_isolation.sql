@@ -1,4 +1,4 @@
--- Two users, fourteen tables, read and write.
+-- Two users, fifteen tables, read and write.
 --
 -- verify_schema.sql proves the policies exist. This proves they *hold* — that
 -- one person cannot reach another's health data by any route the database
@@ -88,6 +88,10 @@ insert into public.ai_questions (profile_id, asked_on, question, can_answer, ans
   ('aaaaaaaa-0000-4000-8000-000000000001','2026-09-09','Frage A',true,'Antwort A','["item.a"]','test'),
   ('bbbbbbbb-0000-4000-8000-000000000002','2026-09-09','Frage B',true,'Antwort B','["item.b"]','test');
 
+insert into public.app_questions (profile_id, asked_on, question, why, options, source) values
+  ('aaaaaaaa-0000-4000-8000-000000000001','2026-09-16','Frage der App an A','Weil A.','[]','test'),
+  ('bbbbbbbb-0000-4000-8000-000000000002','2026-09-16','Frage der App an B','Weil B.','[]','test');
+
 create temp table ergebnis (nr int, pruefung text, ausgang text, erwartet text);
 grant all on ergebnis to authenticated, anon;
 
@@ -118,7 +122,11 @@ insert into ergebnis values
   -- beschaeftigt. Der Text selbst wird geprueft, nicht nur die Zeilenzahl.
   (39,'A sieht Fragen B', (select count(*) from public.ai_questions where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
   (40,'A sieht Bs Fragetext', (select coalesce(string_agg(question,','),'nichts') from public.ai_questions where question = 'Frage B'), 'nichts'),
-  (41,'Gegenprobe: A sieht eigene Fragen', (select count(*) from public.ai_questions where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1');
+  (41,'Gegenprobe: A sieht eigene Fragen', (select count(*) from public.ai_questions where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1'),
+  -- Was die App fragt, verraet ebenso viel wie die Antwort: eine Frage nach
+  -- dem Dienstagabend ist eine Aussage darueber, was bei jemandem ausfaellt.
+  (44,'A sieht App-Fragen an B', (select count(*) from public.app_questions where profile_id = 'bbbbbbbb-0000-4000-8000-000000000002')::text, '0'),
+  (45,'Gegenprobe: A sieht eigene App-Fragen', (select count(*) from public.app_questions where profile_id = 'aaaaaaaa-0000-4000-8000-000000000001')::text, '1');
 
 -- ------------------------------------------------------------ A schreibt --
 do $$
@@ -237,6 +245,7 @@ insert into ergebnis select 30,'Anonym sieht Aktionen', count(*)::text, '0' from
 insert into ergebnis select 31,'Anonym sieht Messungen', count(*)::text, '0' from public.measurements;
 insert into ergebnis select 36,'Anonym sieht Wochenimpulse', count(*)::text, '0' from public.weekly_notes;
 insert into ergebnis select 42,'Anonym sieht Fragen', count(*)::text, '0' from public.ai_questions;
+insert into ergebnis select 46,'Anonym sieht App-Fragen', count(*)::text, '0' from public.app_questions;
 
 reset role;
 select nr, pruefung, ausgang, erwartet,

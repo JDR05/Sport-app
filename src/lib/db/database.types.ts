@@ -23,6 +23,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_questions: {
+        Row: {
+          answer: string | null
+          answered_on: string | null
+          asked_on: string
+          created_at: string
+          id: string
+          options: Json
+          profile_id: string
+          question: string
+          skipped: boolean
+          source: string
+          why: string
+        }
+        Insert: {
+          answer?: string | null
+          answered_on?: string | null
+          asked_on: string
+          created_at?: string
+          id?: string
+          options?: Json
+          profile_id: string
+          question: string
+          skipped?: boolean
+          source: string
+          why: string
+        }
+        Update: {
+          answer?: string | null
+          answered_on?: string | null
+          asked_on?: string
+          created_at?: string
+          id?: string
+          options?: Json
+          profile_id?: string
+          question?: string
+          skipped?: boolean
+          source?: string
+          why?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_questions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_questions: {
         Row: {
           answer: string

@@ -5,7 +5,7 @@
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
 import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
-import type { AskContext, WeeklyNoteContext } from './tasks'
+import type { AskContext, FollowUpContext, WeeklyNoteContext } from './tasks'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** Never throws. A failed call is a value, so callers cannot forget to handle it. */
@@ -84,6 +84,18 @@ export interface AiAdapter {
    * be asked.
    */
   ask(context: AskContext): Promise<AiResult<AskAnswer>>
+  /**
+   * The app asking, weeks after the intake, about the week that actually
+   * happened.
+   *
+   * Distinct from `askQuestions`, which asks what is missing from a *form*
+   * before the first plan exists. This one asks what is missing from a *life*,
+   * and has the evidence to do it: the reasons the person gave, what they
+   * missed, the notes they wrote. Same ceiling as everything else here — no
+   * deterministic stand-in, because a fixed list of questions asked of
+   * everybody is a form, which is the thing this is the opposite of.
+   */
+  followUp(context: FollowUpContext): Promise<AiResult<IntakeQuestions>>
 }
 
 export type AiConfig = {

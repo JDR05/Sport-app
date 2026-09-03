@@ -7,6 +7,56 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-100: Die App fragt von sich aus — eine Frage, höchstens eine offene
+
+**Entscheidung:** Die App stellt **selbst** Fragen über den echten Alltag, auf **Heute**, mit
+antippbaren Antworten. Höchstens **eine offene Frage** gleichzeitig, **drei Tage** Abstand,
+**eine pro Woche**, und erst ab drei Tagen mit echten Daten. Die Antwort wandert in die
+`intake_answers` des Ziels — also in genau das, woraus der Plan gebaut wird. Überspringen ist
+eine echte Antwort und wird als solche gespeichert.
+
+**Begründung:** Bis hierhin fragte das Modell **einmal**, nach dem Onboarding, vor dem ersten
+Plan (ADR-084) — und danach nie wieder. Alles Weitere musste es aus Häkchen erschließen. Der
+tatsächliche Alltag eines Menschen erreichte die App also nur, wenn er von selbst darauf kam,
+ihn einzutippen:
+
+> „Das stört mich so arg, dass man alles selber aus dem Arsch ziehen muss und das eingeben
+> muss. Das ist so anstrengend. Er soll einfach Fragen stellen."
+
+**Warum die Latte höher liegt als beim Onboarding, nicht tiefer:** Das Modell sieht hier
+mehr — was passiert ist, welche Gründe die Person selbst angetippt hat (ADR-095), ihre festen
+Termine (ADR-099), ihre Notizen. Eine Frage, die man **auch vorher schon** hätte stellen
+können, ist in Woche drei keine gute Frage mehr, sondern ein nachgereichtes Formularfeld.
+
+**Drei Grenzen, jede dort, wo man sie nicht vergessen kann:**
+
+| Grenze | Wo sie steht |
+| --- | --- |
+| Höchstens eine offene Frage, jemals | Partieller Unique-Index in Postgres |
+| Drei Tage Abstand, eine pro Woche | `mayAskFollowUp` — rein, deterministisch, vor jedem Aufruf |
+| Nichts fragen, was das Onboarding weiß | `checkQuestions` — **dasselbe** Gatter wie der Intake |
+
+Das dritte ist der Grund, warum es **kein zweites Sicherheitsgatter** gibt: eine Frage nach
+Medikamenten wird identisch abgewiesen, ob sie an Tag eins oder in Woche fünf kommt. Neu ist
+nur die Obergrenze von einer Frage — wer mitten in der Woche steckt, füllt kein Formular aus
+und arbeitet keine drei Fragen ab.
+
+**Ein Detail, das ein Test gefunden hat:** Der Abstand wird **vorzeichenbehaftet** gerechnet.
+Eine Frage mit einem Datum in der Zukunft heißt, dass die Uhr zurückgestellt wurde — ein Gerät
+mit falschem Datum, ein Zeitzonenwechsel. Der Betrag hätte diese Verwirrung als lange Stille
+gelesen und sofort wieder gefragt; das Vorzeichen wartet ab und heilt sich selbst, sobald der
+Kalender aufholt.
+
+**Ohne Modell erscheint nichts.** Eine feste Frage, die in Woche drei allen dieselbe ist, ist
+kein Interesse an einem Menschen, sondern eine Umfrage mit Verzögerung.
+
+**Geprüft:** 18 Tests auf Gatter, Obergrenze und Kontext; sechs Prüfungen gegen das echte
+Projekt (eine zweite offene Frage wird abgewiesen, eine halb aufgelöste Zeile ebenfalls, beide
+echten Auflösungen gehen durch und geben den Platz frei), dazu vier RLS-Prüfungen — was die App
+fragt, verrät ebenso viel wie die Antwort. Jede mit Kontrollzeile.
+
+---
+
 ## 2026-09-02 — ADR-098: Die App bringt ihre eigene Ziehen-zum-Aktualisieren-Geste mit
 
 **Entscheidung:** Runterziehen lädt neu — mit einer eigenen Geste, die die Daten **an Ort und

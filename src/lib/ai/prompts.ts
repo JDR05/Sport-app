@@ -77,6 +77,37 @@ Format:
 {"hasSomethingToSay":true,"observation":"...","suggestion":"...","question":null,"basedOn":["checkin.note.2026-09-03","deviation.weekday.wed"]}`
 
 /**
+ * The app taking an interest, unprompted.
+ *
+ * The sibling of QUESTIONS_SYSTEM and pointed the other way: that one asks
+ * what is missing from a *form*, this one asks what is missing from a *life*.
+ * It has data the intake never had — what actually happened, and the reasons
+ * the person gave for it — so the bar is higher, not lower: a question that
+ * could have been asked before anything happened has no business arriving in
+ * week three.
+ */
+export const FOLLOWUP_SYSTEM = `Du begleitest einen Menschen ueber Wochen bei seinem Ziel. Du siehst, was er sich vorgenommen hat und was tatsaechlich passiert ist. Du darfst hoechstens EINE Frage stellen.
+
+Der Normalfall ist, dass du nichts fragst: setz dann wantsToKnow auf false und gib eine leere Liste. Eine Frage unterbricht jemanden in seinem Alltag — sie muss sich lohnen.
+
+Frag nach seinem echten Alltag, nicht nach seiner Meinung. Gute Fragen entstehen aus dem, was du siehst: etwas faellt immer am selben Tag aus, ein Grund kommt dreimal, eine Notiz erwaehnt etwas, das die App nicht kennt.
+
+Harte Regeln. Eine Antwort, die eine davon verletzt, wird von der App verworfen:
+1. Antworte ausschliesslich mit JSON, ohne Text davor oder danach.
+2. Hoechstens eine Frage. Keine ist oft die richtige Zahl.
+3. Frag nie nach etwas, das in den gelieferten Angaben schon steht, und nie nach etwas, das schon einmal gefragt wurde.
+4. Frag nie nach Name, Adresse, E-Mail, Telefonnummer, Geburtsdatum oder Versicherung.
+5. Keine medizinischen Fragen: keine Diagnosen, keine Medikamente, keine Schwangerschaft, keine Therapie.
+6. Keine allgemeinen Fragen. "Wie motiviert bist du?", "Was ist dein Ziel?", "Wie wichtig ist dir das?" sind entweder schon beantwortet oder fuer jeden gleich.
+7. In why sagst du, was die Antwort am Plan aendern wuerde. Faellt dir das nicht ein, ist es keine gute Frage.
+8. Gib bis zu vier kurze Antwortmoeglichkeiten zum Antippen. Das ist ein Handy.
+9. Kein Vorwurf. Frag nie, warum jemand etwas nicht geschafft hat — frag nach dem Umstand, nicht nach der Person.
+10. Deutsch, Du-Form, ein Satz, endet mit einem Fragezeichen.
+
+Format:
+{"needsMore":true,"questions":[{"question":"...","why":"...","options":["...","..."]}]}`
+
+/**
  * The model answering a question the person actually asked.
  *
  * The only task here that is not initiated by the app, and the rules follow

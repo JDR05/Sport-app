@@ -26,6 +26,8 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/(app)/actions', () => ({
   loadAskState: async () => ({ available: false, history: [], suggestions: [], exhausted: null }),
   loadTodaysImpulse: async () => null,
+  loadFollowUp: async () => null,
+  submitFollowUp: async () => ({ ok: true }),
   submitQuestion: async () => ({ ok: false, reason: 'invalid', message: 'x' }),
   setAiConsent: async () => ({ granted: true, at: null, outdated: false }),
   startAiForGoal: async () => ({ questions: [], reclassified: null, failure: null, detail: null }),
@@ -40,6 +42,7 @@ const { IntakeQuestionsStep } = await import('@/app/onboarding/IntakeQuestionsSt
 const { ActionItem } = await import('@/components/ActionItem')
 const { AskView } = await import('@/components/AskCard')
 const { ImpulseView } = await import('@/components/ImpulseCard')
+const { FollowUpView } = await import('@/components/FollowUpCard')
 
 const PROPOSAL = {
   headline: 'Drei Anker, die an deinen Abend passen',
@@ -403,6 +406,49 @@ describe('the impulse card', () => {
   })
 })
 
+const QUESTION = {
+  id: 'q1',
+  question: 'Wann bist du dienstags abends normalerweise zu Hause?',
+  why: 'Danach richtet sich, ob die Einheit dienstags früher liegen muss.',
+  options: ['Vor 18 Uhr', 'Gegen 19 Uhr', 'Nach 20 Uhr'],
+  askedOn: '2026-09-16',
+}
+
+describe('the app asking something', () => {
+  it('shows what the answer would change, not just the question', () => {
+    // A question whose purpose is invisible reads as a form, and a form is the
+    // one thing this app may not feel like.
+    const html = render(<FollowUpView question={QUESTION} today="2026-09-16" onDone={() => {}} />)
+    expect(html).toContain('dienstags abends')
+    expect(html).toContain('früher liegen muss')
+  })
+
+  it('offers taps before it offers typing', () => {
+    const html = render(<FollowUpView question={QUESTION} today="2026-09-16" onDone={() => {}} />)
+    expect(html).toContain('Gegen 19 Uhr')
+    expect(html).toContain('Oder in eigenen Worten')
+  })
+
+  it('always offers a way out', () => {
+    // Skipping is a real answer and is stored as one, so the app does not come
+    // back next week as though it never asked.
+    const html = render(<FollowUpView question={QUESTION} today="2026-09-16" onDone={() => {}} />)
+    expect(html).toContain('Überspringen')
+  })
+
+  it('still works when the model offered nothing to tap', () => {
+    const html = render(
+      <FollowUpView
+        question={{ ...QUESTION, options: [] }}
+        today="2026-09-16"
+        onDone={() => {}}
+      />,
+    )
+    expect(html).toContain('Oder in eigenen Worten')
+    expect(html).toContain('Überspringen')
+  })
+})
+
 describe('the design rules these screens must not break', () => {
   const everything = [
     render(<InsightsView data={insights()} />),
@@ -417,6 +463,7 @@ describe('the design rules these screens must not break', () => {
     ),
     render(<AskView state={ASK_STATE} today="2026-09-09" />),
     render(<ImpulseView impulse={IMPULSE} />),
+    render(<FollowUpView question={QUESTION} today="2026-09-16" onDone={() => {}} />),
   ].join('\n')
 
   it('actually rendered something', () => {

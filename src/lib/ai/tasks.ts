@@ -13,7 +13,7 @@
 
 import { askAnswerSchema, goalClassificationSchema, intakeQuestionsSchema, planProposalSchema, weeklyNoteSchema } from './schemas'
 import { checkAnswer, checkClassification, checkProposal, checkQuestions, checkWeeklyNote } from './validate'
-import { ASK_SYSTEM, CLASSIFY_SYSTEM, PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
+import { ASK_SYSTEM, CLASSIFY_SYSTEM, FOLLOWUP_SYSTEM, PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM } from './prompts'
 import type { AskAnswer, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -87,6 +87,102 @@ export const weeklyNoteTask: AiTask<WeeklyNote> = {
     }
     return { ok: true, value: parsed.data }
   },
+}
+
+/**
+ * The app asking, weeks after the intake.
+ *
+ * Shares `checkQuestions` with the intake step rather than growing a second
+ * gate, and that is the same reasoning this whole file exists for: a question
+ * that asks after somebody's medication is refused identically whether it
+ * arrives on day one or in week five. The only thing this adds is the ceiling
+ * of one — a person mid-week is not filling in a form and will not work
+ * through three.
+ */
+export function followUpTask(known: string[]): AiTask<IntakeQuestions> {
+  const gate = questionsTask(known)
+  return {
+    ...gate,
+    name: 'follow-up',
+    system: FOLLOWUP_SYSTEM,
+    maxTokens: 1200,
+    parse: (json) => {
+      const parsed = gate.parse(json)
+      if (!parsed.ok) return parsed
+      if (parsed.value.questions.length > 1) {
+        return {
+          ok: false,
+          detail: `asked ${parsed.value.questions.length} questions where one is the ceiling`,
+          implausible: true,
+        }
+      }
+      return parsed
+    },
+  }
+}
+
+/**
+ * What the app knows when it decides whether to ask something.
+ *
+ * The intake step sees a form. This sees a life: what was planned, what
+ * happened, the reasons the person gave, and the fixed points of their week.
+ * That is why the bar is higher rather than lower — a question that could have
+ * been asked before anything happened has no business arriving in week three.
+ */
+export type FollowUpContext = {
+  goalText: string
+  archetype: string
+  /** Fields the intake already has. The gate refuses a question about these. */
+  known: string[]
+  /** Fields nobody filled in. */
+  open: string[]
+  completion: Array<{ domain: string; done: number; resolved: number }>
+  /** Reasons the person gave themselves, tallied. */
+  reasons: string[]
+  deviations: string[]
+  /** The week they already had: football, the late shift, the lecture. */
+  commitments: string[]
+  notes: Array<{ date: string; text: string }>
+  /** Everything the app has asked before, so it cannot ask it twice. */
+  alreadyAsked: string[]
+}
+
+export function followUpUserMessage(ctx: FollowUpContext): string {
+  const lines = [
+    `Ziel: ${ctx.goalText} (eingeordnet als ${ctx.archetype})`,
+    '',
+    'Umsetzung nach Bereich:',
+    ...(ctx.completion.length > 0
+      ? ctx.completion.map((c) => `- ${c.domain}: ${c.done} von ${c.resolved} bewerteten Aktionen`)
+      : ['- noch nichts bewertet']),
+  ]
+
+  if (ctx.reasons.length > 0) {
+    lines.push('', 'Gründe, die er selbst angegeben hat (keine Vermutung):',
+      ...ctx.reasons.map((r) => `- ${r}`))
+  }
+  if (ctx.deviations.length > 0) {
+    lines.push('', 'Muster, die die App erkannt hat:', ...ctx.deviations.map((d) => `- ${d}`))
+  }
+  if (ctx.commitments.length > 0) {
+    lines.push('', 'Feste Termine, die die App schon kennt:', ...ctx.commitments.map((c) => `- ${c}`))
+  }
+  if (ctx.notes.length > 0) {
+    lines.push('', 'Eigene Notizen:', ...ctx.notes.map((n) => `- ${n.date}: ${n.text}`))
+  }
+
+  lines.push('', ctx.open.length > 0
+    ? `Aus dem Onboarding offen geblieben ist: ${ctx.open.join(', ')}.`
+    : 'Aus dem Onboarding ist nichts offen geblieben.')
+  lines.push(`Bekannt ist bereits: ${ctx.known.join(', ') || 'nichts'}.`)
+
+  if (ctx.alreadyAsked.length > 0) {
+    lines.push('', 'Das hat die App schon einmal gefragt — frag nichts davon noch einmal:',
+      ...ctx.alreadyAsked.map((q) => `- ${q}`))
+  }
+
+  lines.push('', 'Gibt es genau eine Sache, die du über seinen Alltag wissen müsstest, um besser zu planen? Wenn nicht, sag das — needsMore false, leere Liste.')
+  return lines.join('\n')
 }
 
 export const askTask: AiTask<AskAnswer> = {

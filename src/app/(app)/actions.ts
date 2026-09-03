@@ -26,6 +26,7 @@ import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
 import { ensureWeeklyNote, type WeeklyNote } from '@/lib/db/weekly-note'
 import { loadCommitments, saveCommitments } from '@/lib/db/commitments'
+import { answerFollowUp, ensureFollowUp, type OpenQuestion } from '@/lib/db/followup'
 import { commitmentSchema } from '@/lib/db/schemas'
 import type { Commitment } from '@/lib/domain/types'
 import { QUESTION_MAX_CHARS } from '@/lib/ai/ask'
@@ -245,6 +246,53 @@ export async function acceptReaction(
   if (!id.success || !day.success) return { ok: false, applied: null }
 
   return applyOffer(user.id, id.data, day.data)
+}
+
+// -------------------------------------------------- the app asking something ---
+
+/**
+ * The question the app would like answered, asking a new one if it may.
+ *
+ * Called from Today, from the client, after the screen has rendered — the same
+ * shape as the impulse and for the same reason: this can cost a model call of
+ * twenty seconds, and Today is the screen people open first.
+ *
+ * Most calls return null after three small counts, because most days the
+ * honest answer is that there is nothing worth interrupting somebody for.
+ */
+export async function loadFollowUp(today: unknown): Promise<OpenQuestion | null> {
+  const user = await requireUser()
+
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) return null
+
+  return ensureFollowUp(user.id, parsed.data)
+}
+
+/**
+ * Answers it, or skips it.
+ *
+ * A skip is a real answer and is stored as one: "was asked, chose not to say"
+ * is information, and losing it would let the app ask the same thing again
+ * next week as though it never had.
+ */
+export async function submitFollowUp(
+  questionId: unknown,
+  answer: unknown,
+  today: unknown,
+): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+
+  const id = z.uuid().safeParse(questionId)
+  const text = z.string().max(300).nullable().safeParse(answer)
+  const day = isoDate.safeParse(today)
+  if (!id.success || !text.success || !day.success) return { ok: false }
+
+  const result = await answerFollowUp(user.id, id.data, text.data, day.data)
+  // The answer joins what the plan is built from, and several screens read
+  // that on the server.
+  if (result.ok) revalidatePath('/', 'layout')
+  return result
 }
 
 // -------------------------------------------------------------- commitments ---

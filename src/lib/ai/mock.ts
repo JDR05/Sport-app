@@ -99,6 +99,16 @@ export class MockAdapter implements AiAdapter {
   async ask(): Promise<AiResult<AskAnswer>> {
     return { ok: false, reason: 'no_api_key', detail: 'answering a free question needs a model' }
   }
+
+  /**
+   * Asks nothing, deliberately, and for the sharpest version of the reason the
+   * intake step already gives: a fixed question asked of everybody in week
+   * three is not the app taking an interest in one person, it is a survey with
+   * a delay on it.
+   */
+  async followUp(): Promise<AiResult<IntakeQuestions>> {
+    return { ok: false, reason: 'no_api_key', detail: 'a fixed question is a survey, not interest' }
+  }
 }
 
 /** Proves the product is usable with no AI at all. Used by the QA gate. */
@@ -137,6 +147,9 @@ export class NullAdapter implements AiAdapter {
   async ask(): Promise<AiResult<AskAnswer>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
+  async followUp(): Promise<AiResult<IntakeQuestions>> {
+    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
+  }
 }
 
 /**
@@ -168,6 +181,9 @@ export class WithheldAdapter implements AiAdapter {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
   async ask(): Promise<AiResult<AskAnswer>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async followUp(): Promise<AiResult<IntakeQuestions>> {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
 }
