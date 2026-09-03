@@ -19,7 +19,7 @@ import { formatGermanDateShort } from '@/lib/engine/dates'
 import { GOALS, makeInput, PROFILES, TODAY } from './fixtures/profiles'
 import type { NamedGoal } from './fixtures/profiles'
 
-const YESTERDAY = '2026-08-18'
+const YESTERDAY = '2026-08-16'
 const LAST_YEAR = '2025-11-14'
 
 describe('horizonFor', () => {

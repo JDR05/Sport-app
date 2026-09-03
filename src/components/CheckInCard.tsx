@@ -16,7 +16,7 @@
 // training can leave someone tired and content at once, and a plan that read
 // those as one number would draw the wrong conclusion from both.
 
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getCheckIns, submitCheckIn } from '@/app/(app)/actions'
 import { Card, SectionHeading } from '@/components/ui'
@@ -73,12 +73,9 @@ const EMPTY: Values = {
 export function CheckInCard({
   today,
   archetype,
-  bare = false,
 }: {
   today: string
   archetype: GoalArchetype
-  /** Rendered inside a disclosure that already supplies the frame. */
-  bare?: boolean
 }) {
   const [values, setValues] = useState<Values>(EMPTY)
   const [note, setNote] = useState('')
@@ -134,13 +131,8 @@ export function CheckInCard({
   const fields = checkInFields(archetype)
   const asks = (field: CheckInField) => fields.includes(field)
 
-  // `bare` drops the heading and the card, for the days this lives inside a
-  // disclosure that already has both. A card inside a card with the same title
-  // twice is how a screen stops looking like one app.
-  const Shell = bare ? Fragment : Framed
-
   return (
-    <Shell>
+    <Framed>
         <div className="flex flex-col gap-4">
           {asks('energy') && (
             <Scale
@@ -230,7 +222,7 @@ export function CheckInCard({
             ? 'Gespeichert.'
             : 'Alles freiwillig. Ein Tag ohne Eintrag zählt nie als schlechter Tag.'}
         </p>
-    </Shell>
+    </Framed>
   )
 }
 

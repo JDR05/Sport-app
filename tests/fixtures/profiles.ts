@@ -22,7 +22,20 @@ import type {
   Weekday,
 } from '@/lib/domain/types'
 
-export const TODAY = '2026-08-19'
+/**
+ * A Monday, deliberately.
+ *
+ * It used to be a Wednesday, which was incidental and quietly weakened every
+ * test in the suite: since the engine now plans only the days a week still
+ * has (ADR-106), a Wednesday fixture exercised five-day weeks while every
+ * test around it was written to describe a whole one — including the
+ * personalisation gate, whose whole job is to see the difference between ten
+ * people across a full week.
+ *
+ * The mid-week case is real and is tested on purpose, in
+ * engine.partialWeek.test.ts, rather than by accident everywhere.
+ */
+export const TODAY = '2026-08-17'
 
 function slots(spec: Array<[Weekday, string, number]>): FreeSlot[] {
   return spec.map(([weekday, start, minutes]) => ({ weekday, start, minutes }))

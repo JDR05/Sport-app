@@ -23,7 +23,7 @@
 // Hidden entirely when no model can answer. An input box that replies "das
 // weiß ich nicht" to everything is worse than no input box.
 
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { loadAskState, submitQuestion } from '@/app/(app)/actions'
 import { Card, SectionHeading } from '@/components/ui'
@@ -39,7 +39,7 @@ import type { AskState, Exchange } from '@/lib/db/ask'
  * simply never appears, which is the right amount of explanation for a feature
  * that is not there.
  */
-export function AskCard({ today, bare = false }: { today: string; bare?: boolean }) {
+export function AskCard({ today }: { today: string }) {
   const [state, setState] = useState<AskState | null>(null)
 
   useEffect(() => {
@@ -59,20 +59,11 @@ export function AskCard({ today, bare = false }: { today: string; bare?: boolean
   }, [today])
 
   if (!state) return null
-  return <AskView state={state} today={today} bare={bare} />
+  return <AskView state={state} today={today} />
 }
 
 /** The card itself, given its state. Separate so it can be rendered in a test. */
-export function AskView({
-  state,
-  today,
-  bare = false,
-}: {
-  state: AskState
-  today: string
-  /** Rendered inside a disclosure that already supplies heading and frame. */
-  bare?: boolean
-}) {
+export function AskView({ state, today }: { state: AskState; today: string }) {
   const [history, setHistory] = useState<Exchange[]>(state.history)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -103,10 +94,8 @@ export function AskView({
     setDraft('')
   }
 
-  const Shell = bare ? Fragment : Framed
-
   return (
-    <Shell>
+    <Framed>
         {history.length === 0 && (
           <p className="text-sm leading-relaxed text-muted">
             Frag mich etwas zu deinem Plan, deiner Woche oder deinem Ziel. Ich antworte aus
@@ -182,7 +171,7 @@ export function AskView({
         )}
 
         {error && <p className="mt-2 text-sm leading-relaxed text-muted">{error}</p>}
-    </Shell>
+    </Framed>
   )
 }
 

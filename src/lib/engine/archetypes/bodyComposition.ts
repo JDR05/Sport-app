@@ -17,6 +17,7 @@ import {
   MIN_VIABLE_SESSION_MINUTES,
   FALLBACK,
 } from '../constants'
+import { sportSessionsPerWeek } from '../commitments'
 import { addDays, daysBetween, formatGermanDate } from '../dates'
 import { computeEnergy, intakeFloor, targetIntake } from '../energy'
 import { PlanInvariantError } from '../errors'
@@ -254,11 +255,19 @@ export const bodyComposition: ArchetypeStrategy = {
       )
     }
 
+    // The same number the plan ate for, which is the week's *real* training
+    // load — the sessions this app planned plus the ones the person already
+    // has. Reading only the planned half made the check disagree with the plan
+    // it was checking: a week with three football evenings and no room left
+    // for a gym session came out as "zero training", the daily need dropped
+    // with it, and a deficit the plan had computed correctly was refused as
+    // too large. The person got "Plan nicht möglich" for training a lot.
     const energy = computeEnergy({
       profile: input.profile,
       schedule: input.schedule,
       today: input.today,
-      sessionsPerWeek: Number(track.summary[0]?.match(/^(\d+)/)?.[1] ?? 0),
+      sessionsPerWeek: sportSessionsPerWeek(input.schedule.commitments)
+        + Number(track.summary[0]?.match(/^(\d+)/)?.[1] ?? 0),
     })
     const deficit = Number(track.summary[1]?.match(/−(\d+)/)?.[1] ?? 0)
     if (deficit > energy.dailyNeedKcal * MAX_DEFICIT_SHARE + 1) {

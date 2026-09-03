@@ -10,7 +10,6 @@ import { FollowUpCard } from '@/components/FollowUpCard'
 import { ImpulseCard } from '@/components/ImpulseCard'
 import { DailyRules } from '@/components/DailyRules'
 import { Card, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
-import { Disclosure } from '@/components/Disclosure'
 import { formatGermanDate, weekdayOf } from '@/lib/engine/dates'
 
 const WEEKDAY_LONG: Record<string, string> = {
@@ -117,12 +116,13 @@ export default function TodayPage() {
               </div>
             )}
 
-            {/* Standing rules, folded. They repeat every single day, so they
-                are the last thing that needs to be re-read every single day. */}
+            {/* Standing rules. Already one card with one ring and its own
+                disclosure inside — wrapping it in a second one produced the
+                "Jeden Tag" inside "Jeden Tag" the screenshot showed. */}
             {rules.length > 0 && (
-              <Disclosure label="Jeden Tag" hint={`${rules.length}`}>
+              <div className="mt-3">
                 <DailyRules items={rules} onStatus={setStatus} />
-              </Disclosure>
+              </div>
             )}
 
             {/* Below the actions from here down, and each one line.
@@ -134,13 +134,13 @@ export default function TodayPage() {
             <ImpulseCard today={today} />
             <FollowUpCard today={today} />
 
-            <Disclosure label="Wie war der Tag?" hint="Check-in">
-              <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} bare />
-            </Disclosure>
-
-            <Disclosure label="Frag nach" hint="zu deinem Plan">
-              <AskCard today={today} bare />
-            </Disclosure>
+            {/* Both render nothing until they have their data, and both were
+                folded behind a line — which left two empty bordered boxes on
+                screen, the ones in the screenshot. A card that draws itself
+                only when it has something to say does not need a wrapper that
+                draws itself regardless. */}
+            <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />
+            <AskCard today={today} />
           </Screen>
         )
       }}

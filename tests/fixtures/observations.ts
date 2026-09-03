@@ -7,7 +7,7 @@ import { addDays } from '@/lib/engine/dates'
 import { WEEKDAYS, type PlanDomain, type PlanItemStatus, type TimeSlot, type Weekday } from '@/lib/domain/types'
 import type { Observation } from '@/lib/adaptive'
 
-/** Mondays. TODAY in the profile fixtures is Wednesday 2026-08-19. */
+/** Mondays. TODAY in the profile fixtures is Monday 2026-08-17. */
 export const WEEK_STARTS = ['2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10'] as const
 
 /**

@@ -35,6 +35,15 @@ export type PlanContext = {
   today: string
   weekStart: string
   experience: Experience
+  /**
+   * Every weekday this plan may put anything on at all.
+   *
+   * Not "days with time" — that is `availableDays` — but simply the days the
+   * week still has. A plan made on a Wednesday cannot place a step target on
+   * the Monday: the storage boundary drops it, and the person is left with a
+   * headline describing actions that were never written.
+   */
+  weekDays: Weekday[]
   /** Days with a usable free slot, already minus any hard exclusion. */
   availableDays: Weekday[]
   /**
@@ -133,9 +142,29 @@ export function buildContext(raw: PlanInput): PlanContext {
   }
 
   const excluded = hardExcludedWeekdays(input)
-  const openDays = WEEKDAYS.filter(
+
+  // Days that have already gone are not days this plan can use.
+  //
+  // The week is planned from Monday, but a week materialised on a Wednesday
+  // only keeps the days from Wednesday on — everything earlier is dropped at
+  // the storage boundary. The engine did not know that, so it spread the
+  // sessions across the whole week and the ones it put on Monday and Tuesday
+  // simply vanished. Measured on the real account: a headline promising
+  // "1× Training" over a week containing none, because the single session had
+  // been placed on the Monday before the plan existed.
+  //
+  // Fewer days means fewer sessions, which is the safe direction — the
+  // rest-day and volume rules all read the days that survive.
+  const weekStartDate = startOfWeek(raw.today)
+  const stillAhead = (day: Weekday) =>
+    addDays(weekStartDate, WEEKDAYS.indexOf(day)) >= raw.today
+
+  /** Days this person offered at all, whether or not they are still ahead. */
+  const offeredDays = WEEKDAYS.filter(
     (day) => !excluded.includes(day) && longestSlotOn(input, day) >= MIN_VIABLE_SESSION_MINUTES,
   )
+
+  const openDays = offeredDays.filter(stillAhead)
 
   // How much room each day really has left, for the short things.
   //
@@ -144,7 +173,7 @@ export function buildContext(raw: PlanInput): PlanContext {
   const roomPerDay = Object.fromEntries(
     WEEKDAYS.map((day) => [
       day,
-      excluded.includes(day)
+      excluded.includes(day) || !stillAhead(day)
         ? 0
         : lightSlots.filter((s) => s.weekday === day).reduce((max, s) => Math.max(max, s.minutes), 0),
     ]),
@@ -158,7 +187,14 @@ export function buildContext(raw: PlanInput): PlanContext {
   //
   // Days the user hard-excluded stay excluded: an assumption may fill a gap,
   // never override an answer.
-  const assumedDays = openDays.length === 0 ? assumeDays(excluded) : []
+  // Assumed only when the person named no usable time at all — never merely
+  // because the days they named are already behind them.
+  //
+  // Without the distinction, a plan made on a Friday for somebody free on
+  // Mondays and Wednesdays found no open day, fell through to the assumption,
+  // and invented training on days they had never offered. A week that is
+  // nearly over should hold less, not something made up.
+  const assumedDays = offeredDays.length === 0 ? assumeDays(excluded).filter(stillAhead) : []
   if (assumedDays.length > 0) {
     assumptions.push({
       field: 'schedule.freeSlots',
@@ -232,6 +268,7 @@ export function buildContext(raw: PlanInput): PlanContext {
     today: input.today,
     weekStart: startOfWeek(input.today),
     experience,
+    weekDays: WEEKDAYS.filter(stillAhead),
     availableDays,
     roomPerDay,
     trainingDays,

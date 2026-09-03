@@ -37,7 +37,11 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
   if (!covers('movement') && !covers('training')) {
     const pattern = input.schedule.workPattern
     const sedentary = pattern === 'office' || pattern === 'remote'
-    const days: Weekday[] = sedentary ? ['mon', 'wed', 'fri'] : [...WEEKDAYS]
+    // Intersected with the days the week still has. A plan made on a
+    // Wednesday that puts a step target on the Monday loses it at the storage
+    // boundary and leaves the day it was meant for empty.
+    const preferred: Weekday[] = sedentary ? ['mon', 'wed', 'fri'] : [...WEEKDAYS]
+    const days = preferred.filter((d) => ctx.weekDays.includes(d))
     const steps =
       goalTrack.items.filter((i) => i.domain === 'training').length >= 3
         ? STEP_TARGET.low
@@ -66,7 +70,7 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
   if (!covers('nutrition')) {
     const habit = additiveHabit(input)
     items.push({
-      scheduledOn: dateOf(ctx, 'mon'),
+      scheduledOn: dateOf(ctx, firstDay(ctx)),
       domain: 'nutrition',
       track: 'baseline',
       title: habit.title,
@@ -92,7 +96,7 @@ export function planBaseline(ctx: PlanContext, goalTrack: GoalTrack): BaselineTr
       // Every day: holding a bedtime on Sundays only is not holding a bedtime,
       // and a week of observation is a week, not a Wednesday.
       cadence: 'daily',
-      scheduledOn: dateOf(ctx, poor ? 'wed' : 'sun'),
+      scheduledOn: dateOf(ctx, pickDay(ctx, poor ? 'wed' : 'sun')),
       domain: 'sleep',
       track: 'baseline',
       title: poor
@@ -203,4 +207,21 @@ function additiveHabit(input: PlanInput): {
     basedOn: 'profile.nutrition.vegetablePortionsPerDay',
     focus: 'vegetables',
   }
+}
+
+/**
+ * The wanted weekday, or the first one the week still has.
+ *
+ * A baseline action is a standing habit rather than an appointment, so the
+ * exact day is a preference — but placing it on a day that has already gone
+ * means it is dropped at the storage boundary and the person simply never
+ * sees it.
+ */
+function pickDay(ctx: PlanContext, wanted: Weekday): Weekday {
+  return ctx.weekDays.includes(wanted) ? wanted : firstDay(ctx)
+}
+
+/** The earliest day this plan may still use. */
+function firstDay(ctx: PlanContext): Weekday {
+  return ctx.weekDays[0] ?? WEEKDAYS[0]
 }

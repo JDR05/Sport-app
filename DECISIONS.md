@@ -7,6 +7,49 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-03 — ADR-106: Eine Woche, die heute anfängt — nicht am Montag
+
+**Entscheidung:** Die Engine plant nur noch auf Tage, die die Woche **noch hat**. `PlanContext`
+kennt dafür `weekDays` — die Wochentage ab heute — und alle Spuren richten sich danach. Wer
+sich am Donnerstag anmeldet, bekommt einen Donnerstag-bis-Sonntag-Plan, keinen
+Montags-Plan mit vier unsichtbaren Tagen.
+
+**Begründung, gemessen an einem echten Konto.** Der Product Owner sagte, sein Gym-Training
+tauche weder unter Heute noch im Plan auf. Nachgestellt mit seinen tatsächlichen Angaben
+(freie Slots Mo/Mi/Do 18:30, Fußball Di/Fr/So 19:00, fortgeschritten, 2 Einheiten/Woche):
+
+| | |
+| --- | --- |
+| Krafteinheiten im generierten Plan | 2 |
+| davon auf einem Tag ab heute | **0** |
+| Überschrift versprach | „2× Kraft" |
+
+Die Engine legte beide Einheiten auf Montag und Mittwoch. `materialise` verwirft Tage vor dem
+ersten Tag der Person — die Speichergrenze, die verhindert, dass jemand rückwirkend Aufgaben
+bekommt. Also blieb ein Plan übrig, dessen Überschrift Training versprach und dessen Woche
+keins enthielt. Kein Bug in der Anzeige: die Anzeige zeigte korrekt, was da war.
+
+**Drei Folgeentscheidungen, die dazugehören:**
+
+1. **`assumeDays` greift nur noch, wenn gar keine Tage angeboten wurden.** Vorher fiel eine
+   späte Wochenplanung darauf zurück und erfand Tage, die die Person nie genannt hatte —
+   schlimmer als ein kurzer Plan.
+2. **Die Basis-Spur schneidet ihre Wunschtage mit `weekDays`.** Ein Schrittziel auf einem
+   Montag, den es nicht mehr gibt, ist kein Schrittziel.
+3. **Die Kalorien-Invariante zählt jetzt die festen Termine mit.** Sie berechnete den Bedarf
+   nur aus den Einheiten der Zielspur und warf bei einer Woche mit viel Vereinssport, weil
+   der Bedarf zu niedrig angesetzt war. Eine Sicherheitsprüfung, die aus dem falschen Grund
+   auslöst, wird abgeschaltet — sie musste stimmen, nicht weicher werden.
+
+**Was der Test-Suite dabei auffiel:** die Fixture `TODAY` stand auf einem Mittwoch. Die
+gesamte Suite testete also seit Monaten stillschweigend Fünf-Tage-Wochen und hätte diesen
+Fehler nie gefunden. `TODAY` ist jetzt ein Montag, und `tests/engine.partialWeek.test.ts`
+prüft ausdrücklich die kurzen Wochen: keine Aktion vor heute, das Training überlebt
+`materialise`, die Überschrift deckt sich mit den Einheiten, die tatsächlich da sind, und die
+Anzahl wächst nie, je weiter die Woche fortgeschritten ist.
+
+---
+
 ## 2026-09-03 — ADR-105: Heute ist die Liste. Alles andere ist eine Zeile.
 
 **Entscheidung:** Zwei Dinge, beide aus derselben Rückmeldung.

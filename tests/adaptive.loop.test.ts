@@ -22,7 +22,17 @@ import { planSignature, signatureDistance } from '@/lib/engine/signature'
 import { weekdayOf } from '@/lib/engine/dates'
 import { readRules } from '@/lib/engine/rules'
 import type { PersonalRule } from '@/lib/domain/types'
-import { ALL_COMBINATIONS, GOALS, makeInput, PROFILES, TODAY } from './fixtures/profiles'
+import { ALL_COMBINATIONS, GOALS, makeInput, PROFILES } from './fixtures/profiles'
+
+/**
+ * A Wednesday, and this file needs one.
+ *
+ * Plan care corrects the week somebody is *inside* of: it moves what was
+ * missed to a day that is still ahead. On a Monday nothing has been missed
+ * yet, so the shared TODAY — deliberately a Monday since the engine started
+ * planning only the days a week still has — has nothing for it to work on.
+ */
+const MID_WEEK = '2026-08-19'
 import { repeat, THIS_WEEK_START, weekOf, WEDNESDAY_PROBLEM } from './fixtures/observations'
 import { materialise } from '@/lib/db/item-mapping'
 import { MAX_ITEMS_PER_DAY } from '@/lib/engine/constants'
@@ -229,13 +239,14 @@ describe('plan care', () => {
   it('produces no personal rule — by having nowhere to put one', () => {
     // ADR-013 as a shape, not a convention: there is no field on PlanPatch a
     // careless caller could read a rule out of.
-    const patch = refinePlan(thisWeek, TODAY)
+    const patch = refinePlan(thisWeek, MID_WEEK)
     expect(Object.keys(patch).sort()).toEqual(['moves', 'notes', 'provisional', 'removals'])
     expect(patch.provisional).toBe(true)
   })
 
   it('acts in week one, where detection deliberately cannot', () => {
-    const analysis = analyze(jonas, thisWeek)
+    // Mid-week, because plan care corrects the week somebody is inside of.
+    const analysis = analyze({ ...jonas, today: MID_WEEK }, thisWeek)
 
     expect(analysis.deviations).toEqual([])
     expect(analysis.experiment).toBeNull()
@@ -253,7 +264,7 @@ describe('plan care', () => {
       { day: 'sat', status: 'unknown', title: 'Meal Prep am Sonntag' },
       { day: 'tue', status: 'done' },
     ])
-    const patch = refinePlan(wrong, TODAY)
+    const patch = refinePlan(wrong, MID_WEEK)
 
     expect(patch.removals).toHaveLength(2)
     expect(patch.removals[0].reason).toContain('nicht als verpasst')
@@ -264,7 +275,7 @@ describe('plan care', () => {
     const onlyPast = weekOf(THIS_WEEK_START, [
       { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
     ])
-    expect(refinePlan(onlyPast, TODAY).removals).toEqual([])
+    expect(refinePlan(onlyPast, MID_WEEK).removals).toEqual([])
   })
 
   it('never overwrites an answer the person has already given', () => {
@@ -275,18 +286,18 @@ describe('plan care', () => {
       { day: 'thu', status: 'done', title: 'Meal Prep am Sonntag' },
       { day: 'sat', status: 'unknown', title: 'Meal Prep am Sonntag' },
     ])
-    expect(refinePlan(mixed, TODAY).removals).toHaveLength(1)
+    expect(refinePlan(mixed, MID_WEEK).removals).toHaveLength(1)
   })
 
   it('says out loud that it is provisional', () => {
-    const patch = refinePlan(thisWeek, TODAY)
+    const patch = refinePlan(thisWeek, MID_WEEK)
     expect(patch.notes.join(' ')).toMatch(/gespeichert|gelernt/)
     for (const move of patch.moves) expect(move.reason).toContain('Vorläufig')
   })
 
   it('never replans the past', () => {
-    const patch = refinePlan(thisWeek, TODAY)
-    for (const move of patch.moves) expect(move.toDate > TODAY).toBe(true)
+    const patch = refinePlan(thisWeek, MID_WEEK)
+    for (const move of patch.moves) expect(move.toDate > MID_WEEK).toBe(true)
   })
 })
 
@@ -300,7 +311,7 @@ describe('the week plan care is allowed to touch', () => {
   it('leaves six weeks of history alone', () => {
     // WEDNESDAY_PROBLEM is four past weeks with a miss in each. It is evidence
     // for detection and none of the app's business as a correction.
-    const patch = refinePlan(WEDNESDAY_PROBLEM, TODAY)
+    const patch = refinePlan(WEDNESDAY_PROBLEM, MID_WEEK)
     expect(patch.moves).toEqual([])
     expect(patch.removals).toEqual([])
     expect(patch.notes).toEqual([])
@@ -311,7 +322,7 @@ describe('the week plan care is allowed to touch', () => {
       { day: 'mon', status: 'not_relevant', title: 'Meal Prep am Sonntag' },
       { day: 'tue', status: 'done' },
     ])
-    expect(refinePlan(wrong, TODAY).removals).toEqual([])
+    expect(refinePlan(wrong, MID_WEEK).removals).toEqual([])
   })
 
   it('still sees this week when the history is long', () => {
@@ -319,7 +330,7 @@ describe('the week plan care is allowed to touch', () => {
       ...WEDNESDAY_PROBLEM,
       ...weekOf(THIS_WEEK_START, [{ day: 'mon', status: 'missed' }]),
     ]
-    const patch = refinePlan(both, TODAY)
+    const patch = refinePlan(both, MID_WEEK)
     expect(patch.moves).toHaveLength(1)
     expect(patch.moves[0].fromDate).toBe(THIS_WEEK_START)
   })
@@ -331,11 +342,11 @@ describe('the week plan care is allowed to touch', () => {
       { day: 'mon', status: 'missed' },
       { day: 'tue', status: 'missed' },
     ])
-    const patch = refinePlan(twoMisses, TODAY)
+    const patch = refinePlan(twoMisses, MID_WEEK)
 
     expect(patch.moves).toHaveLength(2)
     expect(new Set(patch.moves.map((m) => m.toDate)).size).toBe(2)
-    for (const move of patch.moves) expect(move.toDate > TODAY).toBe(true)
+    for (const move of patch.moves) expect(move.toDate > MID_WEEK).toBe(true)
   })
 
   it('names only the domains it actually corrected', () => {
@@ -346,7 +357,7 @@ describe('the week plan care is allowed to touch', () => {
       ...weekOf(THIS_WEEK_START, [{ day: 'mon', status: 'missed', domain: 'training' }]),
       ...weekOf(THIS_WEEK_START, [{ day: 'tue', status: 'done', domain: 'nutrition' }]),
     ]
-    const note = refinePlan(mixed, TODAY).notes.join(' ')
+    const note = refinePlan(mixed, MID_WEEK).notes.join(' ')
 
     expect(note).toContain('Training')
     expect(note).not.toContain('Ernährung')
@@ -415,13 +426,19 @@ describe('the metric key', () => {
 // reading — so plan care generated zero moves across all seventy profile/goal
 // combinations, and week one, which it exists for, showed nothing.
 describe('where a missed action can actually go', () => {
-  /** A real materialised week, with everything before today missed. */
+  /**
+   * A real materialised week, with everything before today missed.
+   *
+   * Planned on the Monday — a whole week, the way somebody's week is actually
+   * built — and then read on the Wednesday, which is the only vantage point
+   * from which plan care has anything to do.
+   */
   function realWeek(index: number) {
     const { input } = ALL_COMBINATIONS[index]
     const plan = generatePlan(input)
     const week = materialise(plan.items, plan.strategy.weekStart)
     return {
-      today: input.today,
+      today: MID_WEEK,
       observations: week.map((item, i) => ({
         itemId: `${i}`,
         scheduledOn: item.scheduledOn,
@@ -430,7 +447,7 @@ describe('where a missed action can actually go', () => {
         title: item.title,
         timeSlot: item.timeSlot,
         plannedDurationMin: item.plannedDurationMin,
-        status: (item.scheduledOn < input.today ? 'missed' : 'unknown') as
+        status: (item.scheduledOn < MID_WEEK ? 'missed' : 'unknown') as
           | 'missed'
           | 'unknown',
       })),
