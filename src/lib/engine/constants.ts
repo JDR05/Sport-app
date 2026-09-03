@@ -240,3 +240,43 @@ export const WIND_DOWN_MINUTES = 60
  * past, not prescribing a bedtime.
  */
 export const MIN_NIGHT_HOURS = 7
+
+// ------------------------------------------- what already does the goal's job ---
+//
+// A commitment always costs recovery and always eats into the rest-day budget.
+// Whether it *replaces* a session the archetype would otherwise plan is a
+// different question, and these lists are the answer to it.
+//
+// The engine used to assume any sport replaced any session, which is how
+// somebody with football twice a week ended up with one gym session instead of
+// three — while three evenings of their week stood empty. Football is training.
+// It is not a bench press, and it is not a tempo run.
+
+/** Sport that is itself resistance work. */
+export const STRENGTH_ACTIVITIES = ['gym', 'bodyweight', 'climbing'] as const
+
+/**
+ * Sport that is itself structured endurance work.
+ *
+ * Football is deliberately absent. It is aerobic and it is tiring — both of
+ * which the rest-day budget already accounts for — but an hour of stop-start
+ * running with a ball is not the steady mileage a distance goal is built from,
+ * and counting it as one would quietly delete the plan.
+ */
+export const ENDURANCE_ACTIVITIES = ['running', 'cycling', 'swimming'] as const
+
+/**
+ * The most of a week's mileage one run may carry.
+ *
+ * Only binding when the week holds a single run, and that case used to be
+ * handled the other way round: the one session was given the *whole* week's
+ * volume so the headline and the sessions would agree. For somebody with club
+ * training on two evenings and a 10 km goal that produced one run of twenty
+ * kilometres — the exact step increase MAX_WEEKLY_VOLUME_GROWTH exists to
+ * prevent, arrived at from the other direction.
+ *
+ * A week that can only hold one run holds less than the progression allowed.
+ * That is the honest answer, and the plan reports the smaller number rather
+ * than the one it wanted.
+ */
+export const MAX_SINGLE_RUN_SHARE = 0.6

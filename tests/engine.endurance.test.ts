@@ -26,7 +26,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { generatePlan } from '@/lib/engine'
-import { MAX_WEEKLY_VOLUME_GROWTH, MIN_VIABLE_SESSION_MINUTES } from '@/lib/engine/constants'
+import { MAX_SINGLE_RUN_SHARE, MAX_WEEKLY_VOLUME_GROWTH, MIN_VIABLE_SESSION_MINUTES } from '@/lib/engine/constants'
 import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -99,26 +99,57 @@ describe('when the naive split would be too short to be worth doing', () => {
 })
 
 describe('a week with only one session', () => {
-  it('gives that session the whole budget, not the long-run share of it', () => {
-    // The long/easy split only means something with a second session to carry
-    // the rest. Applied to a single run, it silently lost 55 % of the week.
-    // A generous window on purpose, so the window is not what limits the
-    // distance here — the long/easy split is the thing under test.
+  // This rule was the other way round, and the reversal is deliberate.
+  //
+  // The old version handed a single run the entire week's volume, so that the
+  // headline and the sessions would agree — the concern being that a 45 %
+  // share silently lost half the week. But the headline is computed from what
+  // the sessions actually hold, so it was already honest either way, while the
+  // remedy was not: for somebody with club training on two evenings and a
+  // 10 km goal it produced one run of twenty kilometres. That is exactly the
+  // step increase MAX_WEEKLY_VOLUME_GROWTH exists to prevent, arrived at from
+  // the other direction, and no invariant caught it because the *weekly* total
+  // was within the cap.
+  //
+  // A week that can hold one run holds less than the progression allowed. The
+  // plan says the smaller number rather than inventing a session to justify
+  // the bigger one.
+  const oneSessionWeek = () => {
     const base = makeInput(PROFILES[0], GOALS[2])
-    const oneSession: PlanInput = {
-      ...base,
-      profile: { ...base.profile, sport: { ...base.profile.sport, sessionsPerWeekTarget: 1 } },
-      schedule: {
-        ...base.schedule,
-        freeSlots: [{ weekday: 'sat', start: '09:00', minutes: 240 }],
-      },
+    return {
+      base,
+      input: {
+        ...base,
+        profile: { ...base.profile, sport: { ...base.profile.sport, sessionsPerWeekTarget: 1 } },
+        schedule: {
+          // A generous window on purpose, so the window is not what limits the
+          // distance here — the split is the thing under test.
+          ...base.schedule,
+          freeSlots: [{ weekday: 'sat', start: '09:00', minutes: 240 }],
+        },
+      } as PlanInput,
     }
-    const start = base.metrics.find((m) => m.metricKey === 'distance_km')!.startValue!
-    const cap = round(start * (1 + MAX_WEEKLY_VOLUME_GROWTH))
+  }
 
-    const sessions = runs(oneSession)
+  it('does not put a whole week of mileage into one run', () => {
+    const { base, input } = oneSessionWeek()
+    const start = base.metrics.find((m) => m.metricKey === 'distance_km')!.startValue!
+    const weekly = round(start * (1 + MAX_WEEKLY_VOLUME_GROWTH))
+
+    const sessions = runs(input)
     expect(sessions).toHaveLength(1)
-    expect(Number(sessions[0].details.km)).toBeCloseTo(cap, 0)
+    expect(Number(sessions[0].details.km)).toBeLessThan(weekly)
+    expect(Number(sessions[0].details.km)).toBeCloseTo(weekly * MAX_SINGLE_RUN_SHARE, 0)
+  })
+
+  it('still gives it a run worth leaving the house for', () => {
+    // The control on the rule above: a cap that shrank the run to nothing
+    // would satisfy "less than the week" and be useless.
+    const { base, input } = oneSessionWeek()
+    const start = base.metrics.find((m) => m.metricKey === 'distance_km')!.startValue!
+    const weekly = round(start * (1 + MAX_WEEKLY_VOLUME_GROWTH))
+
+    expect(Number(runs(input)[0].details.km)).toBeGreaterThan(weekly * 0.5)
   })
 
   it('still shrinks to fit a window that is the real constraint', () => {

@@ -11,12 +11,15 @@ import {
   MIN_LIGHT_MINUTES,
   MIN_VIABLE_SESSION_MINUTES,
 } from './constants'
-import { commitmentsOn, freeSlotsMinusCommitments, minutesOfDay, sportDays } from './commitments'
+import {
+  commitmentsOn, freeSlotsMinusCommitments, goalSessions, minutesOfDay, sportDays,
+} from './commitments'
 import { endOf, hoursLabel, nextWeekday, shortNights, timeOf, type Night } from './night'
 import { addDays, startOfWeek, timeSlotOf } from './dates'
 import { applyDayRules, readRules, type ActiveRules } from './rules'
 import {
   WEEKDAYS,
+  type Activity,
   type Assumption,
   type Commitment,
   type Experience,
@@ -357,12 +360,25 @@ export function planTrainingDays(
   minSessions = 0,
   /** Endurance carries its own floor; everything else uses the experience one. */
   minRestDays: number = MIN_REST_DAYS[ctx.experience],
+  /**
+   * Which existing activities already do this archetype's job.
+   *
+   * Omit it and every sport counts, which is what this function used to
+   * assume — and it is why football cut a strength plan from three sessions to
+   * one. A commitment always costs recovery and always eats into the rest-day
+   * budget below; whether it *replaces* a session of the goal's own kind is a
+   * different question, and only the archetype can answer it.
+   */
+  countsAsGoalWork?: readonly Activity[],
 ): { weekdays: Weekday[]; planned: number; total: number } {
   const alreadySporting = sportDays(ctx.commitments)
 
+  // Load and recovery are counted from every sport day, whatever it is.
   const maxByRest = 7 - minRestDays
   const restRoom = Math.max(0, maxByRest - ctx.committedSessions)
-  const stillWanted = Math.max(0, desired - ctx.committedSessions)
+  // The goal's own work is counted only from the sport that does it.
+  const alreadyDoingTheWork = goalSessions(ctx.commitments, countsAsGoalWork)
+  const stillWanted = Math.max(0, desired - alreadyDoingTheWork)
 
   const wanted = Math.max(
     Math.min(minSessions, ctx.trainingDays.length, restRoom),

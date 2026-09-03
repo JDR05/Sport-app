@@ -6,6 +6,8 @@
 // planner.
 
 import {
+  ENDURANCE_ACTIVITIES,
+  MAX_SINGLE_RUN_SHARE,
   DEFAULT_HORIZON_WEEKS,
   ENDURANCE_MIN_REST_DAYS,
   MAX_WEEKLY_VOLUME_GROWTH,
@@ -126,11 +128,70 @@ export const endurance: ArchetypeStrategy = {
     const desired = input.profile.sport.sessionsPerWeekTarget ?? 3
 
     const { weekdays, planned: sessions } = planTrainingDays(
-      ctx, desired, 1, ENDURANCE_MIN_REST_DAYS,
+      ctx, desired, 1, ENDURANCE_MIN_REST_DAYS, ENDURANCE_ACTIVITIES,
     )
 
     const clamped = this.clampGoal(ctx)
     ctx.rationale.push({ text: clamped.reason, basedOn: ['goal.targetDate', 'metrics.distance_km'] })
+
+    // The week is already full of this person's own training.
+    //
+    // Nothing may be added: every extra day would come out of the rest days,
+    // and for a distance goal that is where injuries come from. Producing
+    // nothing at all is equally wrong — an archetype with no goal action fails
+    // an invariant and leaves "Plan nicht möglich" on every screen, permanently,
+    // for somebody whose only mistake was training a lot (the dead end ADR-092
+    // describes, reached from another direction).
+    //
+    // So the goal track becomes the half of endurance that costs no mileage.
+    if (weekdays.length === 0) {
+      ctx.rationale.push({
+        text:
+          `Deine Woche ist mit deinen eigenen Trainingsterminen schon voll. Mehr Kilometer ` +
+          `wären keine Steigerung, sondern nur weniger Erholung — und genau daraus entstehen ` +
+          `Überlastungen. Der Plan legt deshalb nichts obendrauf.`,
+        basedOn: ['schedule.commitments'],
+      })
+
+      return {
+        archetype: 'endurance',
+        headline: 'Deine Einheiten stehen schon — Fokus auf Erholung',
+        summary: [
+          'Keine zusätzlichen Kilometer: deine Woche ist voll',
+          'Nach jeder Einheit etwas Richtiges essen und trinken',
+          'Erholung ist hier der Trainingsreiz',
+        ],
+        items: [
+          {
+            scheduledOn: dateOf(ctx, ctx.availableDays[0] ?? 'mon'),
+            domain: 'nutrition' as const,
+            track: 'goal' as const,
+            title: 'Nach dem Training etwas Richtiges essen und trinken',
+            plannedDurationMin: null,
+            timeSlot: null,
+            cadence: 'daily' as const,
+            rationale: {
+              text:
+                'Du läufst schon so viel, wie in deine Woche passt. Was dann noch zählt, ist ' +
+                'die Erholung dazwischen — und die beginnt mit dem, was nach der Einheit auf ' +
+                'den Teller kommt.',
+              basedOn: ['schedule.commitments', 'goal.rawText'],
+            },
+            details: { km: 0, long: false },
+          },
+        ],
+        signature: {
+          sessionsBucket: bucketSessions(0),
+          weekdayPattern: 'none',
+          volumeBucket: '0',
+          longRunShare: '0',
+          longDay: 'none',
+          sessionLength: bucketMinutes(0),
+          longSessionLength: bucketMinutes(0),
+          pacing: input.profile.sport.experience ?? 'beginner',
+        },
+      }
+    }
 
     // The long run goes on the day with the most time, not on a fixed weekday —
     // it is the session most likely to be skipped for lack of an hour.
@@ -143,11 +204,27 @@ export const endurance: ArchetypeStrategy = {
         longIndex = index
       }
     })
-    // A single session carries the whole week's volume rather than 45 % of
-    // it — the 45/55 split only means something when there is a second
-    // session to carry the rest. Without this, one run a week silently lost
-    // more than half its distance.
-    const longKm = weekdays.length > 1 ? round1(thisWeekKm * LONG_RUN_SHARE) : thisWeekKm
+    // How much of the week the long run carries.
+    //
+    // The 45 % share is written for a three-run week and breaks in both
+    // directions outside it. With two runs the remaining 55 % all landed on the
+    // single easy day, so the "lockerer Lauf" came out at 12,1 km next to a
+    // "langer Lauf" of 9,8 — the long run was the short one. With one run the
+    // code handed it the entire week's volume, which for a 10 km goal meant a
+    // single twenty-kilometre run: precisely the step increase the volume cap
+    // exists to prevent, reached from the other side.
+    //
+    // So the share is the larger of the written 45 % and an even split with a
+    // little on top, which keeps the long run the longest at any session count
+    // — and one run alone is capped, leaving the week smaller than the
+    // progression allowed. `plannedKm` below reports what the sessions really
+    // hold, so the smaller week is stated rather than hidden.
+    const share =
+      weekdays.length <= 1
+        ? MAX_SINGLE_RUN_SHARE
+        : Math.min(1, Math.max(LONG_RUN_SHARE, 1 / weekdays.length + 0.05))
+
+    const longKm = round1(thisWeekKm * share)
     const easyKm = weekdays.length > 1 ? round1((thisWeekKm - longKm) / (weekdays.length - 1)) : 0
 
     // What the week actually contains, rather than what the progression would

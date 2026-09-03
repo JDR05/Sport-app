@@ -7,6 +7,59 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-102: Fußball ist Training, aber kein Bankdrücken
+
+**Entscheidung:** Ein fester Sporttermin ersetzt eine geplante Einheit nur dann, wenn er
+**dieselbe Art Arbeit** ist. Für Belastung und Ruhetage zählt weiterhin jeder Sporttag.
+`planTrainingDays` bekommt dafür die Liste der Aktivitäten, die die Arbeit des Archetyps
+tatsächlich tun: `STRENGTH_ACTIVITIES` für Kraft und Körperzusammensetzung,
+`ENDURANCE_ACTIVITIES` fürs Laufen.
+
+**Begründung:** Die Engine hat beide Fragen zu einer verschmolzen. Gemessen, mit Fußball am
+Dienstag und Donnerstag:
+
+| Ziel | ohne | vorher mit Fußball | jetzt |
+| --- | --- | --- | --- |
+| 5 kg abnehmen | 3× Kraft | **1×** | 2× |
+| stärker werden | 3× Kraft (Split) | **1× Ganzkörper** | 2× (Split) |
+| 10 km laufen | 3 Läufe, längster 9,8 km | **1 Lauf, 20 km / 120 min** | 2 Läufe, längster 12,1 km |
+
+Der Product Owner hat es genau benannt: „Ich hab ja dann trotzdem an anderen Tagen noch Zeit
+für Krafttraining." Er hatte recht — die freien Abende waren da, die App hat sie nur nicht
+benutzt.
+
+**Die Gegenprobe gehört dazu:** ein echter **Gym**-Termin reduziert die Krafteinheiten
+weiterhin, ein **Lauftreff** die Läufe. Das ist keine Lizenz, mehr zu planen, sondern eine
+Unterscheidung.
+
+**Zwei Fehler, die derselbe Test dabei gefunden hat:**
+
+1. **Ein Lauf mit der ganzen Wochenkilometerzahl.** Wenn nur ein Lauf in die Woche passte,
+   bekam er das volle Volumen — bei einem 10-km-Ziel also zwanzig Kilometer am Stück. Das ist
+   exakt der Sprung, den `MAX_WEEKLY_VOLUME_GROWTH` verhindern soll, nur von der anderen
+   Seite erreicht, und keine Invariante hat ihn gesehen, weil die *Wochensumme* im Rahmen war.
+   Neu: `MAX_SINGLE_RUN_SHARE` (0,6). Eine Woche, die einen Lauf trägt, trägt weniger als die
+   Progression erlaubt hätte — und der Plan nennt die kleinere Zahl. Das kehrt eine frühere
+   Entscheidung um; der Test dazu ist mit Begründung umgeschrieben, nicht gelöscht.
+2. **Der „lockere" Lauf war der längste.** Der 45-%-Anteil ist für eine Drei-Lauf-Woche
+   geschrieben; bei zwei Läufen landeten die restlichen 55 % alle auf dem einen leichten Tag
+   (12,1 km neben einem „langen Lauf" von 9,8). Der Anteil ist jetzt das Maximum aus den
+   geschriebenen 45 % und einer gleichmäßigen Aufteilung mit etwas obendrauf.
+
+**Und ein Absturz, den es schon vorher gab:** Wer fünf Tage die Woche im Verein trainiert,
+bekam „Plan nicht möglich" — für immer, auf jedem Screen. Das Ruhetagebudget war voll, der
+Archetyp erzeugte null Zielaktionen, und die Invariante warf. Dieselbe Sackgasse wie ADR-092,
+nur von einem Menschen erreicht, dessen einziger Fehler viel Training war. Kraft und Ausdauer
+haben jetzt für diesen Fall eine Zielspur, die **keine Belastung hinzufügt**: Eiweiß zu jeder
+Hauptmahlzeit beziehungsweise nach der Einheit richtig essen und trinken. Additiv, sicher bei
+voller Woche, und dem Ziel treu.
+
+**Geprüft:** 11 neue Tests. Zwei Mutationen sichern beide Richtungen ab: Fußball wieder als
+Gym zu zählen lässt drei Tests fallen, und die Ruhetage aufhören zu lassen, Fußball als
+Belastung zu zählen, lässt sechs plus die gesamte AI-Umgehungssuite fallen. 1716 Tests grün.
+
+---
+
 ## 2026-09-02 — ADR-101: Ein Plan ist mehr als Sport — und sagt, was er bewirkt
 
 **Entscheidung:** Zwei Änderungen, die zusammengehören.

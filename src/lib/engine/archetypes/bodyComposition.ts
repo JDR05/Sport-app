@@ -5,6 +5,7 @@
 // before the course correction; now it is one of seven.
 
 import {
+  STRENGTH_ACTIVITIES,
   KCAL_PER_KG,
   MAX_DEFICIT_SHARE,
   MAX_WEEKLY_CHANGE_KG,
@@ -165,8 +166,12 @@ export const bodyComposition: ArchetypeStrategy = {
     // already trains three times at a club: football is training, but a deficit
     // without resistance work costs muscle, and that is the one thing losing
     // weight must not do.
+    // The sessions this archetype plans are resistance work, so only resistance
+    // work replaces them. Football helps the energy balance — and the rest-day
+    // budget counts it — but it does not keep muscle in a deficit, which is
+    // the one thing losing weight must not lose.
     const { weekdays, planned: sessions, total: trainingDaysThisWeek } =
-      planTrainingDays(ctx, desired, 1)
+      planTrainingDays(ctx, desired, 1, undefined, STRENGTH_ACTIVITIES)
 
     const modality = pickModality(input)
     const sessionMinutes = pickSessionMinutes(ctx, weekdays)

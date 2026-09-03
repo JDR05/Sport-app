@@ -14,7 +14,7 @@
 // thing that matters is the weekday and the minutes it occupies.
 
 import { MIN_VIABLE_SESSION_MINUTES } from './constants'
-import type { Commitment, FreeSlot, Weekday } from '@/lib/domain/types'
+import type { Activity, Commitment, FreeSlot, Weekday } from '@/lib/domain/types'
 
 /** 'HH:MM' as minutes since midnight. Malformed input yields NaN-free 0. */
 export function minutesOfDay(time: string): number {
@@ -95,6 +95,38 @@ export function freeSlotsMinusCommitments(
       floor,
     ),
   )
+}
+
+/**
+ * Sport the person already does that is the *same kind of work* the goal needs.
+ *
+ * The distinction this draws is the one the engine was missing entirely.
+ * Football is training: it costs recovery, it fills an evening, and it counts
+ * against the rest days. It is not gym work, and it is not a structured run.
+ * Treating it as a substitute for either meant somebody who plays twice a week
+ * had their strength plan cut from three sessions to one — while their week
+ * still had three free evenings in it.
+ *
+ * "Ich hab ja dann trotzdem an anderen Tagen noch Zeit für Krafttraining."
+ *
+ * So load is counted from every sport day (`sportDays`), and the goal's own
+ * work only from the activities that actually do it.
+ */
+export function goalSessions(
+  commitments: Commitment[],
+  counts: readonly Activity[] | undefined,
+): number {
+  // No list means "any sport does this job" — the old behaviour, kept for any
+  // archetype that has not thought about it.
+  if (!counts) return sportSessionsPerWeek(commitments)
+
+  const days = new Set<Weekday>()
+  for (const c of commitments) {
+    if (c.kind === 'sport' && c.activity !== null && counts.includes(c.activity)) {
+      days.add(c.weekday)
+    }
+  }
+  return days.size
 }
 
 /** Days that already carry sport. No second session is planned onto these. */

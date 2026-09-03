@@ -5,6 +5,7 @@
 // load progression.
 
 import {
+  STRENGTH_ACTIVITIES,
   DEFAULT_HORIZON_WEEKS,
   MAX_WEEKLY_LOAD_GROWTH,
   MIN_REST_DAYS,
@@ -80,7 +81,13 @@ export const strength: ArchetypeStrategy = {
     const desired = input.profile.sport.sessionsPerWeekTarget ?? (experience === 'beginner' ? 2 : 3)
     // At least one session, unless the week genuinely has no room: a strength
     // plan with no strength in it is not a strength plan.
-    const { weekdays, planned: sessions } = planTrainingDays(ctx, desired, 1)
+    // Football does not replace a strength session. It costs recovery and it
+    // counts against the rest days — both handled inside planTrainingDays —
+    // but a week with two club evenings still has room for the gym work this
+    // goal is actually about.
+    const { weekdays, planned: sessions } = planTrainingDays(
+      ctx, desired, 1, undefined, STRENGTH_ACTIVITIES,
+    )
 
     const modality = pickModality(input)
     const sessionMinutes = pickSessionMinutes(ctx, weekdays)
@@ -105,6 +112,65 @@ export const strength: ArchetypeStrategy = {
           `hintereinander schwer zu belasten bringt nichts.`,
         basedOn: ['schedule.freeSlots'],
       })
+    }
+
+    // The week is already full of this person's own training.
+    //
+    // Five club evenings leaves no room inside the rest-day budget for a sixth
+    // training day, and the honest answer is not to add one. It is also not to
+    // produce nothing: an archetype with no goal action at all fails an
+    // invariant and puts "Plan nicht möglich" on every screen — the same
+    // permanent dead end ADR-092 describes, reached from a different direction
+    // by somebody whose only mistake was training a lot.
+    //
+    // So the goal track becomes the part of getting stronger that costs no
+    // recovery: eating enough protein to build on the training that is already
+    // happening. Additive, safe on a full week, and true to the goal.
+    if (weekdays.length === 0) {
+      ctx.rationale.push({
+        text:
+          `Deine Woche ist mit deinen eigenen Trainingsterminen schon voll — mehr Einheiten ` +
+          `wären keine Steigerung, sondern nur weniger Erholung. Der Plan legt deshalb nichts ` +
+          `obendrauf und setzt bei dem an, was die vorhandenen Einheiten wirken lässt.`,
+        basedOn: ['schedule.commitments'],
+      })
+
+      return {
+        archetype: 'strength',
+        headline: 'Deine Einheiten stehen schon — Fokus auf Erholung',
+        summary: [
+          'Kein zusätzliches Training: deine Woche ist voll',
+          'Eiweiß zu jeder Hauptmahlzeit',
+          `${restDays([]).length} Tage ohne festes Training von der App`,
+        ],
+        items: [
+          {
+            scheduledOn: dateOf(ctx, ctx.availableDays[0] ?? 'mon'),
+            domain: 'nutrition' as const,
+            track: 'goal' as const,
+            title: 'Eiweiß zu jeder Hauptmahlzeit',
+            plannedDurationMin: null,
+            timeSlot: null,
+            cadence: 'daily' as const,
+            rationale: {
+              text:
+                'Du trainierst schon so viel, wie in deine Woche passt. Was dann noch zählt, ' +
+                'ist genug Eiweiß über den Tag verteilt — daraus wird der Muskel gebaut, den ' +
+                'das Training anfordert.',
+              basedOn: ['schedule.commitments', 'goal.rawText'],
+            },
+            details: { focus: 'recovery', modality, split: false },
+          },
+        ],
+        signature: {
+          sessionsBucket: bucketSessions(0),
+          weekdayPattern: 'none',
+          modality,
+          sessionLength: bucketMinutes(sessionMinutes),
+          structure: 'none',
+          forcedSplit: 'no',
+        },
+      }
     }
 
     const items: PlannedItem[] = weekdays.map((day, index) => {
