@@ -74,7 +74,7 @@ const insights = (over: Partial<Parameters<typeof InsightsView>[0]['data']> = {}
   removalCount: 0,
   weeksWithData: 2,
   notes: [],
-  ai: { provider: 'Google (Gemini)', granted: true, proposal: PROPOSAL, openQuestions: [] },
+  ai: { provider: 'Google (Gemini)', granted: true, proposal: PROPOSAL, openQuestions: [], preferences: {}, placement: {} },
   ...over,
 })
 
@@ -96,7 +96,7 @@ describe('the AI section on Insights', () => {
     // principles rule out.
     const html = render(
       <InsightsView
-        data={insights({ ai: { provider: null, granted: false, proposal: null, openQuestions: [] } })}
+        data={insights({ ai: { provider: null, granted: false, proposal: null, openQuestions: [], preferences: {}, placement: {} } })}
       />,
     )
     expect(html).not.toContain('Was die KI beiträgt')
@@ -105,12 +105,12 @@ describe('the AI section on Insights', () => {
   it.each([
     [
       'consent given but nothing back yet',
-      { provider: 'Groq', granted: true, proposal: null, openQuestions: [] },
+      { provider: 'Groq', granted: true, proposal: null, openQuestions: [], preferences: {}, placement: {} },
       'Noch nichts von der KI',
     ],
     [
       'consent withheld',
-      { provider: 'Groq', granted: false, proposal: null, openQuestions: [] },
+      { provider: 'Groq', granted: false, proposal: null, openQuestions: [], preferences: {}, placement: {} },
       'KI nicht erlaubt',
     ],
   ])('tells the two empty states apart: %s', (_case, ai, expected) => {
@@ -131,6 +131,8 @@ describe('the AI section on Insights', () => {
             granted: true,
             proposal: PROPOSAL,
             openQuestions: ['Hast du zu Hause Platz für eine Matte?'],
+            preferences: {},
+            placement: {},
           },
         })}
       />,
@@ -140,7 +142,7 @@ describe('the AI section on Insights', () => {
 
   it('says the goal track apart from the addition', () => {
     const takeover = { ...PROPOSAL, mode: 'takeover' as const }
-    const html = render(<InsightsView data={insights({ ai: { provider: 'Groq', granted: true, proposal: takeover, openQuestions: [] } })} />)
+    const html = render(<InsightsView data={insights({ ai: { provider: 'Groq', granted: true, proposal: takeover, openQuestions: [], preferences: {}, placement: {} } })} />)
     expect(html).toContain('Zielspur')
   })
 })

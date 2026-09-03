@@ -7,7 +7,7 @@
 // can be pinned down is pinned down.
 
 import { describe, expect, it } from 'vitest'
-import { pullFor, wouldRefresh } from '@/components/PullToRefresh'
+import { fillFor, pullFor, wouldRefresh } from '@/components/PullToRefresh'
 
 describe('an upward drag is a scroll, not a negative pull', () => {
   it.each([-500, -64, -1, 0])('stays at zero for %d', (delta) => {
@@ -60,5 +60,51 @@ describe('the threshold', () => {
     // If the cap were below the threshold, the gesture could never fire —
     // and it would look like it was about to the whole time.
     expect(wouldRefresh(pullFor(10_000))).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The ring, not the bar.
+//
+// The indicator was a full-width hairline with "Zum Aktualisieren ziehen" under
+// it, drawn over the sticky header. "Macht einfach so herunterziehen und es
+// kommt so'n kleiner Kreis, der sich so füllt."
+//
+// The ring is now the only feedback there is — no bar, no sentence — so how full
+// it is has to mean exactly one thing: whether letting go would reload.
+
+describe('how full the ring is', () => {
+  it('is empty before the gesture starts', () => {
+    expect(fillFor(0)).toBe(0)
+  })
+
+  it('closes exactly where releasing would refresh', () => {
+    // The ring closing and the gesture arming are one event. If these two ever
+    // disagree, the person is looking at a full circle that does nothing, or a
+    // gap that reloads.
+    const pulls = [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 96]
+    for (const pull of pulls) {
+      expect(fillFor(pull) >= 1, `pull ${pull}`).toBe(wouldRefresh(pull))
+    }
+  })
+
+  it('fills evenly on the way there', () => {
+    // Monotonic, so the ring never goes backwards while the finger goes down.
+    let previous = -1
+    for (let pull = 0; pull <= 64; pull += 4) {
+      const fill = fillFor(pull)
+      expect(fill).toBeGreaterThanOrEqual(previous)
+      previous = fill
+    }
+  })
+
+  it('does not overfill on a long drag', () => {
+    expect(fillFor(500)).toBe(1)
+  })
+
+  it('stays empty for an upward drag and for nonsense', () => {
+    for (const bad of [-1, -400, NaN, Infinity]) {
+      expect(fillFor(bad), String(bad)).toBe(0)
+    }
   })
 })

@@ -125,21 +125,20 @@ export default function TodayPage() {
               </div>
             )}
 
-            {/* Below the actions from here down, and each one line.
+            {/* Directly under the day's work, not at the bottom of the screen.
                 
-                The impulse and the question are the two things the app says
-                unprompted. They were above the list, where they pushed the
-                actions off the first screen; they are rare, so a line that
-                says one is waiting costs nothing on the days there is none. */}
+                This is the only thing on Heute the app asks *for* rather than
+                asks about, and everything the adaptive engine knows about how a
+                week felt comes from here. It had drifted below two cards that
+                are usually empty and one that is sometimes long, which on a
+                phone means below the fold on every single day. */}
+            <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />
+
+            {/* The two things the app says unprompted, and the box for asking
+                it something. All three are rare or optional, so they sit last —
+                and each renders nothing at all on the days it has nothing. */}
             <ImpulseCard today={today} />
             <FollowUpCard today={today} />
-
-            {/* Both render nothing until they have their data, and both were
-                folded behind a line — which left two empty bordered boxes on
-                screen, the ones in the screenshot. A card that draws itself
-                only when it has something to say does not need a wrapper that
-                draws itself regardless. */}
-            <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />
             <AskCard today={today} />
           </Screen>
         )

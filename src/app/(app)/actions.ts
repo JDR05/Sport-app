@@ -23,6 +23,10 @@ import { loadPlanInput } from '@/lib/db/plan-input'
 import { refreshProposal } from '@/lib/db/propose'
 import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
 import { adoptProposalIntoCurrentWeek } from '@/lib/db/adopt-proposal'
+import {
+  loadActionPreferences, setActionPreference, type PreferenceResult,
+} from '@/lib/db/action-preferences'
+import { MAX_TIMES_PER_WEEK } from '@/lib/engine/proposed'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
@@ -30,7 +34,7 @@ import { ensureWeeklyNote, type WeeklyNote } from '@/lib/db/weekly-note'
 import { loadCommitments, saveCommitments } from '@/lib/db/commitments'
 import { answerFollowUp, ensureFollowUp, type OpenQuestion } from '@/lib/db/followup'
 import { commitmentSchema } from '@/lib/db/schemas'
-import type { Commitment } from '@/lib/domain/types'
+import type { ActionPreferences, Commitment } from '@/lib/domain/types'
 import { QUESTION_MAX_CHARS } from '@/lib/ai/ask'
 import { STATUS_REASONS, type Reaction } from '@/lib/adaptive/reaction'
 
@@ -511,4 +515,48 @@ export async function finishAiForGoal(payload: unknown): Promise<{ ok: boolean }
 
   revalidatePath('/', 'layout')
   return { ok: written }
+}
+
+// ------------------------------------------------------- action preferences ---
+
+const preferenceSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  // Null means "however often the model suggested". The upper bound is a week;
+  // what actually fits is the engine's decision, not this endpoint's.
+  timesPerWeek: z.number().int().min(1).max(MAX_TIMES_PER_WEEK).nullable(),
+  enabled: z.boolean(),
+})
+
+/**
+ * Stores what this person wants from one of the model's suggestions, and makes
+ * the running week match.
+ *
+ * The second half is the point. Storing a wish that only takes effect next
+ * Monday is how a setting comes to look broken: "ich möchte zweimal die Woche
+ * Krafttraining machen" has to change something visible on Heute now. The sync
+ * is bounded to days still ahead and actions nobody has answered — see
+ * adopt-proposal.ts — and the safety invariants still decide what fits.
+ */
+export async function saveActionPreference(payload: unknown): Promise<PreferenceResult> {
+  const user = await requireUser()
+
+  const parsed = preferenceSchema.safeParse(payload)
+  if (!parsed.success) return { ok: false, preferences: {} }
+
+  const result = await setActionPreference(user.id, parsed.data.title, {
+    timesPerWeek: parsed.data.timesPerWeek,
+    enabled: parsed.data.enabled,
+  })
+  if (!result.ok) return result
+
+  await adoptProposalIntoCurrentWeek(user.id, await serverToday())
+
+  revalidatePath('/', 'layout')
+  return result
+}
+
+/** What this person has already asked for, for the Insights list to show. */
+export async function getActionPreferences(): Promise<ActionPreferences> {
+  const user = await requireUser()
+  return loadActionPreferences(user.id)
 }

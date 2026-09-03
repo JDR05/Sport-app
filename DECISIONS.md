@@ -7,6 +7,91 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-03 — ADR-111: Tab-Wechsel ohne Rundreise
+
+**Entscheidung:** Zwei Änderungen. Das Layout des angemeldeten Bereichs beantwortet „gibt es
+ein Ziel?" mit **zwei indizierten Lookups** statt mit dem ganzen Plan-Input. Und
+`experimental.staleTimes` erlaubt dem Client-Router, einen bereits geladenen Screen 30 s zu
+behalten.
+
+**Begründung:** „Wenn ich irgendwo 'n neuen Tab anklick, es geht viel zu lange, bis es 'n
+Laden hat."
+
+`AppLayout` rief `loadPlanInput` — **sieben** Selects, einer davon *alle* jemals erfassten
+Messwerte ohne Limit. Auf Fortschritt und Insights ist das geteilte Arbeit, weil die Funktion
+pro Request memoisiert ist und diese Seiten sie ohnehin brauchen. Auf **Heute und Plan nicht**:
+beide sind Client-Shells, die ihre Woche selbst laden. Dort waren diese sieben Queries die
+*gesamten* Serverkosten der Navigation, und kein einziges Ergebnis wurde gelesen.
+
+Dazu kommt, dass seit Next 15 der Client-Cache dynamische Segmente **null Sekunden** hält.
+Heute → Plan → Heute waren drei volle Rundreisen, jede mit Skelett vor einem Screen, den der
+Browser gerade gerendert hatte. 30 s sind hier sicher, weil die Daten woanders liegen: Heute
+und Plan bekommen ihren Inhalt aus dem `PlanProvider`, und jeder Schreibvorgang geht durch
+eine Server-Action mit `router.refresh()`, was den Cache ohnehin verwirft.
+
+---
+
+## 2026-09-03 — ADR-110: Der Check-in wird gezeichnet, bevor der Server antwortet
+
+**Entscheidung:** `CheckInCard` rendert sofort mit leeren Skalen und füllt sich, wenn die
+Antwort kommt. Ein fehlgeschlagener Ladevorgang wird abgefangen und ändert nichts an der
+Sichtbarkeit. Die Karte steht jetzt direkt unter den Aktionen statt am Ende des Screens.
+
+**Begründung:** „Das mit wie es mir heute geht, Essen, Stress — hast du komplett entfernt.
+Gibt's jetzt einfach nicht mehr."
+
+War sie nicht. Sie gab `null` zurück, bis `getCheckIns` antwortete, und an diesem Aufruf hing
+**kein catch** — eine einzige fehlgeschlagene Antwort ließ die Karte für den Rest der Sitzung
+unsichtbar, ohne eine Spur auf dem Screen. Vom Sofa aus ist das dasselbe wie gelöscht.
+
+Und es war umsonst: die Skalen brauchen keine Serverdaten, um bedienbar zu sein. Das Warten
+kaufte nichts und kostete die ganze Karte. Leere Skalen sind ohnehin der ehrliche
+Anfangszustand — nichts erfasst.
+
+Dazu die Position: alles, was die adaptive Engine darüber weiß, wie eine Woche sich
+*angefühlt* hat, kommt aus dieser Karte. Sie stand unter zwei Karten, die meistens leer sind,
+und einer, die manchmal lang ist — auf dem Handy also jeden Tag unter der Falz.
+
+---
+
+## 2026-09-03 — ADR-109: Der Vorschlag der KI ist verhandelbar
+
+**Entscheidung:** Jede vorgeschlagene Aktion bekommt auf Insights zwei Regler: **wie oft pro
+Woche** und **ob überhaupt**. Gespeichert in `goals.action_preferences`, angewendet an der
+einen Stelle, an der der Vorschlag gelesen wird. Darunter steht, **auf welchen Tagen** die
+Aktion diese Woche tatsächlich liegt.
+
+**Begründung:** „Dann hinten im Insight stehen zum Beispiel jetzt bei mir einmal
+Krafttraining, Laufen, bla bla. Dann möchte ich da aber Präferenzen geben, zum Beispiel möchte
+ich zweimal der Woche Krafttraining machen. Und dann, sodass mir diese Vorschläge irgendwo
+einordnen, wo ich Zeit hab, und das mir dann vorne hin Heute anzeigen und in meinem Plan."
+
+Der Vorschlag war eine Liste zum Lesen. Der Screen, der zeigt, was die KI denkt, war damit
+auch der Screen, der bewies, dass die App nicht zuhört. Die Häufigkeit stand als graue Zahl
+neben der Dauer — die eine Zahl auf diesem Screen, zu der jemand eine Meinung hat, gesetzt wie
+eine Messangabe.
+
+**Eine Bitte, keine Anweisung** — und das ist die ganze Sicherheitsargumentation. Die
+Präferenz ändert, *wonach* die Engine gefragt wird, nie, *was sie darf*. Wer fünf
+Krafteinheiten will, bekommt so viele, wie die Woche unter Ruhetagen, Tagesdeckel und
+Belastungsbudget hergibt; der Rest wird nicht geplant. Der Test dazu geht alle Werte von 1 bis
+7 durch und prüft, dass **keiner** eine Invariante verletzt.
+
+**Und die Rückmeldung ist ehrlich.** Unter jeder Aktion stehen die Tage, auf denen sie
+gelandet ist. Wer vier verlangt und drei Tage zurückgelesen bekommt, sieht, dass die Woche
+Platz für drei hatte — ohne dass die App etwas anderes behaupten muss.
+
+**Nebenbei zwei echte Fehler behoben.** `adoptProposalIntoCurrentWeek` war ein einmaliges
+Hinzufügen; beim letzten Umbau ist dabei der Doppel-Einfüge-Schutz verlorengegangen. Es ist
+jetzt ein **Abgleich**: es berechnet, was der Anteil der KI an der Restwoche sein soll, und
+bringt die Zeilen zur Deckung. Zweimal laufen ändert beim zweiten Mal nichts, und eine von 2
+auf 1 gesenkte Präferenz entfernt die zweite Einheit tatsächlich. Damit das Umbenennen
+umkehrbar ist, hält `plannedAs` jetzt Titel, Begründung und Herkunft der Archetyp-Einheit
+vollständig — wer die Anzahl senkt, bekommt die ursprüngliche Formulierung zurück statt einer
+Einheit mit einem Titel, den niemand mehr wollte.
+
+---
+
 ## 2026-09-03 — ADR-108: Der Plan öffnet beim heutigen Tag
 
 **Entscheidung:** Der Wochenplan zeigt sieben Zeilen. Aufgeklappt ist **der Tag, in dem man

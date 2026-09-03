@@ -20,13 +20,15 @@ import {
 } from '@/lib/domain/commitmentInsights'
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { withPreferences } from '@/lib/engine/proposed'
 import {
-  readAiProposal, readCommitments, readConstraintValue, readFreeSlots, readMind,
+  readActionPreferences, readAiProposal, readCommitments, readConstraintValue, readFreeSlots, readMind,
   readWakeTimes,
   readNutrition, readSexAtBirth, readSleep, readSport, readWorkPattern,
 } from './schemas'
 import type {
-  Constraint, Goal, GoalMetric, IntakeAnswer, PersonalRule, PlanInput, Profile, Schedule,
+  AiProposal, Constraint, Goal, GoalMetric, IntakeAnswer, PersonalRule, PlanInput, Profile,
+  Schedule,
 } from '@/lib/domain/types'
 
 
@@ -64,6 +66,44 @@ export class PlanInputUnavailableError extends Error {
  * identical round trips to the database before anything appears on screen,
  * on every single tap of the bottom bar.
  */
+/**
+ * Just: has this person finished the intake?
+ *
+ * The signed-in layout asked that question by loading the *entire* plan input —
+ * seven selects, one of them every measurement ever recorded, on every tap of
+ * the bottom bar. On Fortschritt and Insights that work is shared, because
+ * `loadPlanInput` is memoized per request and those pages need it anyway. On
+ * Heute and Plan it is not: both are client shells that fetch their week
+ * separately, so those seven queries were the *whole* server cost of the
+ * navigation and none of it was used. "Wenn ich irgendwo 'n neuen Tab
+ * anklick, es geht viel zu lange."
+ *
+ * Two indexed lookups instead, both answering exactly what the layout asks.
+ */
+export const hasCompletedIntake = cache(async function hasCompletedIntake(
+  profileId: string,
+): Promise<boolean> {
+  const supabase = await createClient()
+
+  const [profileRow, goalRow] = await Promise.all([
+    supabase.from('profiles').select('id').eq('id', profileId).maybeSingle(),
+    supabase
+      .from('goals')
+      .select('id')
+      .eq('profile_id', profileId)
+      .eq('status', 'active')
+      .maybeSingle(),
+  ])
+
+  // Same rule as loadPlanInput: a failed read is reported, never read as "this
+  // person has nothing". Answering "nothing" here sends someone through the
+  // whole intake again and replaces the goal they already had.
+  const failed = [profileRow, goalRow].map((r) => r.error).find((e) => e !== null)
+  if (failed) throw new PlanInputUnavailableError(failed.message)
+
+  return Boolean(profileRow.data && goalRow.data)
+})
+
 export const loadPlanInput = cache(async function loadPlanInput(
   profileId: string,
 ): Promise<StoredPlanInput | null> {
@@ -186,7 +226,11 @@ export const loadPlanInput = cache(async function loadPlanInput(
     constraints,
     schedule,
     personalRules,
-    aiProposal: readAiProposal(g.ai_proposal),
+    // The proposal as this person wants it, not as the model first offered
+    // it. Applied here, at the one place the proposal is read, so the plan,
+    // the adoption into a running week and the Insights list can never
+    // disagree about how often something should happen.
+    aiProposal: applyPreference(readAiProposal(g.ai_proposal), g.action_preferences),
     // The stored judgement is used only while it still describes this week.
     // Commitments are editable, and an insight about a training somebody has
     // since dropped would keep shaping the plan from a row nobody can see.
@@ -197,6 +241,16 @@ export const loadPlanInput = cache(async function loadPlanInput(
     intakeAnswers: readIntakeAnswers(g.intake_answers),
   }
 })
+
+/** The stored proposal, narrowed by whatever the person asked for. */
+function applyPreference(proposal: AiProposal | null, stored: unknown): AiProposal | null {
+  if (!proposal) return null
+  const narrowed = withPreferences(proposal, readActionPreferences(stored))
+  // Turning every action off is a legitimate answer and means "no proposal",
+  // not "a proposal with nothing in it" — downstream code tests for the
+  // proposal's presence, not for its length.
+  return narrowed.actions.length > 0 ? narrowed : null
+}
 
 /**
  * Answers to the questions the model asked before planning.

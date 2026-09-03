@@ -309,6 +309,7 @@ export type Database = {
       }
       goals: {
         Row: {
+          action_preferences: Json
           ai_proposal: Json | null
           ai_proposal_at: string | null
           commitment_insights: Json | null
@@ -327,6 +328,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_preferences?: Json
           ai_proposal?: Json | null
           ai_proposal_at?: string | null
           commitment_insights?: Json | null
@@ -345,6 +347,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_preferences?: Json
           ai_proposal?: Json | null
           ai_proposal_at?: string | null
           commitment_insights?: Json | null

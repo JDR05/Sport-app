@@ -7,7 +7,7 @@
 
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/lib/auth/session'
-import { loadPlanInput } from '@/lib/db/plan-input'
+import { hasCompletedIntake } from '@/lib/db/plan-input'
 import { PlanProvider } from '@/components/PlanProvider'
 import { BottomNav } from '@/components/BottomNav'
 import { TimeZoneSync } from '@/components/TimeZoneSync'
@@ -17,9 +17,11 @@ import { AppRefresh } from '@/components/AppRefresh'
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const user = await requireUser()
 
-  // Only the question "is there a goal at all" is answered here. The week
-  // itself needs the client's date, so the provider fetches it.
-  if (!(await loadPlanInput(user.id))) redirect('/onboarding')
+  // Only the question "is there a goal at all" is answered here, and it is
+  // answered with two indexed lookups rather than by loading the whole plan
+  // input. On Heute and Plan — client shells that fetch their week themselves —
+  // that used to be seven selects per tab tap with nothing reading the result.
+  if (!(await hasCompletedIntake(user.id))) redirect('/onboarding')
 
   return (
     <PlanProvider>

@@ -50,6 +50,22 @@ export function wouldRefresh(pull: number): boolean {
   return pull >= THRESHOLD
 }
 
+/**
+ * How much of the ring is drawn, from 0 to 1.
+ *
+ * Full exactly at the point where releasing would refresh, so the ring closing
+ * and the gesture arming are the same event. It is the only feedback left —
+ * there is no bar and no sentence — so it has to mean precisely that and
+ * nothing else. Pulling further does not overfill it.
+ */
+export function fillFor(pull: number): number {
+  if (!Number.isFinite(pull) || pull <= 0) return 0
+  return Math.min(1, pull / THRESHOLD)
+}
+
+/** 2πr for the r=7.5 ring above, so the dash maths has one source. */
+const CIRCUMFERENCE = 2 * Math.PI * 7.5
+
 export function PullToRefresh({
   onRefresh,
   children,
@@ -152,47 +168,69 @@ export function PullToRefresh({
   }, [finish])
 
   const active = busy || pull > 0
-  const height = busy ? THRESHOLD / 2 : pull
   const ready = wouldRefresh(pull)
+  // How far the ring has come down. While loading it holds just below the
+  // header rather than following a finger that is no longer there.
+  const offset = busy ? THRESHOLD / 2 : pull
+  const progress = fillFor(pull)
 
   return (
     <>
-      {/* A hairline that fills, not a spinning circle. The app is a measuring
-          instrument: a bar that is either short of the mark or past it says
-          more than a shape that spins whatever happens. */}
-      {/* Opaque, and only while it is doing something.
+      {/* A ring that fills, and nothing else.
           
-          It sits above the sticky header, so a transparent strip put "Wird
-          geladen" straight across "Trace — Heute" — two labels in the same
-          twelve pixels, which is what the screenshot showed. A pull-down shade
-          that covers the header while it is pulled reads as one gesture; a
-          floating word over the wordmark reads as a broken screen. */}
+          This was a full-width hairline bar with "Zum Aktualisieren ziehen"
+          under it, drawn over the sticky header — two labels in the same twelve
+          pixels, and a sentence explaining a gesture everybody already knows.
+          "Macht einfach so herunterziehen und es kommt so'n kleiner Kreis, der
+          sich so füllt."
+          
+          So: one small ring, centred, that comes down with the finger. Its
+          stroke fills clockwise as the pull approaches the threshold, it turns
+          solid once releasing would refresh, and it spins while the data is on
+          its way. No words — the ring is either full or it is not, which is the
+          whole state there is. */}
       <div
         aria-hidden={!busy}
         aria-live="polite"
-        className={`pointer-events-none fixed inset-x-0 top-0 z-50 flex items-end justify-center overflow-hidden ${
-          active ? 'bg-paper' : ''
-        }`}
+        className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center"
         style={{
-          height: `${height}px`,
-          // No transition while the finger is down — the bar has to track it
+          // Comes down with the finger and goes back up on release. Translating
+          // rather than growing a box keeps the ring one size, so it reads as an
+          // object being pulled instead of a shape being stretched.
+          transform: `translateY(${offset}px)`,
+          opacity: active ? 1 : 0,
+          // No transition while the finger is down — the ring has to track it
           // exactly — and one on the way back, so releasing does not snap.
-          transition: dragging ? undefined : 'height var(--motion-enter, 160ms)',
+          transition: dragging
+            ? undefined
+            : 'transform var(--motion-enter, 160ms), opacity var(--motion-enter, 160ms)',
         }}
       >
-        {active && (
-          <div className="w-full px-5 pb-1.5">
-            <div className="h-[3px] w-full overflow-hidden bg-sunken">
-              <div
-                className="h-full bg-accent"
-                style={{ width: busy ? '100%' : `${Math.min(100, (pull / THRESHOLD) * 100)}%` }}
-              />
-            </div>
-            <p className="label mt-1.5 text-center text-[10px] font-semibold text-faint">
-              {busy ? 'Wird geladen' : ready ? 'Loslassen' : 'Zum Aktualisieren ziehen'}
-            </p>
-          </div>
-        )}
+        <span
+          className={`flex h-9 w-9 items-center justify-center rounded-full border border-line bg-paper ${
+            busy ? 'animate-spin' : ''
+          }`}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            {/* The track it fills against. Without it a half-full ring reads as
+                a broken circle rather than as progress. */}
+            <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="2" className="text-line" />
+            <circle
+              cx="10"
+              cy="10"
+              r="7.5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className={ready || busy ? 'text-accent' : 'text-faint'}
+              // Clockwise from the top, which is the direction the finger is
+              // travelling in.
+              transform="rotate(-90 10 10)"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={CIRCUMFERENCE * (1 - (busy ? 0.25 : progress))}
+            />
+          </svg>
+        </span>
       </div>
 
       {children}

@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { generatePlan } from '@/lib/engine'
 import { assertPlanInvariants } from '@/lib/engine/safety'
-import { isAiAuthored, shapeOwnedDomains } from '@/lib/engine/proposed'
+import { isAiAuthored, shapeOwnedDomains, unshape } from '@/lib/engine/proposed'
 import { GOALS, makeInput, PROFILES } from './fixtures/profiles'
 import type { AiProposal, PlannedItem, PlanInput, ProposedAction } from '@/lib/domain/types'
 
@@ -69,11 +69,26 @@ describe('the words change', () => {
     expect(items[0].details.effect).toBe(GYM.effect)
   })
 
-  it('keeps what the archetype called it', () => {
-    // The evidence that the load is still the engine's. Without it a shaped
-    // item is indistinguishable from an invented one.
+  it('keeps what the archetype called it, whole', () => {
+    // The evidence that the load is still the engine's, and what makes the
+    // change reversible when somebody later asks for fewer sessions.
     const { items } = shapeOwnedDomains([session()], [GYM], 'body_composition')
-    expect(items[0].details.plannedAs).toBe('Krafttraining Ganzkörper')
+    expect(items[0].details.plannedAs).toEqual({
+      title: 'Krafttraining Ganzkörper',
+      why: 'Zwei Einheiten halten die Muskelmasse.',
+      basedOn: ['profile.sport'],
+    })
+  })
+
+  it('goes back exactly, so a lowered count leaves nothing behind', () => {
+    const before = session()
+    const { items } = shapeOwnedDomains([before], [GYM], 'body_composition')
+    expect(unshape(items[0])).toEqual(before)
+  })
+
+  it('leaves an item it never shaped alone', () => {
+    const untouched = session({ details: { kind: 'ai_proposed' } })
+    expect(unshape(untouched)).toEqual(untouched)
   })
 
   it('names both sources, because both are true of the item', () => {

@@ -26,6 +26,27 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: SECURITY_HEADERS }]
   },
+
+  experimental: {
+    /**
+     * Let the client router keep a screen it already has.
+     *
+     * Every screen behind the bottom bar is dynamic, and since Next 15 the
+     * client cache holds dynamic segments for zero seconds. So tapping Heute,
+     * then Plan, then Heute again was three full server round trips, each one
+     * showing the skeleton before the screen it had just rendered. "Wenn ich
+     * irgendwo 'n neuen Tab anklick, es geht viel zu lange."
+     *
+     * Safe here because of where the data actually lives. Heute and Plan are
+     * client shells: their content comes from PlanProvider, one fetch shared
+     * across the whole app, not from the cached RSC payload. Fortschritt,
+     * Insights and Profil do render server data, and thirty seconds is the
+     * window in which none of it can have changed without this app knowing —
+     * every write goes through a server action that calls router.refresh(),
+     * and pull-to-refresh does the same, both of which drop the cache.
+     */
+    staleTimes: { dynamic: 30, static: 300 },
+  },
 }
 
 export default nextConfig

@@ -14,12 +14,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { applyCorrections, respondToExperiment } from '@/app/(app)/actions'
+import { ActionPreferenceControl } from '@/components/ActionPreference'
 import { Button, Card, EmptyState, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
 import { TRIGGER_LABELS } from '@/lib/adaptive/labels'
 import { formatGermanDate } from '@/lib/engine/dates'
 import type { Insight } from '@/lib/adaptive'
-import type { AiProposal } from '@/lib/domain/types'
+import type { ActionPreferences, AiProposal, Weekday } from '@/lib/domain/types'
 
 export type InsightsData = {
   today: string
@@ -76,6 +77,10 @@ export type InsightsData = {
     proposal: AiProposal | null
     /** Questions the model asked and the person skipped. */
     openQuestions: string[]
+    /** What this person has asked for, by action title. */
+    preferences: ActionPreferences
+    /** Which weekdays of this week each title actually sits on. */
+    placement: Record<string, Weekday[]>
   }
 }
 
@@ -159,15 +164,23 @@ export function InsightsView({ data }: { data: InsightsData }) {
                 {data.ai.proposal.actions.map((action) => (
                   <div key={action.title}>
                     <p className="text-sm font-medium text-ink">{action.title}</p>
-                    <p className="num mt-0.5 text-xs text-faint">
-                      {action.minutes} min · {action.timesPerWeek}×/Woche
-                    </p>
+                    <p className="num mt-0.5 text-xs text-faint">{action.minutes} min</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted">{action.reasoning}</p>
                     {/* Why at all, under why you. An app that only ever answers
                         the second is a list of instructions from an authority. */}
                     {action.effect && (
                       <p className="mt-1 text-sm leading-relaxed text-faint">{action.effect}</p>
                     )}
+                    {/* The frequency moved out of that grey line and into a
+                        control. It was the one number on this screen the person
+                        had an opinion about, and it was set in the same
+                        unclickable type as the duration. */}
+                    <ActionPreferenceControl
+                      title={action.title}
+                      suggested={action.timesPerWeek}
+                      stored={data.ai.preferences[action.title]}
+                      placedOn={data.ai.placement[action.title] ?? []}
+                    />
                   </div>
                 ))}
               </div>

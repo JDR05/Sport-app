@@ -272,6 +272,25 @@ export type CommitmentInsight = {
   note: string
 }
 
+/**
+ * What the person wants from one of the model's suggestions.
+ *
+ * The proposal is the model's opening offer, not a verdict — "dann möchte ich
+ * da aber Präferenzen geben, zum Beispiel möchte ich zweimal der Woche
+ * Krafttraining machen." This is the answer to it, and it is a *request*: the
+ * engine still decides where it fits and the safety limits still decide
+ * whether it fits at all.
+ */
+export type ActionPreference = {
+  /** How often a week this person wants it. Null keeps what the model said. */
+  timesPerWeek: number | null
+  /** False removes the action from planning entirely. */
+  enabled: boolean
+}
+
+/** Preferences by action title — the only thing identifying a proposed action. */
+export type ActionPreferences = Record<string, ActionPreference>
+
 export type AiProposal = {
   headline: string
   actions: ProposedAction[]

@@ -9,9 +9,32 @@ import {
 } from '@/lib/db/experiments'
 import { ensureWeeklyNote, loadWeeklyNotes } from '@/lib/db/weekly-note'
 import { loadPlanInput } from '@/lib/db/plan-input'
+import { loadActionPreferences } from '@/lib/db/action-preferences'
+import { weekdayOf } from '@/lib/engine/dates'
 import { providerName } from '@/lib/ai'
 import { readConsent } from '@/lib/ai/consent'
 import { InsightsView, type InsightsData } from './InsightsView'
+import type { Observation } from '@/lib/adaptive/types'
+import type { Weekday } from '@/lib/domain/types'
+
+/**
+ * Which days of this week each action title actually sits on.
+ *
+ * Keyed by title because that is what identifies a proposed action everywhere
+ * else — and it deliberately matches shaped items too: on a goal whose
+ * archetype owns the domain, "45 Minuten Krafttraining im Gym" is the title of
+ * a session the engine planned, not of a row the model added, and from the
+ * screen those are the same thing.
+ */
+function placementOf(week: Observation[]): Record<string, Weekday[]> {
+  const byTitle: Record<string, Weekday[]> = {}
+  for (const item of week) {
+    const day = weekdayOf(item.scheduledOn)
+    const days = (byTitle[item.title] ??= [])
+    if (!days.includes(day)) days.push(day)
+  }
+  return byTitle
+}
 
 export default async function InsightsPage() {
   const user = await requireUser()
@@ -50,7 +73,11 @@ export default async function InsightsPage() {
   // deterministic detection are one picture of a person rather than two
   // features side by side. Splitting them across two tabs would contradict the
   // thing the app is for — and a mobile bottom bar is full at five.
-  const [answers, consent] = await Promise.all([loadPlanInput(user.id), readConsent(user.id)])
+  const [answers, consent, preferences] = await Promise.all([
+    loadPlanInput(user.id),
+    readConsent(user.id),
+    loadActionPreferences(user.id),
+  ])
 
   const { analysis } = review
 
@@ -104,6 +131,15 @@ export default async function InsightsPage() {
       provider: providerName(),
       granted: consent.granted,
       proposal: answers?.aiProposal ?? null,
+      // What this person asked for, and where it actually landed.
+      //
+      // The second half is the one that closes the loop he kept pointing at:
+      // "sodass mir diese Vorschläge irgendwo einordnen, wo ich Zeit hab und
+      // das mir dann vorne hin Heute anzeigen und in meinem Plan." A list that
+      // says what the AI suggested, without saying which days it ended up on,
+      // is the same screen that made the plan feel like it hid everything.
+      preferences,
+      placement: placementOf(review.thisWeek),
       // Questions the model asked and the person skipped. Kept visible because
       // a skipped answer is `unknown`, not "no" — and the app should be able to
       // say what it still does not know rather than quietly filing it away.

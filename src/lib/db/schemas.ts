@@ -12,7 +12,7 @@
 
 import { z } from 'zod'
 import type {
-  AiProposal, Commitment, Constraint, FreeSlot, MindProfile, NutritionProfile, Profile, Schedule,
+  ActionPreferences, AiProposal, Commitment, Constraint, FreeSlot, MindProfile, NutritionProfile, Profile, Schedule,
   SleepProfile, SportProfile,
 } from '@/lib/domain/types'
 
@@ -185,6 +185,31 @@ const storedProposalSchema = z.object({
 export function readAiProposal(value: unknown): AiProposal | null {
   const parsed = storedProposalSchema.safeParse(value)
   return parsed.success && parsed.data.actions.length > 0 ? parsed.data : null
+}
+
+/**
+ * What the person asked for, per proposed action.
+ *
+ * Read defensively like everything else in this file: the column is jsonb, so
+ * the only thing the database guarantees is that it is an object. An entry that
+ * cannot be read is dropped rather than guessed at — a preference the app
+ * half-understands would silently plan something nobody asked for, which is
+ * worse than the model's own suggestion standing unchanged.
+ *
+ * The upper bound is seven and not five, unlike the proposal above: five is
+ * what a model may suggest, seven is what a person may want.
+ */
+const storedPreferencesSchema = z.record(
+  z.string().min(1).max(80),
+  z.object({
+    timesPerWeek: z.number().int().min(1).max(7).nullable().catch(null),
+    enabled: z.boolean().catch(true),
+  }),
+)
+
+export function readActionPreferences(value: unknown): ActionPreferences {
+  const parsed = storedPreferencesSchema.safeParse(value)
+  return parsed.success ? parsed.data : {}
 }
 
 /**

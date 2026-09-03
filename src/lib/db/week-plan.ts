@@ -112,13 +112,18 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
     // them at all: measured on the real account, three proposed actions on
     // Insights and zero in a week of twenty-five. The plan row says which it
     // is, so the check costs nothing on a week that already has them.
+    // Only while the row still says the week was built without the model. The
+    // sync marks it `engine_ai` the moment it contributes anything, so this
+    // costs one comparison on every load after the first. Changes made later —
+    // somebody setting "2× Krafttraining" — run the sync from the action that
+    // made them, which is where the work belongs.
     if (existing.generatedBy === 'engine') {
       const result = await adoptProposalIntoCurrentWeek(profileId, today)
       // Shaped counts as much as added. On a body-composition goal the model
       // has no open domain to add to, so naming the sessions the engine
       // planned is the *only* way its work reaches this week — and a refresh
       // that ignored it would leave the old titles on screen until Monday.
-      if (result.added > 0 || result.shaped > 0) {
+      if (result.added > 0 || result.removed > 0 || result.shaped > 0) {
         const refreshed = await readWeek(profileId, weekStart, goalId)
         if (refreshed) return { ok: true, week: refreshed }
       }

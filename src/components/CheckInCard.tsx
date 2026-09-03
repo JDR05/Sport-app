@@ -16,7 +16,7 @@
 // training can leave someone tired and content at once, and a plan that read
 // those as one number would draw the wrong conclusion from both.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getCheckIns, submitCheckIn } from '@/app/(app)/actions'
 import { Card, SectionHeading } from '@/components/ui'
@@ -79,15 +79,30 @@ export function CheckInCard({
 }) {
   const [values, setValues] = useState<Values>(EMPTY)
   const [note, setNote] = useState('')
-  const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState(false)
+  // Whether this person has already answered something today, so a late reply
+  // from the server cannot overwrite a tap that came first.
+  const touched = useRef(false)
 
+  // Drawn immediately, filled in when the answer arrives.
+  //
+  // This used to render nothing until `getCheckIns` came back, and nothing at
+  // all if that call ever failed — there was no catch, so one bad response left
+  // the card invisible for the rest of the session with no trace anywhere. From
+  // the sofa that is indistinguishable from the feature having been deleted:
+  // "das mit wie es mir heute geht, Essen, Stress — hast du komplett entfernt,
+  // gibt's jetzt einfach nicht mehr."
+  //
+  // The scales need no server data to be usable, so waiting for one bought
+  // nothing and cost the whole card. An empty scale is the honest starting
+  // state anyway: nothing recorded yet.
   useEffect(() => {
     let current = true
-    void getCheckIns(today).then((entries) => {
-      if (!current) return
-      const todays = entries.find((e) => e.checkedInOn === today)
-      if (todays) {
+    void getCheckIns(today)
+      .then((entries) => {
+        if (!current || touched.current) return
+        const todays = entries.find((e) => e.checkedInOn === today)
+        if (!todays) return
         setValues({
           energy: todays.energy,
           mood: todays.mood,
@@ -100,9 +115,12 @@ export function CheckInCard({
         })
         setNote(todays.note ?? '')
         setSaved(true)
-      }
-      setLoaded(true)
-    })
+      })
+      .catch(() => {
+        // Nothing to say and nothing to hide. The card still works; a value
+        // typed now overwrites whatever was there, which is what the person
+        // meant by typing it.
+      })
     return () => {
       current = false
     }
@@ -121,12 +139,11 @@ export function CheckInCard({
 
   /** Writes one field and saves, so nothing depends on state having settled. */
   function set<K extends keyof Values>(field: K, value: Values[K]) {
+    touched.current = true
     const next = { ...values, [field]: value }
     setValues(next)
     save(next, note)
   }
-
-  if (!loaded) return null
 
   const fields = checkInFields(archetype)
   const asks = (field: CheckInField) => fields.includes(field)

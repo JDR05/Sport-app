@@ -19,7 +19,8 @@ import {
 } from './constants'
 import { weekdayOf } from './dates'
 import type {
-  GoalArchetype, PlanDomain, PlannedItem, ProposedAction, TimeSlot, Weekday,
+  ActionPreference, ActionPreferences, AiProposal, GoalArchetype, PlanDomain, PlannedItem,
+  ProposedAction, TimeSlot, Weekday,
 } from '@/lib/domain/types'
 
 /**
@@ -293,10 +294,19 @@ export function shapeOwnedDomains(
         details: {
           ...item.details,
           kind: 'ai_shaped',
-          // What the archetype called it, kept rather than overwritten. It is
-          // the evidence that the load is still the engine's — and without it
-          // a shaped item is indistinguishable from an invented one.
-          plannedAs: item.title,
+          // What the archetype called it, kept whole rather than overwritten.
+          //
+          // Two jobs. It is the evidence that the load is still the engine's —
+          // without it a shaped item is indistinguishable from an invented one.
+          // And it is what makes shaping reversible: a person who lowers "2×
+          // Krafttraining" to one gets the archetype's own wording back on the
+          // other session, rather than a session stuck with a title nobody
+          // asked for any more.
+          plannedAs: {
+            title: item.title,
+            why: item.rationale.text,
+            basedOn: item.rationale.basedOn,
+          },
           ...(action.effect ? { effect: action.effect } : {}),
         },
       }
@@ -306,4 +316,97 @@ export function shapeOwnedDomains(
   }
 
   return { items: next, shaped }
+}
+
+/**
+ * The most times a week any single proposed action may run.
+ *
+ * Seven, because that is a week. Not a judgement about what is sensible —
+ * whether seven of something is sensible depends on what it is, and the rest
+ * days, the per-day ceiling and the weekly exertion budget are the code that
+ * decides that. This exists only so a stored number can never be nonsense.
+ */
+export const MAX_TIMES_PER_WEEK = 7
+
+/**
+ * The proposal as this person wants it.
+ *
+ * Applied where the proposal is read, so every consumer — the plan, the
+ * adoption into a running week, the Insights list — sees the same actions. A
+ * preference honoured in one of those places and not the others is how a
+ * setting comes to look broken while being stored perfectly.
+ *
+ * A request, not an instruction. Asking for five strength sessions does not
+ * produce five: `scheduleProposed` still places only on days that survived the
+ * exclusions and the rest-day budget, and `assertPlanInvariants` still refuses
+ * a week that breaks a limit. What this does is make the *ask* real, so the
+ * engine is working from what the person wants rather than from what a model
+ * guessed for them.
+ */
+export function withPreferences(
+  proposal: AiProposal,
+  preferences: ActionPreferences | null | undefined,
+): AiProposal {
+  if (!preferences) return proposal
+
+  const actions: ProposedAction[] = []
+  for (const action of proposal.actions) {
+    const preference = preferences[action.title]
+    if (preference && preference.enabled === false) continue
+    if (!preference) {
+      actions.push(action)
+      continue
+    }
+    actions.push({ ...action, timesPerWeek: wantedTimes(action, preference) })
+  }
+
+  return { ...proposal, actions }
+}
+
+/** The wanted count, or the model's where the stored one is missing or absurd. */
+function wantedTimes(action: ProposedAction, preference: ActionPreference): number {
+  const wanted = preference.timesPerWeek
+  if (typeof wanted !== 'number' || !Number.isFinite(wanted)) return action.timesPerWeek
+  // Rounded rather than rejected: a half is a stored value that got there
+  // somehow, and the nearest whole week is what it plainly meant.
+  return Math.min(MAX_TIMES_PER_WEEK, Math.max(1, Math.round(wanted)))
+}
+
+
+/**
+ * A shaped item, back as the archetype planned it.
+ *
+ * The exact inverse of the shaping above, and it has to be exact: this runs
+ * whenever the wanted count drops, so the difference between "restored" and
+ * "nearly restored" is a session that slowly accumulates the model's leftovers.
+ * An item that was never shaped is returned untouched.
+ */
+export function unshape(item: PlannedItem): PlannedItem {
+  if (item.details.kind !== 'ai_shaped') return item
+
+  const original = item.details.plannedAs
+  if (!original || typeof original !== 'object') return item
+
+  const { title, why, basedOn } = original as Record<string, unknown>
+  if (typeof title !== 'string') return item
+
+  // Every key shaping added, and only those. Deleting from a copy rather than
+  // destructuring three throwaway names keeps the list of what shaping owns in
+  // one readable place.
+  const rest = { ...item.details }
+  delete rest.kind
+  delete rest.plannedAs
+  delete rest.effect
+
+  return {
+    ...item,
+    title,
+    rationale: {
+      text: typeof why === 'string' ? why : item.rationale.text,
+      basedOn: Array.isArray(basedOn)
+        ? basedOn.filter((v): v is string => typeof v === 'string')
+        : item.rationale.basedOn,
+    },
+    details: rest,
+  }
 }
