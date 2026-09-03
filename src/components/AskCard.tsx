@@ -23,7 +23,8 @@
 // Hidden entirely when no model can answer. An input box that replies "das
 // weiß ich nicht" to everything is worse than no input box.
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { loadAskState, submitQuestion } from '@/app/(app)/actions'
 import { Card, SectionHeading } from '@/components/ui'
 import { QUESTION_MAX_CHARS } from '@/lib/ai/ask'
@@ -38,7 +39,7 @@ import type { AskState, Exchange } from '@/lib/db/ask'
  * simply never appears, which is the right amount of explanation for a feature
  * that is not there.
  */
-export function AskCard({ today }: { today: string }) {
+export function AskCard({ today, bare = false }: { today: string; bare?: boolean }) {
   const [state, setState] = useState<AskState | null>(null)
 
   useEffect(() => {
@@ -58,11 +59,20 @@ export function AskCard({ today }: { today: string }) {
   }, [today])
 
   if (!state) return null
-  return <AskView state={state} today={today} />
+  return <AskView state={state} today={today} bare={bare} />
 }
 
 /** The card itself, given its state. Separate so it can be rendered in a test. */
-export function AskView({ state, today }: { state: AskState; today: string }) {
+export function AskView({
+  state,
+  today,
+  bare = false,
+}: {
+  state: AskState
+  today: string
+  /** Rendered inside a disclosure that already supplies heading and frame. */
+  bare?: boolean
+}) {
   const [history, setHistory] = useState<Exchange[]>(state.history)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -93,10 +103,10 @@ export function AskView({ state, today }: { state: AskState; today: string }) {
     setDraft('')
   }
 
+  const Shell = bare ? Fragment : Framed
+
   return (
-    <>
-      <SectionHeading>Frag nach</SectionHeading>
-      <Card>
+    <Shell>
         {history.length === 0 && (
           <p className="text-sm leading-relaxed text-muted">
             Frag mich etwas zu deinem Plan, deiner Woche oder deinem Ziel. Ich antworte aus
@@ -172,7 +182,16 @@ export function AskView({ state, today }: { state: AskState; today: string }) {
         )}
 
         {error && <p className="mt-2 text-sm leading-relaxed text-muted">{error}</p>}
-      </Card>
+    </Shell>
+  )
+}
+
+/** The heading and the card, for every place this is not already inside one. */
+function Framed({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <SectionHeading>Frag nach</SectionHeading>
+      <Card>{children}</Card>
     </>
   )
 }

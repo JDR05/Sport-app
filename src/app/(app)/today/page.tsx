@@ -9,7 +9,8 @@ import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
 import { FollowUpCard } from '@/components/FollowUpCard'
 import { ImpulseCard } from '@/components/ImpulseCard'
 import { DailyRules } from '@/components/DailyRules'
-import { Card, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { Card, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
+import { Disclosure } from '@/components/Disclosure'
 import { formatGermanDate, weekdayOf } from '@/lib/engine/dates'
 
 const WEEKDAY_LONG: Record<string, string> = {
@@ -34,10 +35,6 @@ export default function TodayPage() {
         const rules = all.filter((i) => i.cadence === 'daily')
         const items = all.filter((i) => i.cadence !== 'daily')
         const fixed = commitmentsForDay(week.commitments, weekdayOf(today))
-        // A day with football on it is not a day without training, whatever
-        // the plan happens to contain.
-        const restToday =
-          !items.some((i) => i.domain === 'training') && !fixed.some((c) => c.kind === 'sport')
 
         return (
           <Screen>
@@ -61,39 +58,20 @@ export default function TodayPage() {
                 : ' · dein Ziel'}
             </p>
 
-            {/* Above the actions, and only on the day it arrives.
+            {/* The actions, first.
                 
-                An impulse is the app having noticed something — three of the
-                same reason, a domain going nowhere, a run going well — and it
-                is the reason somebody opened the app to find something they
-                did not know. Under the list it would be a footnote; tomorrow
-                it is gone from here and lives on Insights. */}
-            <ImpulseCard today={today} />
-
-            {/* The app asking, rather than waiting to be asked. Above the
-                actions, because a question that arrives under the list is a
-                question nobody answers — and at most one exists at a time, by
-                a unique index rather than by good intentions. */}
-            <FollowUpCard today={today} />
-
-            {(all.length > 0 || fixed.length > 0) && (
-              <div className="mb-2.5 flex items-baseline justify-between">
-                <SectionHeading>Heute</SectionHeading>
-                {/* Counts only what the app planned. A fixed appointment is
-                    not something it may claim credit for, and a ratio that
-                    silently included it would make the completion figure mean
-                    two different things on two different days. */}
-                {all.length > 0 && (
-                  <span className="num text-[11px] text-faint">
-                    {all.filter((i) => i.status === 'done').length}/{all.length}
-                  </span>
-                )}
-              </div>
-            )}
+                This screen had grown to nine stacked blocks — an impulse, a
+                question, the appointments, the standing rules, the actions, a
+                note, a check-in with eight scales in it and a question box.
+                Each earned its place on its own; together they buried the
+                three things somebody opens the app for, which is exactly the
+                "keine zwanzig Karten pro Screen" the brief rules out.
+                
+                The rule now: today's actions are the screen. Everything else
+                is one line until it is asked for. */}
 
             {/* What the person already had, before the app said anything.
-                First because it is fixed and the rest is not: the plan was
-                built around this. */}
+                First, because it is fixed and the plan was built around it. */}
             {fixed.length > 0 && (
               <div className="mb-3">
                 <DayCommitments
@@ -104,9 +82,16 @@ export default function TodayPage() {
               </div>
             )}
 
-            {rules.length > 0 && (
-              <div className="mb-3">
-                <DailyRules items={rules} onStatus={setStatus} />
+            {(all.length > 0 || fixed.length > 0) && (
+              <div className="mb-2.5 flex items-baseline justify-between">
+                <SectionHeading>Heute</SectionHeading>
+                {/* Counts only what the app planned. A fixed appointment is
+                    not something it may claim credit for. */}
+                {all.length > 0 && (
+                  <span className="num text-[11px] text-faint">
+                    {all.filter((i) => i.status === 'done').length}/{all.length}
+                  </span>
+                )}
               </div>
             )}
 
@@ -114,7 +99,7 @@ export default function TodayPage() {
               <Card>
                 <p className="text-sm font-semibold text-ink">Heute steht nichts an.</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted">
-                  Das ist kein Versäumnis, sondern geplant. Ruhetage gehören zum Plan.
+                  Ruhetage gehören zum Plan.
                 </p>
               </Card>
             ) : items.length === 0 ? null : (
@@ -132,21 +117,30 @@ export default function TodayPage() {
               </div>
             )}
 
-            {/* One line, not three. The rule about untouched actions matters,
-                but repeating it under every screen is how a product starts
-                sounding anxious. */}
-            <Note>
-              {restToday && items.length > 0
-                ? 'Heute kein Training — die Basis läuft weiter. Nicht Abgehaktes zählt nie gegen dich.'
-                : 'Nicht Abgehaktes zählt nie gegen dich.'}
-            </Note>
+            {/* Standing rules, folded. They repeat every single day, so they
+                are the last thing that needs to be re-read every single day. */}
+            {rules.length > 0 && (
+              <Disclosure label="Jeden Tag" hint={`${rules.length}`}>
+                <DailyRules items={rules} onStatus={setStatus} />
+              </Disclosure>
+            )}
 
-            <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} />
+            {/* Below the actions from here down, and each one line.
+                
+                The impulse and the question are the two things the app says
+                unprompted. They were above the list, where they pushed the
+                actions off the first screen; they are rare, so a line that
+                says one is waiting costs nothing on the days there is none. */}
+            <ImpulseCard today={today} />
+            <FollowUpCard today={today} />
 
-            {/* Last, and deliberately so. Today's job is the three things due
-                today; asking a question is what somebody does after they have
-                looked at them, not instead. */}
-            <AskCard today={today} />
+            <Disclosure label="Wie war der Tag?" hint="Check-in">
+              <CheckInCard today={today} archetype={week.strategy.goalTrack.archetype} bare />
+            </Disclosure>
+
+            <Disclosure label="Frag nach" hint="zu deinem Plan">
+              <AskCard today={today} bare />
+            </Disclosure>
           </Screen>
         )
       }}

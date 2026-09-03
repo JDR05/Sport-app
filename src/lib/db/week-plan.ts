@@ -24,6 +24,7 @@ import { startOfWeek } from '@/lib/engine/dates'
 import { PlanInvariantError } from '@/lib/engine/errors'
 import { fromRow, materialise, toInsert, type ItemRow } from './item-mapping'
 import { loadCommitments } from './commitments'
+import { adoptProposalIntoCurrentWeek } from './adopt-proposal'
 import {
   commitmentsSignature, readCommitmentInsights,
 } from '@/lib/domain/commitmentInsights'
@@ -44,6 +45,15 @@ export type StoredWeek = {
   rationale: Rationale[]
   assumptions: Assumption[]
   items: StoredItem[]
+  /**
+   * Whether the model helped build this week.
+   *
+   * Read rather than inferred from the items, because it is also the cheap
+   * gate that decides whether to look for a proposal at all — on a week that
+   * already carries the model's work, this is one string comparison instead of
+   * a query.
+   */
+  generatedBy: 'engine' | 'engine_ai'
   /**
    * The week this person already had before the app said anything.
    *
@@ -95,6 +105,20 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
   if (existing && existing.items.length === 0) {
     await discardEmptyWeek(profileId, existing.planId)
   } else if (existing) {
+    // The model's actions may have arrived after this week was written.
+    //
+    // They used to be picked up only at the moment a *new* proposal was
+    // fetched, which meant somebody whose proposal already existed never got
+    // them at all: measured on the real account, three proposed actions on
+    // Insights and zero in a week of twenty-five. The plan row says which it
+    // is, so the check costs nothing on a week that already has them.
+    if (existing.generatedBy === 'engine') {
+      const added = await adoptProposalIntoCurrentWeek(profileId, today)
+      if (added.added > 0) {
+        const refreshed = await readWeek(profileId, weekStart, goalId)
+        if (refreshed) return { ok: true, week: refreshed }
+      }
+    }
     return { ok: true, week: existing }
   }
 
@@ -134,7 +158,7 @@ export async function ensureWeekPlan(profileId: string, today: string): Promise<
     throw error
   }
 
-  const written = await writeWeek(profileId, weekStart, goalId, plan, today)
+  const written = await writeWeek(profileId, weekStart, goalId, plan, today, input.aiProposal != null)
   if (written) {
     // A new week is the moment to re-examine what the app believes about this
     // person. It happens exactly once per week for free: the partial unique
@@ -196,6 +220,7 @@ async function readWeek(
     .maybeSingle()
 
   if (!planRow.data) return null
+  const generatedBy = planRow.data.generated_by
 
   const itemRows = await supabase
     .from('plan_items')
@@ -212,6 +237,7 @@ async function readWeek(
     rationale: (planRow.data.rationale ?? []) as unknown as Rationale[],
     assumptions: (planRow.data.assumptions ?? []) as unknown as Assumption[],
     items,
+    generatedBy,
     // Read live rather than frozen into the plan row. The plan a person worked
     // through must not rewrite itself (ADR-037), but a commitment they added
     // on Wednesday is a fact about Wednesday — showing them last week's
@@ -258,6 +284,15 @@ async function writeWeek(
   plan: ReturnType<typeof generatePlan>,
   /** The person's first day in this week — nothing before it is written. */
   from: string,
+  /**
+   * Whether the model contributed to this plan.
+   *
+   * Stamped on the row rather than derived from the items, because it is also
+   * the gate that decides whether a later load has to go looking for a
+   * proposal. It was never set at all, so every week claimed to be the
+   * engine's alone — including the ones the model had helped build.
+   */
+  usedProposal: boolean,
 ): Promise<StoredWeek | null> {
   const supabase = await createClient()
 
@@ -270,6 +305,7 @@ async function writeWeek(
       strategy: plan.strategy as unknown as Record<string, unknown>,
       rationale: plan.rationale as unknown as Record<string, unknown>[],
       assumptions: plan.assumptions as unknown as Record<string, unknown>[],
+      generated_by: usedProposal ? 'engine_ai' : 'engine',
     })
     .select('id')
     .single()

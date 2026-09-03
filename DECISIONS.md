@@ -7,6 +7,57 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-03 — ADR-105: Heute ist die Liste. Alles andere ist eine Zeile.
+
+**Entscheidung:** Zwei Dinge, beide aus derselben Rückmeldung.
+
+1. **Der KI-Vorschlag landet jetzt beim normalen Laden der Woche** in der laufenden Woche —
+   nicht mehr nur im Moment, in dem ein *neuer* Vorschlag geholt wird.
+2. **Heute wird abgespeckt.** Die Aktionen sind der Screen. Was nicht die heutigen Aktionen
+   sind, ist **eine Zeile**, bis es angetippt wird.
+
+**Begründung, gemessen statt vermutet.** Der Product Owner sagte: „ich sehe immernoch nicht
+die Aktion von der ki im Feld Heute … es ist alles so unübersichtlich und viel Text der zu
+nichts führt." Ein Blick in die echte Datenbank:
+
+| | |
+| --- | --- |
+| Vorschlag vorhanden | ja, 3 Aktionen, seit 2026-09-02 |
+| Aktionen im Plan | 37 |
+| davon von der KI | **0** |
+
+Die Übernahme aus ADR-104 lief nur an einer Stelle: beim Abholen eines neuen Vorschlags. Wer
+seinen Vorschlag schon hatte, bekam sie **nie**. Dazu kam, dass `writeWeek` `generated_by` gar
+nicht gesetzt hat — jede Woche behauptete, allein von der Engine zu stammen, auch die, die das
+Modell mitgebaut hatte. Beides ist repariert: die Spalte wird gesetzt und ist gleichzeitig das
+billige Gatter, das beim Laden entscheidet, ob überhaupt nach einem Vorschlag gesucht wird.
+
+**Und der Wust.** Heute war auf neun gestapelte Blöcke gewachsen — Impuls, Frage, Termine,
+Tagesregeln, Aktionen, ein Hinweissatz, ein Check-in mit acht Skalen, ein Fragefeld. Jeder
+Block war einzeln begründet und gut begründet. Zusammen haben sie genau das begraben, wofür
+man die App öffnet. Die UX-Regeln sagten es längst („keine zwanzig Karten pro Screen"), aber
+eine Regel, die nichts prüft, ist eine Absichtserklärung — deshalb zählt jetzt ein Test.
+
+**Die neue Ordnung:** Termine (der Plan wurde darum herum gebaut) → Überschrift mit Zähler →
+**die Aktionen** → alles andere gefaltet. Impuls und Frage stehen weiterhin da, aber
+**unterhalb** der Liste: sie sind selten, und an den Tagen ohne sie kosteten sie den halben
+ersten Screen.
+
+**Gefaltet ist nicht versteckt.** Jede Zeile sagt, was hinter ihr liegt — „Jeden Tag · 3",
+„Wie war der Tag? · Check-in", „Frag nach · zu deinem Plan". Der Unterschied ist der zwischen
+Falten und Verstecken, und er ist der Grund, warum die Zeile beschriftet ist und nicht nur ein
+Pfeil.
+
+**Gestrichen:** der Satz „Nicht Abgehaktes zählt nie gegen dich" unter jeder Liste, jeden Tag.
+Wahr — und ab dem zweiten Lesen Möblierung. Genau das meinte „viel Text der zu nichts führt".
+
+**Geprüft:** 7 neue Tests, die den Screen als Budget behandeln: die Aktionen stehen vor der
+ersten Faltung, oberhalb der Liste steht nichts, was die App von sich aus sagt, und alles was
+sich täglich wiederholt ist gefaltet. Zwei Mutationen (Karten wieder nach oben, Check-in
+wieder aufklappen) werden beide gefangen. 1764 Tests grün.
+
+---
+
 ## 2026-09-02 — ADR-104: Was die KI beiträgt, steht im Plan — nicht nur auf Insights
 
 **Entscheidung:** Zwei Änderungen.
