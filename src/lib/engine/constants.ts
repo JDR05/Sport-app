@@ -74,6 +74,23 @@ export const PROPOSED_STRENUOUS_MINUTES = 30
 /** A slot shorter than this cannot hold a useful session. */
 export const MIN_VIABLE_SESSION_MINUTES = 20
 
+/**
+ * The shortest thing worth putting on a plan at all.
+ *
+ * A separate floor from the one above, and the difference between them is the
+ * whole point. Twenty minutes is what a *session* needs to be worth changing
+ * clothes for. Five minutes of breathing before sleep, ten pages of a book, a
+ * two-minute wind-down — those are not sessions, and measuring them against a
+ * session's floor is why the app used to refuse to put anything at all on the
+ * evening somebody has football: the ninety minutes of training left fifteen
+ * minutes of the free slot, fifteen is under twenty, so the day vanished from
+ * the plan entirely.
+ *
+ * "Wenn zum Beispiel so wie Meditieren ist, dann kann man das ja auch an dem
+ * Tag machen, wo man schon Sport macht, weil das ist ja nicht richtig Sport."
+ */
+export const MIN_LIGHT_MINUTES = 5
+
 /** An open-ended goal is planned against this horizon. */
 export const DEFAULT_HORIZON_WEEKS = 12
 

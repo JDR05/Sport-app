@@ -45,11 +45,12 @@ function intervalOf(item: { start: string; minutes: number }): Interval {
  * hour before and an hour after. Dropping the whole slot would have thrown away
  * usable time and made the week look emptier than it is.
  *
- * Pieces shorter than a viable session are discarded — a fourteen-minute gap is
- * not a training window, and offering it as one is how a plan stops being
- * believable.
+ * Pieces shorter than `floor` are discarded — a fourteen-minute gap is not a
+ * training window, and offering it as one is how a plan stops being believable.
+ * The floor is a parameter because it is not the same number for a session and
+ * for five minutes of breathing.
  */
-function subtractOne(slot: FreeSlot, busy: Interval[]): FreeSlot[] {
+function subtractOne(slot: FreeSlot, busy: Interval[], floor: number): FreeSlot[] {
   let pieces: Interval[] = [intervalOf(slot)]
 
   for (const block of busy) {
@@ -66,14 +67,24 @@ function subtractOne(slot: FreeSlot, busy: Interval[]): FreeSlot[] {
   }
 
   return pieces
-    .filter((p) => p.to - p.from >= MIN_VIABLE_SESSION_MINUTES)
+    .filter((p) => p.to - p.from >= floor)
     .map((p) => ({ weekday: slot.weekday, start: timeOfMinutes(p.from), minutes: p.to - p.from }))
 }
 
-/** The week's free time with every commitment removed from it. */
+/**
+ * The week's free time with every commitment removed from it.
+ *
+ * `floor` is what a remaining piece has to be worth keeping, and it is a
+ * parameter because there are two honest answers. For a session it is twenty
+ * minutes: a quarter of an hour between football and bed is not a workout. For
+ * a five-minute breathing exercise it is five, and applying the session's floor
+ * there is what made the app refuse to put anything at all on the evening
+ * somebody plays football.
+ */
 export function freeSlotsMinusCommitments(
   slots: FreeSlot[],
   commitments: Commitment[],
+  floor: number = MIN_VIABLE_SESSION_MINUTES,
 ): FreeSlot[] {
   if (commitments.length === 0) return slots
 
@@ -81,6 +92,7 @@ export function freeSlotsMinusCommitments(
     subtractOne(
       slot,
       commitments.filter((c) => c.weekday === slot.weekday).map(intervalOf),
+      floor,
     ),
   )
 }

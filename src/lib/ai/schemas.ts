@@ -41,6 +41,20 @@ export const proposedActionSchema = z.object({
   title: z.string().min(3).max(80),
   /** Must reference something the person actually told the app. */
   reasoning: z.string().min(20).max(400),
+  /**
+   * What the action does — the mechanism, not the person.
+   *
+   * `reasoning` says why *you*: "du hast dienstags abends Zeit und trainierst
+   * lieber ohne Geräte". This says why *at all*: what happens in a body or a
+   * week when somebody does this. Without it the app is a list of instructions
+   * from an authority, which is the shape the product owner named and rejected
+   * — "sonst wirkt das wirklich wie jede zweite KI App".
+   *
+   * Optional and nullable, deliberately. Proposals written before this field
+   * existed are stored in `goals.ai_proposal` and must keep parsing: an
+   * explanation nobody wrote is a missing sentence, not a broken plan.
+   */
+  effect: z.string().min(10).max(200).nullish(),
   domain: z.enum(['training', 'nutrition', 'movement', 'sleep', 'self_improvement', 'priority']),
   minutes: z.number().int().min(0).max(90),
   timesPerWeek: z.number().int().min(1).max(5),

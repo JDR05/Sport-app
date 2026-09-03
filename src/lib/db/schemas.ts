@@ -167,6 +167,10 @@ const storedProposalSchema = z.object({
       z.object({
         title: z.string().min(1).max(80),
         reasoning: z.string().max(400),
+        // Added after the first proposals were already stored, so it is
+        // optional here for good: a row written last month has no `effect`,
+        // and it must keep planning rather than becoming no proposal at all.
+        effect: z.string().max(200).nullish(),
         domain: z.enum([
           'training', 'nutrition', 'movement', 'sleep', 'self_improvement', 'priority',
         ]),

@@ -163,6 +163,11 @@ export function InsightsView({ data }: { data: InsightsData }) {
                       {action.minutes} min · {action.timesPerWeek}×/Woche
                     </p>
                     <p className="mt-1 text-sm leading-relaxed text-muted">{action.reasoning}</p>
+                    {/* Why at all, under why you. An app that only ever answers
+                        the second is a list of instructions from an authority. */}
+                    {action.effect && (
+                      <p className="mt-1 text-sm leading-relaxed text-faint">{action.effect}</p>
+                    )}
                   </div>
                 ))}
               </div>

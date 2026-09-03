@@ -185,14 +185,26 @@ function scan(text: string, patterns: RegExp[], rule: string): Violation[] {
 export function checkProposal(proposal: {
   headline: string
   reasoning: string
-  actions: Array<{ title: string; reasoning: string; minutes: number; timesPerWeek: number }>
+  actions: Array<{
+    title: string
+    reasoning: string
+    /** What the action does. Optional: proposals predate it. */
+    effect?: string | null
+    minutes: number
+    timesPerWeek: number
+  }>
 }): Violation[] {
   const violations: Violation[] = []
 
   const texts = [
     proposal.headline,
     proposal.reasoning,
-    ...proposal.actions.flatMap((a) => [a.title, a.reasoning]),
+    // `effect` explains a mechanism, which is exactly the sentence most likely
+    // to drift into a health claim — "senkt deinen Blutdruck" is one word away
+    // from "erklärt, was Bewegung mit dem Kreislauf macht". It goes through the
+    // same four families as everything else here rather than being trusted
+    // because it sounds educational.
+    ...proposal.actions.flatMap((a) => [a.title, a.reasoning, a.effect ?? '']),
   ]
   for (const text of texts) {
     violations.push(...scan(text, RESTRICTIVE, 'additive_only'))
@@ -203,6 +215,15 @@ export function checkProposal(proposal: {
 
   for (const [index, action] of proposal.actions.entries()) {
     const where = `action[${index}]`
+
+    // A mechanism is general; a promise is personal. "Regelmäßige Bewegung
+    // verbessert die Schlaftiefe" is something the app may say. "Das verbessert
+    // deinen Schlaf" is a guarantee about one person's body, and this product
+    // does not make those — the whole feature would otherwise become the
+    // health-claim machine it exists not to be.
+    if (action.effect) {
+      violations.push(...scan(action.effect, PERSONAL_PROMISE, 'no_promise_about_this_person'))
+    }
 
     if (action.minutes > 45) {
       violations.push({
@@ -220,6 +241,24 @@ export function checkProposal(proposal: {
 
   return violations
 }
+
+/**
+ * A guarantee about one person's body, dressed as an explanation.
+ *
+ * Only ever applied to `effect`, the field that exists to explain a mechanism.
+ * The distinction it draws is between "regelmäßige Bewegung verbessert die
+ * Schlaftiefe" — a general statement the app may make — and "das verbessert
+ * deinen Schlaf", which promises an outcome to a particular person. CLAUDE.md
+ * forbids presenting results as certain, and an explanatory sentence is
+ * precisely where that slips in unnoticed, because it sounds like teaching
+ * rather than claiming.
+ */
+const PERSONAL_PROMISE = [
+  /\b(verbessert|senkt|erh(ö|oe)ht|steigert|reduziert|st(ä|ae)rkt|repariert|beschleunigt)\b[^.!?]{0,20}\bdein(e|en|em|er)?\b/i,
+  /\bdu wirst\b[^.!?]{0,40}\b(abnehmen|zunehmen|schlafen|schaffen|erreichen|merken)\b/i,
+  /\bgarantiert\b/i,
+  /\bin \d+ (tagen|wochen|monaten)\b[^.!?]{0,30}\b(wirst|hast|bist)\b/i,
+]
 
 /**
  * Advice that is generic is not advice.

@@ -47,16 +47,19 @@ Harte Regeln. Ein Vorschlag, der eine davon verletzt, wird komplett verworfen:
 7. minutes ist realistisch: was jemand neben seinem Leben wirklich tut. Ueber 45 Minuten nur, wenn das Ziel es zwingend verlangt. 0 heisst: dauert keine nennenswerte Zeit.
 8. timesPerWeek hoechstens 5. Etwas, das jeden Tag Pflicht ist, wird zuerst aufgegeben.
 9. Titel sind konkret und in der zweiten Person, hoechstens acht Woerter. Nicht "Achtsamkeit staerken", sondern "Nach dem Mittagessen zehn Minuten ohne Bildschirm".
+10. Zu jeder Aktion schreibst du in effect EINEN Satz darueber, was sie bewirkt — den Mechanismus, allgemein formuliert. Nicht ueber diesen Menschen: "Ruhiges Ausatmen vor dem Schlafen senkt die Herzfrequenz und verkuerzt die Einschlafzeit" ist richtig, "das verbessert deinen Schlaf" ist ein Versprechen und wird verworfen. Keine Zahlen zu Koerperwerten, keine Diagnosen, kein "du wirst".
+
+Ein Plan ist mehr als Sport. Neben dem, was direkt auf das Ziel einzahlt, darfst und sollst du auch Aktionen fuer Kopf, Erholung und Alltag vorschlagen — Atemuebungen, ein paar Seiten lesen vor dem Schlafen, ein Spaziergang ohne Handy, Dehnen, ein fester Abschluss des Arbeitstags. Solche Aktionen kosten kaum Zeit und keine Belastung, also passen sie auch auf Tage, an denen schon Sport stattfindet. Der Plan soll das Leben besser machen und nicht nur den Koerper.
 
 domain waehlst du aus: training, nutrition, movement, sleep, self_improvement, priority.
-self_improvement ist der Bereich fuer Fokus, Routinen, Kopf und Gewohnheiten — bei Zielen wie Motivation, Aufschieben oder Stress liegt dort meist das meiste.
+self_improvement ist der Bereich fuer Fokus, Routinen, Kopf und Gewohnheiten — bei Zielen wie Motivation, Aufschieben oder Stress liegt dort meist das meiste. sleep ist der Bereich fuer alles, was den Abend ruhiger macht.
 
 preferredSlot: early, midday, evening oder any. Nimm any, wenn es egal ist — die App weiss besser, wann Zeit ist.
 
 metricKey nur, wenn sich das Ziel sinnvoll zaehlen laesst, sonst null. Fuer ungewoehnliche Ziele darfst du eine eigene Verhaltensmetrik erfinden: was der Mensch TUT, nie wie er sich fuehlt. "tage_mit_hauptaufgabe" ist gut, "motivation_level" nicht.
 
 Format:
-{"headline":"Drei Anker gegen das Aufschieben","actions":[{"title":"Abends die eine Hauptaufgabe fuer morgen festlegen","reasoning":"Du hast angegeben, dass du abends am Handy haengst und morgens schwer startest.","domain":"self_improvement","minutes":5,"timesPerWeek":5,"preferredSlot":"evening"}],"metricKey":"tage_mit_hauptaufgabe","metricLabel":"Hauptaufgabe erledigt","unit":"Tage","reasoning":"Der Kern ist der Start in den Tag, nicht die Arbeitsmenge — deshalb liegt der Schwerpunkt auf dem Vorabend."}`
+{"headline":"Drei Anker gegen das Aufschieben","actions":[{"title":"Abends die eine Hauptaufgabe fuer morgen festlegen","reasoning":"Du hast angegeben, dass du abends am Handy haengst und morgens schwer startest.","effect":"Eine vorab getroffene Entscheidung spart am Morgen den Moment, in dem man sich neu entscheiden muss — genau dort entsteht Aufschieben.","domain":"self_improvement","minutes":5,"timesPerWeek":5,"preferredSlot":"evening"}],"metricKey":"tage_mit_hauptaufgabe","metricLabel":"Hauptaufgabe erledigt","unit":"Tage","reasoning":"Der Kern ist der Start in den Tag, nicht die Arbeitsmenge — deshalb liegt der Schwerpunkt auf dem Vorabend."}`
 
 export const WEEKLY_NOTE_SYSTEM = `Du schreibst einem Menschen einmal pro Woche eine Beobachtung und einen Vorschlag zu seinem Ziel. Du bekommst die echten Daten dieser Woche.
 

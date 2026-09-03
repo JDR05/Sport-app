@@ -241,7 +241,17 @@ export type PersonalRule = {
  */
 export type ProposedAction = {
   title: string
+  /** Why *this person*: names something they told the app. */
   reasoning: string
+  /**
+   * What the action does — the mechanism, said generally.
+   *
+   * A separate field from `reasoning` because they answer different questions,
+   * and an app that only answers the first is a list of instructions from an
+   * authority. Optional: proposals stored before this existed have none, and a
+   * missing explanation is a missing sentence rather than a broken plan.
+   */
+  effect?: string | null
   domain: PlanDomain
   minutes: number
   timesPerWeek: number

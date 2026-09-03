@@ -123,7 +123,11 @@ export function scheduleProposed(
     const needsRecovery = action.minutes >= PROPOSED_STRENUOUS_MINUTES
     const days = needsRecovery
       ? trainingDays.slice(0, action.timesPerWeek)
-      : pickDays(ctx, action.timesPerWeek)
+      // The duration decides which days are open to it. Five minutes of
+      // breathing fits on the evening somebody plays football; twenty-five
+      // minutes of yoga does not, and this is where the difference is made
+      // rather than assumed.
+      : pickDays(ctx, action.timesPerWeek, action.minutes)
 
     if (days.length === 0) continue
 
@@ -151,7 +155,16 @@ export function scheduleProposed(
           // rulebook, and so a bug here is traceable in stored rows.
           basedOn: ['ai.proposal', 'goal.rawText'],
         },
-        details: { kind: 'ai_proposed', timesPerWeek: action.timesPerWeek },
+        details: {
+          kind: 'ai_proposed',
+          timesPerWeek: action.timesPerWeek,
+          // What the action does, kept beside the reasoning rather than merged
+          // into it. They answer different questions — "warum ich" and "warum
+          // überhaupt" — and a screen that runs them together loses the second,
+          // which is the one that makes this something other than instructions
+          // from an authority.
+          ...(action.effect ? { effect: action.effect } : {}),
+        },
       })
     }
   }

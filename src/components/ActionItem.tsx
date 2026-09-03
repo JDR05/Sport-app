@@ -186,6 +186,16 @@ export function ActionItem({
       {open && (
         <div className="border-t border-line px-3.5 pb-3.5 pt-3">
           <p className="text-sm leading-relaxed text-muted">{item.rationale.text}</p>
+
+          {/* What it does, under why it is yours.
+              
+              Two different questions, and an app that answers only the first is
+              a list of instructions from an authority — which is the shape the
+              product is trying not to have. Shown quieter than the reasoning:
+              the mechanism is context, the personal part is the point. */}
+          {effectOf(item) && (
+            <p className="mt-2 text-sm leading-relaxed text-faint">{effectOf(item)}</p>
+          )}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {ANSWERS.map((option) => (
               <button
@@ -270,6 +280,18 @@ export function ActionItem({
       )}
     </article>
   )
+}
+
+/**
+ * The mechanism the model gave for an AI-proposed action, if it gave one.
+ *
+ * Read out of `details` rather than promoted to a column: it belongs to the
+ * proposal, not to every planned item, and an archetype's actions carry their
+ * reasoning in `rationale` where it has always been.
+ */
+function effectOf(item: PlannedItem): string | null {
+  const value = (item.details as Record<string, unknown> | undefined)?.effect
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
 }
 
 /** What actually happened, in the past tense, said once. */

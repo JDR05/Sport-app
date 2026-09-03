@@ -8,6 +8,7 @@ import {
   FALLBACK,
   MAX_CONSECUTIVE_TRAINING_DAYS,
   MIN_REST_DAYS,
+  MIN_LIGHT_MINUTES,
   MIN_VIABLE_SESSION_MINUTES,
 } from './constants'
 import { commitmentsOn, freeSlotsMinusCommitments, minutesOfDay, sportDays } from './commitments'
@@ -33,6 +34,16 @@ export type PlanContext = {
   experience: Experience
   /** Days with a usable free slot, already minus any hard exclusion. */
   availableDays: Weekday[]
+  /**
+   * How many minutes each weekday actually has left, down to the smallest
+   * thing worth planning.
+   *
+   * `availableDays` answers "could a session go here". This answers "how much
+   * is left", which is the question a five-minute breathing exercise needs
+   * asked — and the reason the app no longer treats the evening somebody plays
+   * football as an evening with nothing in it.
+   */
+  roomPerDay: Record<Weekday, number>
   /**
    * Where a training session may be placed: the available days minus the days
    * that already carry sport. Someone with football on Tuesday does not need a
@@ -83,6 +94,24 @@ export function buildContext(raw: PlanInput): PlanContext {
     nights,
   )
 
+  // The same week measured against a smaller floor.
+  //
+  // The slots above are what is left for a *session*, so a ninety-minute
+  // football training inside a seventy-five-minute evening leaves fifteen
+  // minutes, fifteen is under twenty, and the day disappears from the plan
+  // entirely. That is right for a workout and wrong for everything else: five
+  // minutes of breathing before sleep, ten pages of a book, a two-minute
+  // wind-down all fit in what is left, and those are exactly the things that
+  // belong on a day somebody already trains.
+  //
+  // The nights are protected here too. A short night is not free time at any
+  // length, and carving five minutes out of it would be the one place this
+  // widening could quietly recommend less sleep.
+  const lightSlots = protectNights(
+    freeSlotsMinusCommitments(raw.schedule.freeSlots, commitments, MIN_LIGHT_MINUTES),
+    nights,
+  )
+
   const input: PlanInput = {
     ...raw,
     schedule: { ...raw.schedule, freeSlots: withoutNights },
@@ -104,6 +133,19 @@ export function buildContext(raw: PlanInput): PlanContext {
   const openDays = WEEKDAYS.filter(
     (day) => !excluded.includes(day) && longestSlotOn(input, day) >= MIN_VIABLE_SESSION_MINUTES,
   )
+
+  // How much room each day really has left, for the short things.
+  //
+  // Hard exclusions still apply: a day somebody ruled out is ruled out, and an
+  // assumption may fill a gap but never override an answer.
+  const roomPerDay = Object.fromEntries(
+    WEEKDAYS.map((day) => [
+      day,
+      excluded.includes(day)
+        ? 0
+        : lightSlots.filter((s) => s.weekday === day).reduce((max, s) => Math.max(max, s.minutes), 0),
+    ]),
+  ) as Record<Weekday, number>
 
   // Nobody named a free slot. That is the state the onboarding's own
   // "Rest überspringen" button produces, so it is a normal input, not a broken
@@ -188,6 +230,7 @@ export function buildContext(raw: PlanInput): PlanContext {
     weekStart: startOfWeek(input.today),
     experience,
     availableDays,
+    roomPerDay,
     trainingDays,
     commitments,
     committedSessions: alreadySporting.length,
@@ -418,11 +461,38 @@ function circularDistance(a: Weekday, b: Weekday): number {
  * has time rather than hardcoded to Monday and Wednesday — an action parked on
  * a day someone is never free is an action they will not do, and it also makes
  * every plan look the same.
+ *
+ * `minutes` is what the action costs. Given it, the pool is every day with
+ * that much room left rather than every day with room for a whole session —
+ * which is what lets five minutes of breathing land on the evening somebody
+ * plays football, while a twenty-five-minute one still will not.
  */
-export function pickDays(ctx: PlanContext, count: number): Weekday[] {
-  const pool = ctx.availableDays.length > 0 ? ctx.availableDays : [...WEEKDAYS]
+export function pickDays(ctx: PlanContext, count: number, minutes = 0): Weekday[] {
+  const pool = daysWithRoom(ctx, minutes)
   const picked = spreadAcrossWeek(pool, Math.min(count, pool.length), 7)
   return picked.length > 0 ? picked : [WEEKDAYS[0]]
+}
+
+/**
+ * Every day with at least `minutes` free, or the session days when nothing is
+ * asked for.
+ *
+ * The fallback chain matters and is deliberately the old behaviour first: a
+ * caller that names no duration gets exactly what it always got.
+ */
+export function daysWithRoom(ctx: PlanContext, minutes: number): Weekday[] {
+  if (minutes <= 0) {
+    return ctx.availableDays.length > 0 ? ctx.availableDays : [...WEEKDAYS]
+  }
+
+  const needed = Math.max(minutes, MIN_LIGHT_MINUTES)
+  const fits = WEEKDAYS.filter((day) => ctx.roomPerDay[day] >= needed)
+  if (fits.length > 0) return fits
+
+  // Nothing fits anywhere. Falling back to the session days rather than to
+  // nothing, because an action with no day is an action the person never sees,
+  // and the per-day ceiling still bounds what lands there.
+  return ctx.availableDays.length > 0 ? ctx.availableDays : [...WEEKDAYS]
 }
 
 export function restDays(activeDays: Weekday[]): Weekday[] {

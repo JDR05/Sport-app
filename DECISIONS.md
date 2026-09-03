@@ -7,6 +7,63 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-101: Ein Plan ist mehr als Sport — und sagt, was er bewirkt
+
+**Entscheidung:** Zwei Änderungen, die zusammengehören.
+
+1. **Kurze Aktionen dürfen auf Tage, an denen schon Sport stattfindet.** Die Engine misst
+   einen Tag nicht mehr nur an der Frage „passt hier eine Einheit hin?". `MIN_LIGHT_MINUTES`
+   (5) steht neben `MIN_VIABLE_SESSION_MINUTES` (20), und `pickDays` bekommt die Dauer der
+   Aktion: fünf Minuten Atmen passen auf den Fußballabend, fünfundzwanzig Minuten Yoga nicht.
+   Der Prompt lädt ausdrücklich zu solchen Aktionen ein.
+2. **Jede vorgeschlagene Aktion sagt, was sie bewirkt.** Neues Feld `effect` — ein Satz über
+   den Mechanismus, allgemein formuliert — neben `reasoning`, das weiterhin sagt, warum
+   ausgerechnet *dieser* Mensch.
+
+**Begründung:** Der Product Owner beschrieb beides als dasselbe Problem.
+
+> „Wenn ich Yoga machen will oder Meditation … solche Sachen können dann an diesen anderen
+> Tagen eingefügt werden … das ist ja nicht richtig Sport."
+
+> „Es soll sich erklären … auch biologische Ansätze erklären, warum man das macht. Sonst wirkt
+> das wirklich wie jede zweite KI App."
+
+**Was tatsächlich kaputt war**, und es war mehr als eine fehlende Einladung im Prompt: ein
+90-Minuten-Fußballtraining in einem 75-Minuten-Abendfenster ließ fünfzehn Minuten übrig,
+fünfzehn liegt unter der Untergrenze für eine Einheit, **also verschwand der ganze Tag aus dem
+Plan**. Nicht nur „kein Training an dem Abend" — gar nichts. Die App konnte an dem Tag
+buchstäblich keine fünf Minuten Atmen unterbringen, weil sie nur eine einzige Vorstellung
+davon hatte, wann ein Tag „frei" ist. Ein Test hat das gefunden; ohne ihn wäre die
+Prompt-Änderung allein wirkungslos geblieben.
+
+**Die Grenze, die dabei nicht fallen durfte:** Die Nacht ist auch bei fünf Minuten keine freie
+Zeit. Die kurze Woche läuft durch dasselbe `protectNights` wie die lange — der Abstand
+zwischen einem späten Termin und einem frühen Wecker ist die Nacht, und fünf Minuten
+herauszuschneiden wäre genau die Stelle, an der diese Erweiterung weniger Schlaf empfohlen
+hätte. Eine Mutation ohne diesen Schutz lief zunächst durch alle 1701 Tests; der Test dazu ist
+jetzt da.
+
+**Warum `effect` nicht in `reasoning` gehört:** Sie beantworten verschiedene Fragen. „Warum
+ich" und „warum überhaupt". Eine App, die nur die erste beantwortet, ist eine Liste von
+Anweisungen einer Autorität — und genau das ist die Form, die der Product Owner an „jeder
+zweiten KI App" beschreibt.
+
+**Warum `effect` optional ist:** Vorschläge, die vor diesem Feld geschrieben wurden, liegen in
+`goals.ai_proposal`. Ein fehlender Satz ist ein fehlender Satz, kein kaputter Plan.
+
+**Ein Mechanismus ist kein Versprechen.** Neue Prüffamilie `PERSONAL_PROMISE`, nur auf
+`effect` angewandt: „Regelmäßige Bewegung verbessert die Schlaftiefe" darf die App sagen, „das
+verbessert deinen Schlaf" nicht. Ein erklärender Satz ist genau die Stelle, an der eine
+Gesundheitszusage unbemerkt durchrutscht, weil sie nach Lehre klingt statt nach Behauptung.
+
+**Geprüft:** 18 Tests, darunter der Nachweis, dass eine kurze Aktion auf dem Fußballabend
+landet **und** eine echte Einheit weiterhin nicht; dass der Plan mit und ohne `effect`
+identisch gebaut wird; und vier Versprechen, die abgewiesen, gegen vier Mechanismen, die
+durchgelassen werden. Zwei Mutationen (Dauer wieder ignorieren, Nachtschutz entfernen) werden
+beide gefangen. 1704 Tests grün.
+
+---
+
 ## 2026-09-02 — ADR-100: Die App fragt von sich aus — eine Frage, höchstens eine offene
 
 **Entscheidung:** Die App stellt **selbst** Fragen über den echten Alltag, auf **Heute**, mit
