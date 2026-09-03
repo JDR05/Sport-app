@@ -248,6 +248,26 @@ const ACTION = {
 }
 
 describe('the action card', () => {
+  it('says which actions the model contributed', () => {
+    // Insights lists "Was die KI beiträgt" and the plan showed the same
+    // actions unmarked, so the two screens described one week in two
+    // vocabularies with nothing connecting them.
+    const html = render(
+      <ActionItem
+        item={{ ...ACTION, details: { kind: 'ai_proposed', effect: 'Ein Mechanismus.' } }}
+        status="unknown"
+        onStatus={() => {}}
+      />,
+    )
+    expect(html).toContain('>KI<')
+  })
+
+  it('does not mark what the archetype planned', () => {
+    // The control: a tag on everything says nothing.
+    const html = render(<ActionItem item={ACTION} status="unknown" onStatus={() => {}} />)
+    expect(html).not.toContain('>KI<')
+  })
+
   it('asks nothing until there is something to explain', () => {
     // The question is the whole feature, and it is also the whole risk: a card
     // that opens with seven reason chips under every action is the "zweiter

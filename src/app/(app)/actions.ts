@@ -22,6 +22,7 @@ import { saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { loadPlanInput } from '@/lib/db/plan-input'
 import { refreshProposal } from '@/lib/db/propose'
 import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
+import { adoptProposalIntoCurrentWeek } from '@/lib/db/adopt-proposal'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
@@ -502,6 +503,11 @@ export async function finishAiForGoal(payload: unknown): Promise<{ ok: boolean }
     // the plan reasoning from a table about the other half.
     ensureCommitmentInsights(user.id, withToday),
   ])
+
+  // The week that is already running picks the actions up now, rather than
+  // showing them on Insights and nowhere else until Monday. Nothing existing
+  // is touched — see adopt-proposal.ts.
+  if (written) await adoptProposalIntoCurrentWeek(user.id, today)
 
   revalidatePath('/', 'layout')
   return { ok: written }

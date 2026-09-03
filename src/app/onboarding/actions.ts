@@ -21,6 +21,7 @@ import { loadPlanInput } from '@/lib/db/plan-input'
 import { askIntakeQuestions, saveIntakeAnswers } from '@/lib/db/intake-questions'
 import { withProposal } from '@/lib/db/propose'
 import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
+import { adoptProposalIntoCurrentWeek } from '@/lib/db/adopt-proposal'
 import { serverToday } from '@/lib/db/today'
 import {
   commitmentSchema, constraintValueSchema, freeSlotSchema, mindSchema,
@@ -163,6 +164,10 @@ export async function finishOnboarding(payload: unknown): Promise<CompleteResult
         withProposal(user.id, withToday),
         ensureCommitmentInsights(user.id, withToday),
       ])
+      // If a week was already materialised — somebody who signed up, looked
+      // around, and finished the AI step afterwards — it takes the actions
+      // now instead of listing them on Insights alone.
+      await adoptProposalIntoCurrentWeek(user.id, withToday.today)
     }
   } catch {
     // Deliberately swallowed. See above.

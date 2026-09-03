@@ -7,6 +7,44 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-02 — ADR-104: Was die KI beiträgt, steht im Plan — nicht nur auf Insights
+
+**Entscheidung:** Zwei Änderungen.
+
+1. **KI-Aktionen sind als solche erkennbar** — ein kleines `KI`-Tag auf der Aktion in Heute und
+   im Wochenplan.
+2. **Die laufende Woche übernimmt den Vorschlag**, sobald er ankommt, statt bis Montag zu
+   warten. Nur für Tage, die noch kommen, und nur wenn die kombinierte Woche **jede**
+   Invariante besteht. Nichts Bestehendes wird angefasst.
+
+**Begründung:** Auf Insights stand „Was die KI beiträgt" mit drei Aktionen — und der Plan
+zeigte sie nicht. Zwei Screens beschrieben dieselbe Woche in zwei Vokabularen, ohne dass
+irgendetwas sie verband. Gemessen: eine frisch gebaute Woche enthielt 4 von 10 Aktionen aus
+dem Modell, aber ohne jede Markierung; und wer „KI dazuholen" an einem Mittwoch tippte, hatte
+sie in der laufenden Woche **gar nicht** — die App erzählte ihm von einem Plan, den sie nicht
+gemacht hatte.
+
+**Warum das ADR-037 nicht bricht:** Die Regel, dass eine Woche einmal geschrieben wird,
+existiert, damit ein Plan sich nicht **unter jemandem umschreibt** — Dienstag verschieben, eine
+schon abgehakte Aktion entfernen. Hinzufügen ist etwas anderes. Konkret:
+
+- Nur Tage ab heute. Einem Menschen am Mittwoch etwas für Montag einzutragen hieße, ihn
+  gebeten zu haben, es getan zu haben.
+- Nur wenn `assertPlanInvariants` die **kombinierte** Woche durchlässt — Ruhetage, Obergrenze
+  pro Tag, Wochenbelastung. Sonst wird **nichts** eingetragen und der Vorschlag greift wie
+  bisher ab nächster Woche. Fail closed.
+- Nur einmal: eine Woche, die schon KI-Aktionen trägt, bekommt keine zweiten.
+- Wo eine Aktion liegen darf, entscheidet weiterhin die Engine. Der Vorschlag wird im
+  Speicher neu geplant und nur der Modellanteil daraus übernommen — dieses Modul wählt keinen
+  einzigen Tag selbst aus.
+
+**Geprüft:** 12 Tests. Der stärkste ist der, der die Zusage strukturell prüft statt sie zu
+behaupten: was hinzukommt, ist nachweislich disjunkt zu dem, was schon dasteht — also kann
+keine bestehende Aktion und kein Status daran betroffen sein. Zwei Mutationen (Markierung auf
+alles, Vergangenheitsfilter raus) werden beide gefangen. 1757 Tests grün.
+
+---
+
 ## 2026-09-02 — ADR-103: Die KI ordnet den eigenen Sport ein — keine Tabelle mehr
 
 **Entscheidung:** Das Modell beurteilt **jeden festen Sporttermin** dieses Menschen für

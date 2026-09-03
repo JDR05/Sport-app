@@ -149,6 +149,18 @@ export function ActionItem({
           </h3>
           <div className="mt-1 flex items-center gap-2">
             <DomainBadge domain={item.domain} />
+            {/* Which of these the model contributed.
+                
+                Insights lists "Was die KI beiträgt" and the plan showed the
+                same actions unmarked, so the two screens described the same
+                week in two vocabularies and nothing connected them. The tag is
+                deliberately quiet — an action is an action, and where it came
+                from is a footnote on it, not its headline. */}
+            {isProposed(item) && (
+              <span className="label rounded-[2px] border border-line px-1.5 py-px text-[10px] font-semibold text-faint">
+                KI
+              </span>
+            )}
             {item.plannedDurationMin && (
               // Measured, so it is set in the mono like every other number the
               // app is willing to be held to.
@@ -280,6 +292,11 @@ export function ActionItem({
       )}
     </article>
   )
+}
+
+/** Whether the model proposed this action, rather than the archetype. */
+function isProposed(item: PlannedItem): boolean {
+  return (item.details as Record<string, unknown> | undefined)?.kind === 'ai_proposed'
 }
 
 /**

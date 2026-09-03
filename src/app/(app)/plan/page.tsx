@@ -111,7 +111,15 @@ export default function PlanPage() {
                           <div key={item.id} className="rounded-[2px] border border-line bg-surface p-3">
                             <div className="flex items-start justify-between gap-3">
                               <p className="text-sm font-medium text-ink">{item.title}</p>
-                              <DomainBadge domain={item.domain} track={item.track} />
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {(item.details as Record<string, unknown>)?.kind ===
+                                  'ai_proposed' && (
+                                  <span className="label rounded-[2px] border border-line px-1.5 py-px text-[10px] font-semibold text-faint">
+                                    KI
+                                  </span>
+                                )}
+                                <DomainBadge domain={item.domain} track={item.track} />
+                              </div>
                             </div>
                             <Reasoning>{item.rationale.text}</Reasoning>
                           </div>
