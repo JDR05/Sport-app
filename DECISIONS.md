@@ -7,6 +7,85 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-04 — ADR-117: Fehler landen in der eigenen Datenbank, nicht bei einem Dritten
+
+**Entscheidung:** Abstürze werden in `public.error_reports` geschrieben — im eigenen
+Supabase-Projekt. Kein Sentry, kein externer Dienst. Die Tabelle ist **nur beschreibbar**: es
+gibt keine SELECT-Policy, also kann niemand die Meldungen über die API zurücklesen.
+
+**Begründung:** Bricht die App bei jemandem, erfuhr der Betreiber es bisher nur, wenn die
+Person es sagte. Die 4,4 % „Plan nicht möglich" kamen aus einer Simulation, nicht aus dem
+Betrieb — der Betrieb konnte gar nichts melden.
+
+Die übliche Antwort wäre Sentry, und sie ist hier die falsche. Jeder Screen dieser App handelt
+von Gesundheitsdaten. Ein Stacktrace trägt den Pfad und oft den Zustand mit sich, der ihn
+erzeugt hat; Session-Replay trägt den Bildschirm selbst. Das wäre ein **zweiter
+Auftragsverarbeiter**, ein zweiter Art.-28-Vertrag und ein zweiter Ort, an dem Art.-9-Daten
+liegen können. Die eigene Datenbank ist da, wo die Daten ohnehin sind — sie fügt keinen
+Empfänger und keinen Vertrag hinzu.
+
+**Der Preis ist ehrlich:** das ist kein Monitoring-Produkt. Keine Gruppierung, keine Alarme,
+kein Release-Vergleich. Es beantwortet genau die eine Frage, die vorher unbeantwortbar war —
+*ist die App bei jemandem kaputtgegangen, und wo.*
+
+**Anonyme dürfen schreiben, und das ist Absicht.** Der wertvollste Absturz ist der auf der
+Registrierungsseite, wo es noch kein Profil gibt — genau die Leute, die man verliert. Das
+Risiko sind Müllzeilen; dagegen stehen Längen- und Wertebegrenzungen **als
+Datenbank-Constraints**, nicht als Bitte an den Client.
+
+**Was gespeichert wird, ist bewusst dünn:** Route ohne Query-String (dort verstecken sich
+Nutzereingaben), Meldung, gekürzter Stack, Quelle, Release. Nie Werte.
+
+`global-error.tsx` meldet bewusst **nicht**: die Datei läuft ohne Nonce und damit ohne
+JavaScript. Ein Aufruf dort wäre toter Code, der so aussieht, als würde er etwas tun.
+
+---
+
+## 2026-09-04 — ADR-116: Der Auffang-Archetyp liest den Menschen, statt für die Mehrheit zu entscheiden
+
+**Entscheidung:** `general_health` wählt den Startpunkt jetzt über **gewichtete Signale** statt
+über eine feste Reihenfolge, platziert ihn auf Tagen und zu Zeiten, die diese Person
+tatsächlich hat, wiederholt ihn so oft, wie die Sache es verdient, und **sagt, wie sicher es
+sich ist**.
+
+**Begründung, gemessen:** `general_health` war mit **0,26** mittlerer Distanz der mit Abstand
+unpersönlichste der sieben Archetypen — gegen die Projektschwelle von 0,45 — und **7,6 %** der
+Paare bekamen *identische* Pläne. Ausgerechnet dort landen die Unentschlossenen, also viele
+erste Sitzungen.
+
+Zwei Ursachen, derselbe Fehler in zwei Kleidern:
+
+1. **Eine gerankte if-Kette, die beim ersten Treffer stehen blieb.** Das ist eine
+   Nachschlagetabelle im Gewand einer Bedingung, und sie versagte, wie Nachschlagetabellen
+   versagen: **57 % bekamen „Schlaf"**, weil schlecht schlafen die Bedingung ist, die die
+   meisten Menschen erfüllen. Fünf Zweige teilten sich den Rest.
+2. **Eine Planform, die die Woche gar nicht las.** Zwei Items, zwei fest verdrahtete
+   Wochentage, zwei feste Uhrzeiten — für alle.
+
+**Die Reihenfolge entscheidet nicht mehr.** Jedes Signal wird aus den *eigenen Zahlen* dieser
+Person bewertet, das stärkste gewinnt: wer sechs süße Getränke am Tag trinkt und „ok" schläft,
+ist ein Getränke-Fall und kein Schlaf-Fall. Die alte Reihenfolge überlebt als **Gleichstands-
+Regel**, weil das Urteil darin stimmt — sie entscheidet nur nicht mehr die Antwort.
+
+Ergebnis: **0,26 → 0,40**, identische Paare **7,6 % → 1,0 %**, und die Verteilung der
+Startpunkte ist gesund (Getränke 37 %, Auswärts 30 %, Schlaf 17 %, Bildschirm 14 %) statt von
+einem Zweig beherrscht.
+
+**Die App sagt jetzt, wie sicher sie ist.** Ein schwaches und ein schreiendes Signal ergaben
+vorher denselben selbstbewussten Satz. Das ist die App, die so tut, als wüsste sie etwas — und
+es ist der Satz, an den sich jemand erinnert, wenn der Vorschlag nicht passt. Unter einem
+Schwellenwert steht jetzt dabei, dass der Hinweis dünn ist.
+
+**Die 0,45 werden nicht erreicht, und das bleibt so stehen.** Die Schwelle wurde für
+zielgerichtete Archetypen gesetzt, wo das Ziel selbst Variation liefert. Ein Auffangbecken für
+Menschen, die noch kein Ziel benannt haben, hat strukturell weniger, worin es sich
+unterscheiden kann. Der Wert, der für Nutzer zählt — wie oft zwei Menschen denselben Plan
+bekommen — ist um den Faktor sieben besser. Weitere Merkmale in die Signatur zu schieben würde
+die Zahl heben, ohne den Plan zu verbessern; das wäre die Metrik zu bearbeiten statt das
+Produkt.
+
+---
+
 ## 2026-09-04 — ADR-115: Auskunft und Löschung sind Rechte, keine Features
 
 **Entscheidung:** Unter **Profil → Deine Daten** lädt man eine vollständige, maschinenlesbare

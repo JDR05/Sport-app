@@ -184,3 +184,51 @@ describe('a day stays readable', () => {
     expect(over.length / SIZE).toBeLessThan(0.02)
   })
 })
+
+// ---------------------------------------------------------------------------
+// The fallback archetype, which is most people's first impression.
+//
+// "general_health" is where somebody lands who typed "ich will mich einfach
+// besser fühlen" — the undecided, which is a large share of any first session.
+// It was measurably the least personal of the seven: 0.26 mean signature
+// distance against this project's 0.45 threshold, and 7.6 % of pairs producing
+// *identical* plans.
+//
+// Two causes, one mistake in different clothes. A ranked chain of ifs that
+// stopped at the first match, so 57 % of people got "Schlaf" because sleeping
+// badly is the condition most people meet. And a plan shape that read the
+// person's week not at all: two items, two hard-coded weekdays, two hard-coded
+// times, for everybody.
+
+describe('the fallback reads the person', () => {
+  const fallback = population.filter((c) => c.input.goal.archetype === 'general_health')
+
+  it('has enough of them to say anything', () => {
+    expect(fallback.length).toBeGreaterThan(50)
+  })
+
+  it('does not hand the majority the same starting point', () => {
+    // The number that gave the game away. No single starting point may take
+    // more than half the population — if one does, the ranking has gone back
+    // to deciding for people instead of reading them.
+    const counts = new Map<string, number>()
+    for (const c of fallback) {
+      const key = String(c.plan.strategy.goalTrack.signature.startingPoint)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const [top, share] = [...counts].sort((a, b) => b[1] - a[1])[0]
+    expect(share / fallback.length, `"${top}" got ${share}/${fallback.length}`).toBeLessThan(0.5)
+  })
+
+  it('places the starting point on more than one weekday across people', () => {
+    // It used to be Monday for everybody with poor sleep, Wednesday for every
+    // beginner. The day now comes from the person's own free time.
+    const days = new Set(fallback.map((c) => c.plan.strategy.goalTrack.signature.focusDays))
+    expect(days.size).toBeGreaterThan(3)
+  })
+
+  it('says how sure it is rather than sounding equally certain to everybody', () => {
+    const modes = new Set(fallback.map((c) => c.plan.strategy.goalTrack.signature.mode))
+    expect(modes.size).toBeGreaterThan(1)
+  })
+})

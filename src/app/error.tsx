@@ -11,6 +11,7 @@
 // trying again. Nothing here writes anything.
 
 import { useEffect } from 'react'
+import { reportError } from '@/lib/db/errors'
 import { Button, Card, Note, Screen, ScreenTitle } from '@/components/ui'
 
 export default function AppError({
@@ -22,6 +23,10 @@ export default function AppError({
 }) {
   useEffect(() => {
     console.error(error)
+    // Also to the operator, who otherwise only learns about a crash if the
+    // person mentions it. Best-effort and non-blocking — a failed report must
+    // never become a second failure on a screen that is already the fallback.
+    reportError(error, 'render')
   }, [error])
 
   return (
