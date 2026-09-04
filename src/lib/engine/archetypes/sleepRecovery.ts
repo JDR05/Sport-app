@@ -20,6 +20,10 @@ import { WEEKDAYS, type GoalTrack, type PlanInput, type PlannedItem, type PlanRe
 const DEFAULT_BEDTIME = '23:00'
 const DEFAULT_WAKE = '07:00'
 
+/** The window assumed around a time somebody did give. Eight hours, in minutes. */
+const DEFAULT_WINDOW_HOURS = 8
+const DEFAULT_WINDOW_MIN = DEFAULT_WINDOW_HOURS * 60
+
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number)
   return h * 60 + m
@@ -61,14 +65,35 @@ export const sleepRecovery: ArchetypeStrategy = {
     const { input } = ctx
     const sleep = input.profile.sleep
 
-    const currentBed = sleep.usualBedtime ?? DEFAULT_BEDTIME
-    const currentWake = sleep.usualWakeTime ?? DEFAULT_WAKE
+    // A missing time is derived from the one that is there, not from a default
+    // that ignores it.
+    //
+    // Pairing somebody's real 10:00 wake-up with a default 23:00 bedtime
+    // invents an eleven-hour night, and the app then treats that invention as
+    // this person's sleep: the window is "already long", so nothing is planned,
+    // and the guard that stops the app extending anybody's sleep past nine
+    // hours fires on a number nobody gave it. Measured over 7000 generated
+    // people, this was the last remaining way the plan refused to build at all.
+    //
+    // Deriving from the known end keeps the assumption honest — it says "we
+    // assumed the other side of the night you told us about" rather than
+    // "we assumed your night".
+    const known = sleep.usualBedtime ?? sleep.usualWakeTime
+    const currentBed =
+      sleep.usualBedtime ??
+      (sleep.usualWakeTime ? toClock(toMinutes(sleep.usualWakeTime) - DEFAULT_WINDOW_MIN) : DEFAULT_BEDTIME)
+    const currentWake =
+      sleep.usualWakeTime ??
+      (sleep.usualBedtime ? toClock(toMinutes(sleep.usualBedtime) + DEFAULT_WINDOW_MIN) : DEFAULT_WAKE)
+
     if (sleep.usualBedtime === null || sleep.usualWakeTime === null) {
       ctx.assumptions.push({
-        field: 'profile.sleep.usualBedtime',
-        assumed: `${DEFAULT_BEDTIME} bis ${DEFAULT_WAKE}`,
-        reason:
-          'Keine Schlafzeiten angegeben. Die App rechnet mit einem durchschnittlichen Fenster und passt es an, sobald du echte Zeiten einträgst.',
+        field: sleep.usualBedtime === null ? 'profile.sleep.usualBedtime' : 'profile.sleep.usualWakeTime',
+        assumed: `${currentBed} bis ${currentWake}`,
+        reason: known
+          ? `Nur eine der beiden Zeiten angegeben. Die App rechnet mit einem ${DEFAULT_WINDOW_HOURS}-Stunden-Fenster ` +
+            `um die Zeit herum, die du genannt hast, und passt es an, sobald die zweite dazukommt.`
+          : 'Keine Schlafzeiten angegeben. Die App rechnet mit einem durchschnittlichen Fenster und passt es an, sobald du echte Zeiten einträgst.',
       })
     }
 

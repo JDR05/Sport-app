@@ -159,10 +159,32 @@ export function buildContext(raw: PlanInput): PlanContext {
   const stillAhead = (day: Weekday) =>
     addDays(weekStartDate, WEEKDAYS.indexOf(day)) >= raw.today
 
+  // A hard cap below the shortest session worth planning.
+  //
+  // Somebody who says "never more than ten minutes" and an engine whose floor
+  // is twenty are in genuine conflict, and the conflict has one correct
+  // resolution: the person's own rule wins. The engine may decline to plan a
+  // session; it may never plan one longer than somebody said they can manage.
+  //
+  // Handled here rather than at each site that sizes a session, because the
+  // shape that produced the bug is `Math.max(FLOOR, Math.min(wanted, cap))` —
+  // which re-raises the duration back above the cap — and it appeared
+  // independently in three archetypes. Measured over 7000 generated people it
+  // was the second most common way the app refused to work at all: the plan was
+  // built, the invariant caught it, and the person was told a safety limit had
+  // rejected them.
+  //
+  // With no session days, every archetype already plans a week without
+  // sessions — that path exists for the person who named no free time at all.
+  const cap = hardSessionMinutesCap(input)
+  const sessionsPossible = cap === null || cap >= MIN_VIABLE_SESSION_MINUTES
+
   /** Days this person offered at all, whether or not they are still ahead. */
-  const offeredDays = WEEKDAYS.filter(
-    (day) => !excluded.includes(day) && longestSlotOn(input, day) >= MIN_VIABLE_SESSION_MINUTES,
-  )
+  const offeredDays = sessionsPossible
+    ? WEEKDAYS.filter(
+        (day) => !excluded.includes(day) && longestSlotOn(input, day) >= MIN_VIABLE_SESSION_MINUTES,
+      )
+    : []
 
   const openDays = offeredDays.filter(stillAhead)
 
@@ -194,7 +216,8 @@ export function buildContext(raw: PlanInput): PlanContext {
   // Mondays and Wednesdays found no open day, fell through to the assumption,
   // and invented training on days they had never offered. A week that is
   // nearly over should hold less, not something made up.
-  const assumedDays = offeredDays.length === 0 ? assumeDays(excluded).filter(stillAhead) : []
+  const assumedDays =
+    sessionsPossible && offeredDays.length === 0 ? assumeDays(excluded).filter(stillAhead) : []
   if (assumedDays.length > 0) {
     assumptions.push({
       field: 'schedule.freeSlots',
@@ -246,7 +269,18 @@ export function buildContext(raw: PlanInput): PlanContext {
     })
   }
 
-  const hardCap = hardSessionMinutesCap(input)
+  if (!sessionsPossible) {
+    rationale.push({
+      text:
+        `Du hast festgelegt, dass eine Einheit höchstens ${cap} Minuten dauern darf. ` +
+        `Darunter plant die App kein Training — kürzer wäre keine Einheit mehr, sondern ` +
+        `eine Zahl auf dem Bildschirm. Dein Plan arbeitet stattdessen über Ernährung, ` +
+        `Schlaf und Bewegung im Alltag.`,
+      basedOn: ['constraints.max_session_minutes'],
+    })
+  }
+
+  const hardCap = cap
   const sessionMinutesCap =
     hardCap === null
       ? rules.maxSessionMinutes
@@ -358,8 +392,50 @@ export function slotOf(
   return slot ? timeSlotOf(slot.start) : null
 }
 
+/**
+ * The date of a weekday in this plan's week — never behind the plan itself.
+ *
+ * The clamp is the whole point and it is not defensive tidiness. ADR-106 fixed
+ * the baseline to place only on days the week still has, and left every
+ * archetype free to ask for a Monday on a Thursday. Measured over 7000
+ * generated people: **37 %** of mid-week plans dated at least one action before
+ * the day they were built on, and `materialise` drops those at the storage
+ * boundary — so the person is promised something and shown nothing. That is the
+ * same failure as the missing gym training, and the fallbacks below reached it
+ * from three different directions.
+ *
+ * Clamping here rather than at each call site because there is no legitimate
+ * caller: a plan is for the week that is left, so a weekday that has gone is
+ * always a mistake, and one that produces silence rather than an error.
+ */
 export function dateOf(ctx: PlanContext, day: Weekday): string {
-  return addDays(ctx.weekStart, WEEKDAYS.indexOf(day))
+  return addDays(ctx.weekStart, WEEKDAYS.indexOf(pickDay(ctx, day)))
+}
+
+/**
+ * The wanted weekday, or the day the week still has that stands in for it.
+ *
+ * A plan item is a preference about which day; the week having that day is a
+ * fact. Where the two disagree the fact wins, because the alternative is an
+ * action nobody ever sees.
+ *
+ * The substitute is derived from the wanted day rather than being "the first
+ * one left", and that difference is measurable. Sending every homeless item to
+ * the same day turned 2600 silently dropped actions into 280 days carrying six
+ * of them — the ceiling is five, and a day with six is the wall of cards the
+ * brief rules out. Folding the wanted day's own position into the remaining
+ * days keeps Monday's item and Sunday's item apart, without needing to know
+ * what has already been placed: this stays a pure function of the week.
+ */
+export function pickDay(ctx: PlanContext, wanted: Weekday): Weekday {
+  if (ctx.weekDays.includes(wanted)) return wanted
+  if (ctx.weekDays.length === 0) return WEEKDAYS[WEEKDAYS.length - 1]
+  return ctx.weekDays[WEEKDAYS.indexOf(wanted) % ctx.weekDays.length]
+}
+
+/** The earliest day this plan may still use. */
+export function firstDay(ctx: PlanContext): Weekday {
+  return ctx.weekDays[0] ?? WEEKDAYS[WEEKDAYS.length - 1]
 }
 
 export function excludedActivities(input: PlanInput) {
@@ -527,7 +603,7 @@ function circularDistance(a: Weekday, b: Weekday): number {
 export function pickDays(ctx: PlanContext, count: number, minutes = 0): Weekday[] {
   const pool = daysWithRoom(ctx, minutes)
   const picked = spreadAcrossWeek(pool, Math.min(count, pool.length), 7)
-  return picked.length > 0 ? picked : [WEEKDAYS[0]]
+  return picked.length > 0 ? picked : [firstDay(ctx)]
 }
 
 /**
@@ -538,8 +614,11 @@ export function pickDays(ctx: PlanContext, count: number, minutes = 0): Weekday[
  * caller that names no duration gets exactly what it always got.
  */
 export function daysWithRoom(ctx: PlanContext, minutes: number): Weekday[] {
+  // Every fallback here is `ctx.weekDays`, never `WEEKDAYS`. The difference is
+  // the days the week still has, and reaching for the whole week is how an
+  // action ends up dated behind the plan and dropped when it is stored.
   if (minutes <= 0) {
-    return ctx.availableDays.length > 0 ? ctx.availableDays : [...WEEKDAYS]
+    return ctx.availableDays.length > 0 ? ctx.availableDays : [...ctx.weekDays]
   }
 
   const needed = Math.max(minutes, MIN_LIGHT_MINUTES)
@@ -549,7 +628,7 @@ export function daysWithRoom(ctx: PlanContext, minutes: number): Weekday[] {
   // Nothing fits anywhere. Falling back to the session days rather than to
   // nothing, because an action with no day is an action the person never sees,
   // and the per-day ceiling still bounds what lands there.
-  return ctx.availableDays.length > 0 ? ctx.availableDays : [...WEEKDAYS]
+  return ctx.availableDays.length > 0 ? ctx.availableDays : [...ctx.weekDays]
 }
 
 export function restDays(activeDays: Weekday[]): Weekday[] {

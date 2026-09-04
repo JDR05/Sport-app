@@ -10,6 +10,7 @@ import {
   MAX_SINGLE_RUN_SHARE,
   DEFAULT_HORIZON_WEEKS,
   ENDURANCE_MIN_REST_DAYS,
+  MAX_HORIZON_WEEKS,
   MAX_WEEKLY_VOLUME_GROWTH,
   MIN_VIABLE_SESSION_MINUTES,
 } from '../constants'
@@ -56,17 +57,41 @@ function startVolume(input: PlanInput): number {
   // The volume actually being run now, not the one entered at the beginning.
   // Growth is capped at ten percent a week *from where the person is* — from a
   // stale start value it was capped from somewhere they had already left.
-  return currentOf(volumeMetric(input)) ?? FALLBACK_START_KM
+  //
+  // Zero is not a starting volume, and treating it as one produced "Langer
+  // Lauf, 0,0 km" — an action asking somebody to run nothing. Somebody at zero
+  // is a beginner, which is what the fallback means; the missing-value case and
+  // the explicit-zero case are the same person.
+  const current = currentOf(volumeMetric(input))
+  return current !== null && current > 0 ? current : FALLBACK_START_KM
 }
 
 function targetVolume(input: PlanInput): number {
   return volumeMetric(input)?.targetValue ?? startVolume(input) * 2
 }
 
-/** Weeks needed to grow from start to target at no more than ten percent a week. */
+/**
+ * Weeks needed to grow from start to target at no more than ten percent a week.
+ *
+ * Both guards are load-bearing and both were found by simulation rather than by
+ * reasoning:
+ *
+ *   * **A start at or below zero has no growth rate.** Ten percent of nothing
+ *     is nothing, so the ratio is infinite and so was the answer. Somebody who
+ *     runs no kilometres today and wants a half marathon is a beginner, and
+ *     the beginner baseline is what growth is measured from.
+ *   * **The result is capped.** Even from a real start, an ambitious gap
+ *     produces a number of weeks that is large rather than useful, and the
+ *     caller turns weeks into a date. Uncapped, that reached `Infinity` and
+ *     `new Date(Infinity)` threw — the plan failed, and the screen told the
+ *     person a safety limit had refused them.
+ */
 export function weeksAtSafeGrowth(start: number, target: number): number {
-  if (target <= start) return 0
-  return Math.ceil(Math.log(target / start) / Math.log(1 + MAX_WEEKLY_VOLUME_GROWTH))
+  const from = start > 0 ? start : FALLBACK_START_KM
+  if (target <= from) return 0
+
+  const weeks = Math.ceil(Math.log(target / from) / Math.log(1 + MAX_WEEKLY_VOLUME_GROWTH))
+  return Number.isFinite(weeks) ? Math.min(weeks, MAX_HORIZON_WEEKS) : MAX_HORIZON_WEEKS
 }
 
 export const endurance: ArchetypeStrategy = {

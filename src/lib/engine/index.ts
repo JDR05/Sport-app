@@ -5,6 +5,7 @@
 // goal-orientation gates cheap enough to run on every commit.
 
 import { assertPlanInvariants } from './safety'
+import { applyHardLimits } from './hardLimits'
 import { buildStrategy } from './strategy'
 import type { PlanInput, PlanResult } from '@/lib/domain/types'
 
@@ -16,7 +17,15 @@ import type { PlanInput, PlanResult } from '@/lib/domain/types'
 export function generatePlan(input: PlanInput): PlanResult {
   const { strategy, items, assumptions, rationale } = buildStrategy(input)
 
-  const plan: PlanResult = { strategy, items, assumptions, rationale }
+  // The person's own hard limits, applied after every track has had its say.
+  // Only ever makes the week smaller — see hardLimits.ts for why this is a
+  // final pass rather than a rule each archetype has to remember.
+  const plan: PlanResult = {
+    strategy: { ...strategy, goalTrack: { ...strategy.goalTrack, items: applyHardLimits(strategy.goalTrack.items, input) } },
+    items: applyHardLimits(items, input),
+    assumptions,
+    rationale,
+  }
   assertPlanInvariants(plan, input)
   return plan
 }

@@ -10,7 +10,7 @@
 // competing for the five slots a day.
 
 import { STEP_TARGET } from './constants'
-import { dateOf, type PlanContext } from './context'
+import { dateOf, firstDay, pickDay, type PlanContext } from './context'
 import { WEEKDAYS, type BaselineTrack, type GoalTrack, type PlanDomain, type PlanInput, type PlannedItem, type Weekday } from '@/lib/domain/types'
 
 /** How many goal-track actions in a domain count as "already covered". */
@@ -207,21 +207,4 @@ function additiveHabit(input: PlanInput): {
     basedOn: 'profile.nutrition.vegetablePortionsPerDay',
     focus: 'vegetables',
   }
-}
-
-/**
- * The wanted weekday, or the first one the week still has.
- *
- * A baseline action is a standing habit rather than an appointment, so the
- * exact day is a preference — but placing it on a day that has already gone
- * means it is dropped at the storage boundary and the person simply never
- * sees it.
- */
-function pickDay(ctx: PlanContext, wanted: Weekday): Weekday {
-  return ctx.weekDays.includes(wanted) ? wanted : firstDay(ctx)
-}
-
-/** The earliest day this plan may still use. */
-function firstDay(ctx: PlanContext): Weekday {
-  return ctx.weekDays[0] ?? WEEKDAYS[0]
 }

@@ -94,6 +94,20 @@ export const MIN_LIGHT_MINUTES = 5
 /** An open-ended goal is planned against this horizon. */
 export const DEFAULT_HORIZON_WEEKS = 12
 
+/**
+ * The furthest ahead any goal may be promised.
+ *
+ * Two years, and it exists because a safe growth rate applied to an ambitious
+ * gap produces arbitrarily large numbers — and, from a starting volume of zero,
+ * an infinite one. Measured over 7000 generated people, that reached
+ * `new Date()` as `Infinity` and crashed the plan outright: the person was
+ * shown "Plan nicht möglich" for asking to run a half marathon.
+ *
+ * A cap is also the honest product answer. "5 km bis zum 14. November" is a
+ * promise; a date in 2043 is a way of saying no while looking like a yes.
+ */
+export const MAX_HORIZON_WEEKS = 104
+
 export const DEFAULT_SESSIONS_PER_WEEK: Record<Experience, number> = {
   beginner: 2,
   intermediate: 3,

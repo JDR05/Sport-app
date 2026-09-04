@@ -7,6 +7,67 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-04 — ADR-114: Die Engine wird gegen eine Population geprüft, nicht gegen zehn Menschen
+
+**Entscheidung:** `scripts/simulate-population.ts` erzeugt aus einem Seed tausende Profile über
+alle sieben Archetypen und vier Starttage und lässt die echte Engine darüber laufen.
+`tests/engine.population.test.ts` hält 700 davon als Regression fest.
+
+**Begründung:** Zehn Fixtures beweisen, dass sich zehn Pläne unterscheiden. Über die
+Bevölkerung, der eine App tatsächlich begegnet, sagen sie nichts — und die Profile, die etwas
+kaputt machen, schreibt niemand von Hand: die 92-Jährige, 43 kg Körpergewicht, die Woche ohne
+einen einzigen freien Slot, der Mensch, der jeden Tag ausgeschlossen hat, den er hat.
+
+**Was 7000 generierte Menschen gefunden haben:**
+
+| vorher | nachher | Fehler |
+| ---: | ---: | --- |
+| 37,1 % | 0 % | Eine Aktion lag vor dem Tag, an dem der Plan gebaut wurde |
+| 4,4 % | 0 % | Gar kein Plan — die Engine verwarf ihre eigene Ausgabe |
+| 4,0 % | 0,1 % | Mehr Karten an einem Tag, als der Brief erlaubt |
+
+**Die 37 % sind ADR-106, nur eine Ebene tiefer.** Dort wurde die Basis-Spur repariert; die
+Archetypen durften weiter am Donnerstag einen Montag verlangen. Drei Fallbacks griffen
+unabhängig voneinander auf `WEEKDAYS` statt auf die verbleibende Woche zurück. Die Reparatur
+sitzt jetzt in `dateOf` selbst: es gibt keinen berechtigten Aufrufer, der einen vergangenen
+Tag will, und der Fehler war **still** — `materialise` verwirft die Zeile, und die Person sieht
+schlicht nichts.
+
+Dass `pickDay` dabei *verteilt* statt zu stapeln, ist keine Kosmetik: alles auf den ersten
+verbliebenen Tag zu legen machte aus 2600 verlorenen Aktionen 280 überladene Tage.
+
+**Die 4,4 % waren drei verschiedene Ursachen, eine Form.** Die Engine baute eine Woche und
+lehnte sie selbst ab — die Person las „Plan nicht möglich" und dachte, sie sei das Problem:
+
+1. **Wachstum aus dem Nichts.** Zehn Prozent von null ist null, das Verhältnis unendlich,
+   `new Date(Infinity)` wirft. Wer heute null Kilometer läuft und einen Halbmarathon will, ist
+   Einsteiger — und wird ab jetzt so behandelt. Dazu ein Deckel von zwei Jahren: ein Datum in
+   2043 ist ein Nein, das wie ein Ja aussieht.
+2. **Ein erfundenes Schlaffenster.** Wer nur die Aufstehzeit angibt, bekam eine
+   Standard-Schlafenszeit dazu — und aus 10:00 plus 23:00 wurden elf Stunden, die niemand
+   genannt hatte. Die fehlende Zeit wird jetzt aus der **bekannten** abgeleitet.
+3. **`max(FLOOR, min(wunsch, cap))`** — wendet die harte Grenze an und hebt das Ergebnis
+   danach wieder darüber. Dreimal unabhängig geschrieben, in drei Archetypen.
+
+**Für (3) gibt es jetzt `hardLimits.ts` als letzten Durchgang**, und die Begründung dafür ist
+eine Zuständigkeitsfrage: eine harte Grenze ist keine Meinung der Engine, sondern etwas, das
+ein Mensch über sein eigenes Leben gesagt hat. Sie darf nicht davon abhängen, dass jeder
+Archetyp daran denkt. Der Durchgang macht eine Woche **nur kleiner** — kürzen, weglassen, nie
+verschieben, nie hinzufügen —, und deshalb ist er hinterher sicher.
+
+Er gilt für **jeden Block mit Dauer**, nicht nur für Training: wer „höchstens acht Minuten"
+sagt, beschreibt die Zeitblöcke seines Tages, und eine 15-Minuten-Meditation passt genauso
+wenig hinein. Belastung und alles andere trennen sich erst danach — eine Krafteinheit unter
+der Mindestdauer ist keine Einheit mehr und entfällt, fünf Minuten Atmen sind fünf Minuten
+Atmen und bleiben.
+
+**Offen und bewusst nicht behoben:** `general_health` erreicht eine mittlere
+Personalisierungsdistanz von 0,26 gegen ein Projektziel von 0,45, mit 7,6 % praktisch
+identischen Paaren. Das ist der Fallback-Archetyp, und es ist ein echter Produktmangel — aber
+einer, der Inhalt braucht und nicht einen Bugfix. Er steht in `docs/PRODUCTION_READINESS.md`.
+
+---
+
 ## 2026-09-04 — ADR-113: Plan bleibt, hört aber auf, ein zweites Heute zu sein
 
 **Entscheidung:** Der Plan-Screen wird **nicht gelöscht**, aber auf seine eine Aufgabe
