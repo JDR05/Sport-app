@@ -21,6 +21,10 @@ gerne hätte.
 | Datenexport (Art. 15/20 DSGVO) | fehlte | in der App |
 | Impressum und Datenschutzerklärung | fehlten | Entwurf, ohne Anmeldung erreichbar |
 | KI-Offenlegung (EU AI Act Art. 50) | fehlte | in der Fragebox |
+| Kontrast `faint` auf Weiß | 3,10:1 | 4,93:1 |
+| Sichtbarkeit von Button-Rändern | 1,26:1 | 3,30:1 |
+| Automatische Prüfung vor dem Merge | keine | GitHub Action |
+| Auf dem Homescreen installierbar | nein | Manifest |
 
 Details in ADR-114 und ADR-115.
 
@@ -99,13 +103,6 @@ landen die unentschlossenen Nutzer, also die erste Sitzung vieler Leute.
 `sleep_recovery` mit 0,38 liegt ebenfalls unter der Schwelle, aber ohne identische Paare —
 der Archetyp hat schlicht weniger Stellschrauben.
 
-### 6. Kein automatischer Test läuft vor dem Deployment
-
-Es gibt 1850 Tests und keine CI. Ein grüner lokaler Lauf schützt nicht vor dem Commit, der
-nachts durchgeht. Eine GitHub Action mit `tsc`, `lint`, `vitest`, `build` ist eine halbe
-Stunde Arbeit und verhindert die Klasse Fehler, die dich in dieser Woche mehrfach getroffen
-hat.
-
 ### 7. Kein Fehler-Monitoring
 
 Wenn die App bei einem Nutzer abstürzt, erfährst du es nur, wenn er es dir sagt. Vor der
@@ -113,15 +110,17 @@ Reparatur hätten 4,4 % der Leute „Plan nicht möglich" gesehen — und nieman
 gewusst. Sentry o. ä., mit ausgeschaltetem Session-Replay: bei Gesundheitsdaten darf kein
 Screen-Recording nach außen.
 
-### 8. Barrierefreiheit ist ungeprüft
+### 8. Barrierefreiheit: Kontraste erledigt, der Rest nicht
 
-Ab Juni 2025 gilt das Barrierefreiheitsstärkungsgesetz (BFSG) für viele
-Verbraucherdienstleistungen. Ob es dich trifft, hängt an Unternehmensgröße und Angebot —
-Kleinstunternehmen sind teilweise ausgenommen; das gehört in die anwaltliche Prüfung.
+Die Kontraste sind jetzt gemessen und behoben — `faint` auf Weiß lag bei **3,10:1** gegen die
+geforderten 4,5:1, Button-Ränder bei **1,26:1** gegen 3:1. 28 Prüfungen laufen bei jedem
+Commit mit.
 
-Unabhängig davon: die App nutzt eine einzige Signalfarbe und viel graue Schrift auf Weiß. Die
-Kontrastwerte sind nie gegen WCAG AA gemessen worden, und `text-faint` auf `bg-surface` ist ein
-plausibler Kandidat zum Durchfallen.
+**Nicht geprüft:** Tastaturbedienung, Fokus-Ringe, Screenreader-Durchlauf, Zoom auf 200 %.
+Dafür braucht es einen echten Browser und idealerweise jemanden, der die App so benutzt.
+
+Ob das BFSG dich trifft, hängt an Unternehmensgröße und Angebot — Kleinstunternehmen sind
+teilweise ausgenommen. Gehört in die anwaltliche Prüfung.
 
 ### 9. Keine Erinnerungen
 
@@ -135,11 +134,6 @@ Hebel auf tatsächliche Nutzung, und er kostet keine neue Datenkategorie.
 ---
 
 ## Später
-
-### 10. Als App installierbar machen
-
-Es gibt kein Web-App-Manifest. Auf dem Homescreen ist das eine Website mit Browserleiste, kein
-Programm. Ein Manifest plus Icons ist wenig Arbeit und Voraussetzung für Push auf iOS.
 
 ### 11. Offline lesbar
 

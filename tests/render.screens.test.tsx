@@ -116,8 +116,13 @@ describe('the AI section on Insights', () => {
   ])('tells the two empty states apart: %s', (_case, ai, expected) => {
     const html = render(<InsightsView data={insights({ ai })} />)
     expect(html).toContain(expected)
-    // Both must say the plan still stands. "No AI" is not a broken app.
-    expect(html).toMatch(/deterministisch/)
+    // Both must say the plan still stands. "No AI" is not a broken app, and
+    // the empty state is where somebody decides whether it is.
+    //
+    // Asserted on the promise rather than on the word "deterministisch": the
+    // copy was shortened, and the guarantee is what has to survive that, not
+    // the vocabulary it was first written in.
+    expect(html).toMatch(/Plan (steht|funktioniert)/)
   })
 
   it('keeps skipped questions visible', () => {

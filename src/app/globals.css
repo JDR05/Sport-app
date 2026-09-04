@@ -68,8 +68,24 @@
   --surface-sunken: light-dark(#f3f5f7, #1d2127);
   --ink: light-dark(#0b0c0e, #e8eaee);
   --ink-muted: light-dark(#5d646d, #9aa2ad);
-  --ink-faint: light-dark(#8c939c, #6d7480);
+  /* Measured, not chosen by eye. #8c939c on white was 3.10:1 — below the 4.5:1
+     that WCAG AA asks of body text, and `faint` carries dates, counters and
+     the "3 offen" badge. Those are small and quiet by design; "decorative" is
+     what a designer calls a label, not what somebody looking for it calls it.
+     These two clear 4.5:1 against every surface the app puts them on. */
+  --ink-faint: light-dark(#6b7179, #828890);
   --line: light-dark(#e2e5e9, #262b32);
+  /* The hairline, where it is the edge of something you have to hit.
+     
+     `--line` is separation: a card's border, a rule between sections. Nobody
+     needs to see it to use the app, and at 1.26:1 nobody really does — that is
+     the whole instrument look and it stays.
+     
+     A button drawn with the same hairline is a different thing. WCAG 1.4.11
+     wants 3:1 for the boundary of a control that has to be found, and this app
+     draws controls with a line rather than a fill, so a line nobody sees is a
+     button nobody sees. Steppers, day chips and quiet buttons use this one. */
+  --line-strong: light-dark(#888e96, #656b73);
   /* The one live colour. Bright enough on white to read as an instrument
      signal; lifted on the dark ground so it does not turn into navy. */
   --accent: light-dark(#0047d6, #6d9bff);
@@ -130,6 +146,7 @@
   --color-muted: var(--ink-muted);
   --color-faint: var(--ink-faint);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);

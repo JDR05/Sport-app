@@ -54,7 +54,7 @@ export function IntakeQuestionsStep({
     <Screen>
       <ScreenTitle
         title={questions.length === 1 ? 'Eine Rückfrage' : 'Kurze Rückfragen'}
-        subtitle="Alles ist gespeichert. Das hier würde den Plan noch genauer machen — du kannst jede Frage überspringen."
+        subtitle="Gespeichert. Das hier macht den Plan genauer — überspringen geht."
       />
 
       {questions.map((q, index) => (

@@ -62,6 +62,12 @@ export function WeekStrip({
             className={`flex flex-col items-center gap-1 rounded-[3px] border py-2 transition-colors duration-[var(--motion-tap)] ${
               isSelected
                 ? 'border-ink bg-sunken'
+                // Unselected chips are still buttons somebody has to hit, but
+                // seven bordered boxes across a phone is the wall of chrome the
+                // brief rules out. The weekday label carries the affordance
+                // instead, which is what WCAG 1.4.11 means by "identifiable by
+                // other means" — so the border stays off rather than becoming a
+                // hairline nobody can see either.
                 : 'border-transparent bg-transparent'
             }`}
           >

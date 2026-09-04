@@ -98,7 +98,7 @@ export function ActionPreferenceControl({
         type="button"
         onClick={toggle}
         aria-pressed={!enabled}
-        className="label rounded-[2px] border border-line px-2 py-1 text-[10px] font-semibold text-faint"
+        className="label rounded-[2px] border border-line-strong px-2 py-1 text-[10px] font-semibold text-faint"
       >
         {enabled ? 'Nicht einplanen' : 'Wieder einplanen'}
       </button>
@@ -140,7 +140,7 @@ function Step({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="num h-8 w-8 rounded-[2px] border border-line text-[15px] text-ink disabled:opacity-30"
+      className="num h-8 w-8 rounded-[2px] border border-line-strong text-[15px] text-ink disabled:opacity-30"
     >
       {children}
     </button>

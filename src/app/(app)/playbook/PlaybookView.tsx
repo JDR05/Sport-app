@@ -90,7 +90,7 @@ export function PlaybookView({
                   detection plus the fortnight the experiment then runs. */}
               <EmptyState
                 title="Noch keine Regel bestätigt"
-                body="Eine Regel entsteht erst, wenn ein Experiment sie belegt hat – nicht aus einer Vermutung und nicht aus einer einzelnen guten Woche. Jede Regel hier trägt später ihren Beleg."
+                body="Eine Regel entsteht erst, wenn ein Experiment sie belegt hat – nicht aus einer einzelnen guten Woche. Jede Regel hier trägt später ihren Beleg."
                 progress={{
                   done: Math.min(daysWithData, DAYS_TO_FIRST_RULE),
                   needed: DAYS_TO_FIRST_RULE,

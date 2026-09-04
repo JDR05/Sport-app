@@ -1,0 +1,62 @@
+# Every check, before the merge rather than after it.
+#
+# There are 1800-odd tests and, until now, nothing that ran them except a person
+# remembering to. A green local run says nothing about the commit that goes in
+# at eleven at night — and this project has spent several sessions on defects
+# that a `tsc` run would have caught in four seconds.
+#
+# Deliberately no deploy step. Vercel already builds from the branch, and a
+# second thing that can push to production is a second thing that can push the
+# wrong version.
+
+name: Checks
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# A new push makes the previous run pointless. Cancelling it keeps the feedback
+# fast, which is the only property that decides whether anybody reads it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci`, not `install`: it installs exactly the lockfile and fails if
+      # package.json and the lock have drifted, which is the point of having one.
+      - run: npm ci
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npx vitest run
+
+      # Build last. It is the slowest step and the one most likely to be broken
+      # by something the three above already caught more cheaply.
+      #
+      # The Supabase values are public by design — the publishable key is meant
+      # to reach the browser, and RLS is what protects the data (ADR-034). These
+      # placeholders only have to satisfy the build; nothing here talks to a
+      # real project.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-key-for-build-only

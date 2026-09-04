@@ -76,12 +76,15 @@ describe('no shadows and no hard-coded colours', () => {
   })
 
   it('takes every colour from a token', () => {
-    // Hex belongs in globals.css, in the theme-colour meta tag, and in the
-    // icon. Anywhere else it is a colour that will not follow the theme.
+    // Hex belongs in globals.css, in the theme-colour meta tag, in the icon —
+    // and in the web manifest, which is JSON read by the operating system
+    // before any stylesheet exists and therefore cannot reference a variable.
+    // Anywhere else it is a colour that will not follow the theme.
+    const LITERAL_HEX_IS_FINE = ['globals.css', 'layout.tsx', 'manifest.ts']
     expect(
       offenders(
         /#[0-9a-fA-F]{3,8}\b/,
-        (file) => file.endsWith('globals.css') || file.endsWith('layout.tsx') || file.includes('Logo'),
+        (file) => LITERAL_HEX_IS_FINE.some((f) => file.endsWith(f)) || file.includes('Logo'),
       ),
     ).toEqual([])
   })

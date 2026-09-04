@@ -108,7 +108,7 @@ export function AiCatchUpView({
     <Screen>
       <ScreenTitle
         title="KI für dein Ziel"
-        subtitle="Dein Ziel steht schon. Hier kannst du es der KI zeigen, ohne noch einmal von vorn anzufangen."
+        subtitle="Dein Ziel steht schon — hier zeigst du es der KI, ohne von vorn anzufangen."
       />
 
       <SectionHeading>Dein Ziel</SectionHeading>
@@ -163,7 +163,7 @@ export function AiCatchUpView({
             </p>
             <p className="mt-1 text-sm leading-relaxed text-muted">
               {phase.answered
-                ? 'Ihr Vorschlag ist gespeichert und fließt in den Plan der nächsten Woche ein. Diese Woche bleibt, wie sie ist — sie ist schon halb gelebt, und zwei Pläne für dieselben Tage wären doppelte Spuren von einer Woche.'
+                ? 'Der Vorschlag ist gespeichert. Diese Woche bleibt, wie sie ist — sie ist schon halb gelebt, und zwei Pläne für dieselben Tage wären doppelte Spuren von einer Woche.'
                 : (phase.failure !== null && AI_FAILURE_TEXT[phase.failure]) ||
                   'Der Plan wird weiter deterministisch gebaut, wie bisher.'}
             </p>
@@ -197,7 +197,7 @@ export function AiCatchUpView({
               Die KI liest dein Ziel, stellt vielleicht ein bis drei Rückfragen und entwirft dann
               Aktionen dafür. {hasProposal
                 ? 'Ein Vorschlag liegt schon vor — das hier ersetzt ihn.'
-                : 'Dein Ziel wurde nie von einem Modell gesehen: es entstand, bevor einer eingerichtet war.'}
+                : 'Dein Ziel wurde nie von einem Modell gesehen.'}
             </p>
           </Card>
           <div className="mt-6">

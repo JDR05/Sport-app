@@ -126,19 +126,15 @@ export function ProfileView({
             <Button variant="quiet" onClick={() => router.push('/onboarding')}>
               Neues Ziel setzen
             </Button>
-            <Note>
-              Dein bisheriges Ziel wird pausiert, nicht gelöscht. Was du bis jetzt getan hast,
-              bleibt Teil deiner Geschichte — und das persönliche Modell lernt weiter daraus.
-            </Note>
+            <Note>Das alte Ziel wird pausiert, nicht gelöscht. Alles Bisherige bleibt.</Note>
 
             <SectionHeading>KI-Unterstützung</SectionHeading>
             {provider === null ? (
               <Card>
                 <p className="text-sm font-semibold text-ink">Kein KI-Anbieter eingerichtet</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted">
-                  Die App plant vollständig ohne. Ziel einordnen, Plan bauen, Muster erkennen
-                  und Experimente auswerten passiert auf dem Server dieser App und geht an
-                  niemanden sonst — nur die freieren Vorschläge und der Wochenimpuls fehlen.
+                  Die App plant vollständig ohne. Es fehlen nur die freieren Vorschläge und
+                  der Wochenimpuls.
                 </p>
               </Card>
             ) : (
@@ -153,8 +149,8 @@ export function ProfileView({
                     </Button>
                     <Note>
                       {answers.goal.classifiedBy === 'ai'
-                        ? 'Sie liest dein Ziel neu, fragt nach, was ihr fehlt, und entwirft die Aktionen noch einmal.'
-                        : 'Dein Ziel wurde ohne KI eingeordnet — vermutlich, weil es entstand, bevor ein Anbieter eingerichtet war. Das Häkchen allein holt das nicht nach.'}
+                        ? 'Liest dein Ziel neu und entwirft die Aktionen noch einmal.'
+                        : 'Dein Ziel wurde ohne KI eingeordnet. Das Häkchen allein holt das nicht nach.'}
                     </Note>
                   </div>
                 )}
@@ -163,17 +159,13 @@ export function ProfileView({
 
             <SectionHeading>Darstellung</SectionHeading>
             <ThemeSetting current={theme} />
-            <Note>
-              „System“ folgt der Einstellung deines Handys und wechselt abends mit. Die Wahl
-              gilt für dieses Gerät.
-            </Note>
+            <Note>„System“ folgt deinem Handy. Gilt für dieses Gerät.</Note>
 
             <SectionHeading>Sprache</SectionHeading>
             <Card>
               <p className="text-sm font-semibold text-ink">Deutsch</p>
               <p className="mt-1 text-sm leading-relaxed text-muted">
-                Englisch ist geplant. Es fehlt noch, weil auch die Begründungen im Plan
-                übersetzt werden müssen — halb übersetzt wäre schlechter als gar nicht.
+                Englisch ist geplant.
               </p>
             </Card>
 

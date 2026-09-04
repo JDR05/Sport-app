@@ -148,7 +148,11 @@ const BUTTON_BASE =
 function buttonLook(variant: 'primary' | 'quiet'): string {
   return variant === 'primary'
     ? 'bg-accent text-accent-ink active:brightness-95'
-    : 'border border-line bg-surface text-ink active:bg-sunken'
+    // `line-strong`, not `line`. A quiet button is drawn entirely by its
+    // border, so that border is what somebody has to see to find it — WCAG
+    // 1.4.11 asks 3:1 for exactly that, and the decorative hairline is 1.26:1.
+    // A card's border may stay invisible; a button's may not.
+    : 'border border-line-strong bg-surface text-ink active:bg-sunken'
 }
 
 export function Button({

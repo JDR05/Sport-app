@@ -64,8 +64,7 @@ export function AccountData() {
       <SectionHeading>Deine Daten</SectionHeading>
       <Card>
         <p className="text-sm leading-relaxed text-muted">
-          Du kannst jederzeit alles herunterladen, was hier über dich gespeichert ist — als
-          Datei, Zeile für Zeile, ohne Zusammenfassung.
+          Alles, was über dich gespeichert ist — als Datei, ohne Zusammenfassung.
         </p>
         <div className="mt-3">
           <Button onClick={exportData} disabled={busy} variant="quiet">
@@ -78,9 +77,8 @@ export function AccountData() {
         <Card tone="warn">
           <p className="text-sm font-semibold text-ink">Konto und alle Daten löschen</p>
           <p className="mt-1 text-sm leading-relaxed text-muted">
-            Ziel, Plan, Check-ins, Messwerte, Muster — alles wird sofort und endgültig
-            gelöscht, zusammen mit deinem Zugang. Es gibt keine Kopie und keine Frist, in der
-            wir es zurückholen könnten.
+            Ziel, Plan, Check-ins, Messwerte, Muster und dein Zugang — sofort und endgültig.
+            Keine Kopie, keine Frist.
           </p>
 
           {!confirming ? (

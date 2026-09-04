@@ -312,7 +312,7 @@ export function OnboardingForm({
                   ? 'Von der KI eingeordnet.'
                   : ai.granted
                     ? 'Ohne KI erkannt — anhand von Schlüsselwörtern.'
-                    : 'Ohne KI erkannt — anhand von Schlüsselwörtern. Mit Häkchen unten schaut die KI noch einmal darauf.'}
+                    : 'Anhand von Schlüsselwörtern erkannt. Mit Häkchen schaut die KI darauf.'}
               </p>
               <div className="mt-3">
                 <ChoiceGroup
@@ -341,7 +341,7 @@ export function OnboardingForm({
           )}
 
           <div className="mt-6">
-            <Field label="Bis wann?" hint="Optional. Ist der Wunsch zu schnell, verschiebt die App das Datum – nicht das Tempo.">
+            <Field label="Bis wann?" hint="Optional. Zu schnell? Dann verschiebt die App das Datum, nicht das Tempo.">
               {/* A date in the past is not a deadline. The engine moves it
                   anyway — that check is deterministic and lives in
                   horizonFor — but the picker should not offer it in the
@@ -519,7 +519,7 @@ export function OnboardingForm({
           <Field label="Gibt es Tage, an denen Training nie geht?">
             <MultiChoice options={WEEKDAYS.map((w) => ({ value: w, label: WEEKDAY_SHORT[w] }))} values={d.blockedDays} onChange={(v) => set('blockedDays', v)} columns={4} />
           </Field>
-          <Note>Beides ist eine harte Grenze: Die App plant dort nichts hinein, auch nicht ausnahmsweise.</Note>
+          <Note>Harte Grenze — die App plant dort nichts hinein.</Note>
         </>
       )}
 

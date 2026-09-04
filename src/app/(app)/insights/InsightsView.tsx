@@ -200,8 +200,8 @@ export function InsightsView({ data }: { data: InsightsData }) {
               title={data.ai.granted ? 'Noch nichts von der KI' : 'KI nicht erlaubt'}
               body={
                 data.ai.granted
-                  ? 'Dein Ziel wurde noch nicht von einem Modell angesehen — oder es hatte nichts beizutragen. Der Plan steht trotzdem, er ist deterministisch gebaut.'
-                  : 'Ohne dein Häkchen wird nichts an ein Modell geschickt. Der Plan wird deterministisch gebaut und funktioniert vollständig.'
+                  ? 'Noch nicht angesehen — oder es gab nichts beizutragen. Der Plan steht trotzdem.'
+                  : 'Ohne dein Häkchen geht nichts an ein Modell. Der Plan funktioniert vollständig.'
               }
             />
           )}
@@ -264,7 +264,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
       {data.insights.length === 0 ? (
         <EmptyState
           title="Noch kein Muster erkannt"
-          body="Eine einzelne Abweichung ist kein Muster. Die App wartet, bis sich etwas über mehrere Wochen wiederholt — lieber später etwas Belastbares als früh etwas Erfundenes."
+          body="Eine einzelne Abweichung ist kein Muster. Die App wartet auf Wiederholung — lieber später etwas Belastbares als früh etwas Erfundenes."
           progress={{ done: data.weeksWithData, needed: MIN_DISTINCT_WEEKS, unit: 'Wochen' }}
         />
       ) : (
@@ -316,7 +316,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
       ) : data.experiment === null ? (
         <EmptyState
           title="Kein Experiment aktiv"
-          body="Sobald ein Muster belegt ist, schlägt die App genau eine kleine Änderung vor, misst sie über einen festen Zeitraum und behält sie nur, wenn sie wirkt."
+          body="Ist ein Muster belegt, schlägt die App eine kleine Änderung vor und misst sie und behält sie nur, wenn sie wirkt."
         />
       ) : (
         <Card tone="accent">
@@ -356,7 +356,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
                   : `Für ${data.moveCount} ausgefallene Aktionen gibt es diese Woche noch freie Tage. `)}
               {data.removalCount > 0 &&
                 (data.removalCount === 1
-                  ? 'Eine Wiederholung von etwas, das nicht zu dir passt, wird dir nicht noch einmal gestellt.'
+                  ? 'Abgelehntes wird nicht noch einmal vorgeschlagen.'
                   : `${data.removalCount} Wiederholungen von etwas, das nicht zu dir passt, werden dir nicht noch einmal gestellt.`)}
             </p>
             {data.patchNotes.map((note) => (

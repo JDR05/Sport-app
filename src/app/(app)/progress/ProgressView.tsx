@@ -56,7 +56,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
             {data.scores.overall.planned === 0 ? (
               <EmptyState
                 title="Diese Woche ist noch nichts geplant"
-                body="Sobald dein Wochenplan steht, zeigt der Ring, wie viel davon tatsächlich passiert ist."
+                body="Der Ring zeigt, wie viel vom Plan tatsächlich passiert ist."
               />
             ) : (
               <Card>
@@ -158,7 +158,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
             {data.completion === null ? (
               <EmptyState
                 title="Noch nichts abgehakt"
-                body="Sobald du Aktionen als erledigt oder nicht geschafft markierst, steht hier, wie viel vom Plan tatsächlich passiert ist. Nicht angetippte Aktionen zählen nie als Versäumnis."
+                body="Sobald du Aktionen bewertest, steht hier, wie viel vom Plan tatsächlich passiert ist. Nicht angetippte Aktionen zählen nie als Versäumnis."
                 progress={{ done: data.weeksWithData, needed: 2, unit: 'Wochen' }}
               />
             ) : (
