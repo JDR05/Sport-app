@@ -7,6 +7,53 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-04 — ADR-113: Plan bleibt, hört aber auf, ein zweites Heute zu sein
+
+**Entscheidung:** Der Plan-Screen wird **nicht gelöscht**, aber auf seine eine Aufgabe
+reduziert: Wochenstrategie oben, sieben kompakte Zeilen, was noch offen ist. **Kein Bearbeiten
+mehr.** Ein Tag antippen öffnet **Heute auf diesem Tag** (`/today?tag=YYYY-MM-DD`). Die
+Regeln, welcher Tag beantwortbar ist und welcher etwas offen hat, liegen ab jetzt in
+`src/lib/domain/weekDays.ts` und werden von beiden Screens gelesen.
+
+**Begründung:** Der Product Owner fragte: „Der Abschnitt Plan ist eigentlich dann überflüssig,
+da wir ja alles in Heute haben. Findest du, man könnte den löschen?" Berechtigte Frage — und
+seit ADR-112 zur Hälfte richtig.
+
+**Was tatsächlich doppelt war:** beide Screens ließen vergangene Aktionen beantworten, beide
+zeigten Termine pro Tag, beide zeigten Begründungen. Zwei Screens, die dasselbe schreiben
+können, sind genau die Unübersichtlichkeit, die dieses Projekt seit Wochen wegräumt — und
+schlimmer: sie können über einen Status uneins werden.
+
+**Was nicht doppelt war, und warum der Screen bleibt.** Das Playbook verlangt auf jedem Screen
+eine Antwort auf drei Fragen: *Was ist heute wichtig? Warum? Was kommt als Nächstes?* Heute
+beantwortet die ersten beiden. Die dritte **kann** es strukturell nicht: um zu sehen, wann die
+nächste Gym-Einheit liegt, müsste man sich durch sieben Tage tippen. Dazu kommt die konkrete
+Wochenstrategie (`goalTrack.summary` — „2× Training à 60 Min", „1900 kcal pro Tag (−500)",
+„2 Ruhetage"), die es sonst nirgends zu sehen gibt: Heute zeigt nur die Kopfzeile. Und der
+Überblick, welche vergangenen Tage noch etwas offen haben, über die ganze Woche statt Tag für
+Tag.
+
+**Die Aufteilung ist damit nach *Frage*, nicht nach Daten:** ein Ort zum Eintragen, ein Ort
+zum Überblicken. Der Pfeil in der Zeile zeigt nach rechts statt nach unten — die Zeile geht
+irgendwohin, statt sich zu öffnen.
+
+**Der Tag steht in der URL, nicht im State.** Ein Tippen auf Mittwoch ist eine *Navigation*:
+sie soll einen Reload, den Zurück-Knopf und einen offen gelassenen Link überleben. Der
+Parameter wird validiert wie jede andere Eingabe — die Query-String ist die öffentlichste
+Fläche der App, und ein ungeprüfter Wert landete sonst in jedem Datumsvergleich des Screens.
+Akzeptiert wird nur ein echtes Datum **innerhalb der laufenden Woche**.
+
+**Zwei kleinere Sachen, die dabei richtig gestellt wurden.** `DAY_PARAM` liegt in der
+Domain-Schicht statt im Page-Modul: hätte Plan es aus `today/page` importiert, wäre Heutes
+kompletter Komponentenbaum in Plans Bundle gelandet. Und `useSearchParams` steht hinter einer
+`<Suspense>`-Grenze, wie die mitgelieferte Next-Doku es verlangt.
+
+**Ersetzt ADR-108** in dem Punkt, dass Plan die Tage aufklappt und beantwortbar macht. Das
+Nachtragen selbst ist nicht verloren — es passiert jetzt in Heute, das seit ADR-112 jeden Tag
+der Woche erreicht.
+
+---
+
 ## 2026-09-04 — ADR-112: Heute ist ein Tag der Woche, nicht nur heute
 
 **Entscheidung:** Über dem Tagestitel steht eine Leiste mit allen sieben Tagen. Der gewählte

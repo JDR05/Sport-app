@@ -1,27 +1,27 @@
-// The week, seen from the day you are in.
+// The week, at week level.
 //
-// The Plan screen drew all seven days expanded, always starting at Monday. On a
-// Thursday that is three days of finished work scrolled past before the day the
-// person is actually in — and the days before it, which are the only ones that
-// can still be corrected, were the ones buried deepest.
+// Plan used to be a second Heute: every day expandable, every action
+// answerable, the same rings and the same reasoning. That was right while Heute
+// could only show today. Heute steps across the week now, so the Product Owner
+// asked the obvious question — "der Abschnitt Plan ist eigentlich dann
+// überflüssig, da wir ja alles in Heute haben."
 //
-// These tests hold the three rules that fix comes down to: only today opens by
-// default, only days that have happened may be answered, and a closed day still
-// says what is on it. The last one is the one worth guarding — a collapse that
-// turns the week into seven weekday names is a worse week view than the wall it
-// replaced.
+// It is not, but the reason is narrow: Heute cannot answer "was kommt als
+// Nächstes" without tapping through seven days. So Plan keeps exactly that job
+// and loses the rest. These tests hold both halves of that decision — the row
+// still says what is on the day and what is behind, and it no longer edits
+// anything.
 
 import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { canAnswer, dayPosition, openCount } from '@/lib/domain/weekDays'
 import type { Commitment, PlanItemStatus, PlannedItem } from '@/lib/domain/types'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, refresh: () => {} }),
 }))
 
-const { PlanDay, canAnswer, dayPosition, daySummary, openCount } = await import(
-  '@/components/PlanDay'
-)
+const { PlanDay, daySummary } = await import('@/components/PlanDay')
 
 const FOOTBALL: Commitment = {
   label: 'Fußballtraining',
@@ -48,20 +48,15 @@ function item(over: Partial<PlannedItem & { id: string; status: PlanItemStatus }
   }
 }
 
-const draw = (element: Parameters<typeof renderToStaticMarkup>[0]) =>
-  renderToStaticMarkup(element)
-
 function day(over: Partial<Parameters<typeof PlanDay>[0]> = {}) {
-  return draw(
+  return renderToStaticMarkup(
     <PlanDay
       weekday="thu"
       date="2026-09-03"
       items={[item()]}
-      commitments={[]}
+      fixed={[]}
       position="today"
-      onStatus={() => {}}
-      onAnswer={async () => null}
-      onAccept={async () => null}
+      href="/today?tag=2026-09-03"
       {...over}
     />,
   )
@@ -75,8 +70,8 @@ describe('which day is which', () => {
   })
 
   it('treats the whole week as future while the client date is missing', () => {
-    // The safe reading in both directions: nothing opens on a guess, and
-    // nothing becomes answerable on one either.
+    // The safe reading in both directions: nothing becomes answerable on a
+    // guess, and no day is marked as behind on one either.
     for (const date of ['2026-09-01', '2026-09-03', '2026-09-06']) {
       expect(dayPosition(date, null)).toBe('future')
       expect(canAnswer(dayPosition(date, null))).toBe(false)
@@ -85,23 +80,18 @@ describe('which day is which', () => {
 })
 
 describe('what may be answered', () => {
+  // The rule lives in one module because two screens read it now. Written
+  // twice, the second copy drifts, and a day answerable on Heute but marked
+  // untouchable on Plan just looks like a confused app.
   it('lets the person correct today and every day before it', () => {
     expect(canAnswer('past')).toBe(true)
     expect(canAnswer('today')).toBe(true)
   })
 
   it('refuses a day that has not happened', () => {
-    // Not a display choice. An action that has not happened cannot have been
-    // missed, and the adaptive engine would take the answer as behaviour.
+    // An action that has not happened cannot have been missed, and the
+    // adaptive engine would take the answer as behaviour.
     expect(canAnswer('future')).toBe(false)
-  })
-
-  it('gives a past day the controls and a future day the plain card', () => {
-    expect(day({ position: 'past' })).not.toContain('als erledigt markieren')
-
-    const future = day({ position: 'future' })
-    expect(future).not.toContain('als erledigt markieren')
-    expect(day({ position: 'today' })).toContain('als erledigt markieren')
   })
 })
 
@@ -123,35 +113,36 @@ describe('what is still open', () => {
   })
 })
 
-describe('open by default', () => {
-  // The action cards live only inside the expanded body; the closed row shows
-  // the titles as one summary line, so the domain badge is what separates the
-  // two — `>Training<` is the badge, `Krafttraining</span>` is the summary.
-  const expanded = (markup: string) =>
-    markup.includes('aria-expanded="true"') && markup.includes('>Training<')
-
-  it('opens the day the person is in', () => {
-    expect(expanded(day({ position: 'today' }))).toBe(true)
+describe('the row goes somewhere instead of opening', () => {
+  it('links to Heute on that day', () => {
+    // The whole point of the change: one place to record, one to survey.
+    expect(day({ date: '2026-09-02', href: '/today?tag=2026-09-02' })).toContain(
+      'href="/today?tag=2026-09-02"',
+    )
   })
 
-  it('leaves every other day closed', () => {
-    expect(expanded(day({ position: 'past' }))).toBe(false)
-    expect(expanded(day({ position: 'future' }))).toBe(false)
+  it('carries no controls of its own', () => {
+    // Plan was a second editor. If a ring or an answer button reappears here,
+    // the duplication is back and the two screens can disagree about a status.
+    const markup = day({ position: 'past' })
+    expect(markup).not.toContain('als erledigt markieren')
+    expect(markup).not.toContain('<button')
+  })
+
+  it('does not repeat the reasoning that belongs on the day itself', () => {
+    expect(day()).not.toContain('nach der Vorlesung')
   })
 })
 
-describe('a closed day still says what is on it', () => {
+describe('a row still says what is on the day', () => {
   it('names the fixed appointment before what the app planned', () => {
-    const markup = day({ position: 'future', commitments: [FOOTBALL] })
+    const markup = day({ fixed: [FOOTBALL] })
     expect(markup).toContain('Fußballtraining')
     expect(markup.indexOf('Fußballtraining')).toBeLessThan(markup.indexOf('Krafttraining'))
   })
 
-  it('carries the count, so the week has a shape without being read', () => {
-    const markup = day({
-      position: 'future',
-      items: [item({ id: 'a', status: 'done' }), item({ id: 'b' })],
-    })
+  it('carries the count, so the week has a shape without being opened', () => {
+    const markup = day({ items: [item({ id: 'a', status: 'done' }), item({ id: 'b' })] })
     expect(markup).toContain('1/2')
   })
 
@@ -169,5 +160,10 @@ describe('a closed day still says what is on it', () => {
 
   it('calls an empty day a rest day rather than nothing', () => {
     expect(daySummary([], [])).toBe('Ruhetag')
+  })
+
+  it('marks the day the person is in', () => {
+    expect(day({ position: 'today' })).toContain('aria-current="date"')
+    expect(day({ position: 'past' })).not.toContain('aria-current="date"')
   })
 })

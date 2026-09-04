@@ -18,7 +18,8 @@
 // shown only on today — an impulse about this week rendered under Mittwoch
 // would be the app talking about a day it is not on.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
@@ -32,7 +33,9 @@ import { WeekStrip } from '@/components/WeekStrip'
 import { Card, DomainBadge, Reasoning, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
 import { getCheckIns } from '@/app/(app)/actions'
 import { canCheckInOn } from '@/lib/domain/checkInDay'
-import { formatGermanDate, startOfWeek, weekdayOf } from '@/lib/engine/dates'
+import { isRealDate } from '@/lib/domain/isoDate'
+import { canAnswer, DAY_PARAM, dayPosition } from '@/lib/domain/weekDays'
+import { addDays, formatGermanDate, startOfWeek, weekdayOf } from '@/lib/engine/dates'
 import type { CheckIn } from '@/lib/db/tracking'
 
 const WEEKDAY_LONG: Record<string, string> = {
@@ -40,16 +43,47 @@ const WEEKDAY_LONG: Record<string, string> = {
   fri: 'Freitag', sat: 'Samstag', sun: 'Sonntag',
 }
 
+/**
+ * Wrapped, because reading the query string is a dynamic thing to do.
+ *
+ * Next renders the client tree up to the nearest Suspense boundary on the
+ * client when `useSearchParams` is involved, and asks for the boundary to be
+ * explicit rather than swallowing the whole route.
+ */
 export default function TodayPage() {
+  return (
+    <Suspense fallback={null}>
+      <Today />
+    </Suspense>
+  )
+}
+
+function Today() {
   const { today, setStatus, answer, accept, movedAway } = usePlan()
 
-  // The day on screen. Resets to today whenever today changes — which happens
-  // at midnight and on a fresh load, and both times the person means today.
-  const [viewing, setViewing] = useState(today)
-  const [shownFor, setShownFor] = useState(today)
-  if (shownFor !== today) {
-    setShownFor(today)
-    setViewing(today)
+  // Which day Plan asked for, if it asked for one.
+  //
+  // A URL rather than shared state, because it is a *destination*: tapping
+  // Mittwoch in the week overview is a navigation, and it should survive a
+  // reload, a back button and a link the person keeps open. Validated like any
+  // other input — the query string is the most public surface in the app, and
+  // an unchecked value here would put an arbitrary string into every date
+  // comparison on the screen.
+  const requested = useSearchParams().get(DAY_PARAM)
+  const weekStart = startOfWeek(today)
+  const fromUrl =
+    requested && isRealDate(requested) && requested >= weekStart && requested <= addDays(weekStart, 6)
+      ? requested
+      : null
+
+  // The day on screen. Resets whenever today or the requested day changes —
+  // midnight, a fresh load, or a tap on another day in the week overview.
+  const [viewing, setViewing] = useState(fromUrl ?? today)
+  const [shownFor, setShownFor] = useState(`${today}#${fromUrl ?? ''}`)
+  const key = `${today}#${fromUrl ?? ''}`
+  if (shownFor !== key) {
+    setShownFor(key)
+    setViewing(fromUrl ?? today)
   }
 
   // The week's check-ins, fetched once rather than per card.
@@ -58,7 +92,6 @@ export default function TodayPage() {
   // a second round trip behind the week. One call covers the strip's marks and
   // every day the strip can reach.
   const [checkIns, setCheckIns] = useState<CheckIn[]>([])
-  const weekStart = startOfWeek(today)
 
   useEffect(() => {
     let current = true
@@ -100,10 +133,10 @@ export default function TodayPage() {
         const fixed = commitmentsForDay(week.commitments, weekdayOf(viewing))
 
         const isToday = viewing === today
-        // An action that has not happened cannot have been missed, and the
-        // adaptive engine would read the answer as behaviour. Same rule as the
-        // Plan screen, for the same reason.
-        const answerable = viewing <= today
+        // The same rule Plan marks its rows with, from the same module. Written
+        // twice, the second copy is the one that drifts — and a day answerable
+        // on one screen and not the other just looks like a confused app.
+        const answerable = canAnswer(dayPosition(viewing, today))
         const entry = checkIns.find((e) => e.checkedInOn === viewing) ?? null
 
         return (
