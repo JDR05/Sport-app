@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import { RequirePlan } from '@/components/RequirePlan'
+import Link from 'next/link'
+import { AccountData } from '@/components/AccountData'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeSetting } from '@/components/ThemeSetting'
 import { Button, Card, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
@@ -177,6 +179,25 @@ export function ProfileView({
 
             <SectionHeading>Konto</SectionHeading>
             <SignOutButton />
+
+            {/* The two rights, where somebody would look for them. Not in a
+                footer and not behind a support address: Articles 15/20 and 17
+                are things a person may do, not things they may request. */}
+            <div className="mt-8">
+              <AccountData />
+            </div>
+
+            {/* Reachable from inside the app, not only from the login screen.
+                § 5 DDG wants an Impressum at most two taps from any page, and
+                somebody who is signed in never sees the login screen again. */}
+            <div className="mt-8 flex gap-4 text-xs text-faint">
+              <Link href="/impressum" className="underline decoration-line underline-offset-4">
+                Impressum
+              </Link>
+              <Link href="/datenschutz" className="underline decoration-line underline-offset-4">
+                Datenschutz
+              </Link>
+            </div>
           </Screen>
         )
       }}

@@ -63,3 +63,25 @@ describe('isPublic', () => {
     expect(isPublic('/signups')).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// The legal pages, before the sign-in rather than behind it.
+//
+// § 5 DDG wants an Impressum permanently and directly reachable; Art. 13 DSGVO
+// wants the privacy notice available *before* somebody hands over data. Both
+// are addressed to people who have not signed up — including the person
+// deciding whether to. Behind the guard they would be readable only by those
+// who had already agreed, which is exactly backwards.
+
+describe('the legal pages are public', () => {
+  it('lets a signed-out visitor read the Impressum and the privacy notice', () => {
+    expect(isPublic('/impressum')).toBe(true)
+    expect(isPublic('/datenschutz')).toBe(true)
+  })
+
+  it('still guards everything that holds someone’s data', () => {
+    for (const path of ['/today', '/plan', '/progress', '/insights', '/profile', '/onboarding']) {
+      expect(isPublic(path), path).toBe(false)
+    }
+  })
+})

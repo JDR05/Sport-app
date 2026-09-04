@@ -205,3 +205,71 @@
     }
   }
 }
+
+@layer components {
+  /* The legal pages, and only those.
+     
+     They are the one place in this app that is genuinely a document: long
+     prose, headings, lists, read once and carefully. Every other screen is a
+     measuring instrument and gets no styling from here. Scoped to `.legal` so
+     the two never bleed into each other — an app that starts setting body text
+     like a privacy policy is how the instrument look was lost the first time. */
+  .legal h1 {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+
+  .legal h2 {
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .legal p,
+  .legal li {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+
+  .legal p + p {
+    margin-top: 0.75rem;
+  }
+
+  .legal ul {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-left: 1.1rem;
+    list-style: disc;
+  }
+
+  .legal strong {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* An unfinished document says so at the top, in the warn tone the rest of
+     the app already uses for "this needs your attention". */
+  .legal .notice {
+    margin-top: 1rem;
+    border: 1px solid var(--warn-line, var(--line));
+    border-radius: 3px;
+    background: var(--sunken);
+    padding: 0.875rem;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .legal .updated {
+    margin-top: 2rem;
+    font-size: 12px;
+    color: var(--faint);
+  }
+}

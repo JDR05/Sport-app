@@ -508,3 +508,51 @@ describe('the design rules these screens must not break', () => {
     expect(everything).not.toMatch(pattern)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Article 50 of the EU AI Act, in force since 2 August 2026.
+//
+// A person must be told, clearly and at the latest at the first interaction,
+// that they are interacting with an AI system — unless that would be obvious to
+// a reasonably observant person. It is not obvious in this app: the question box
+// sits on a screen where everything else is computed by deterministic code, and
+// the product has spent real effort making that distinction meaningful.
+//
+// The penalty ceiling for getting this wrong is €15 million or 3 % of worldwide
+// turnover, so it is worth a test rather than a good intention.
+
+describe('the question box says who is answering', () => {
+  const state = (history: Parameters<typeof AskView>[0]['state']['history']) => ({
+    available: true,
+    history,
+    suggestions: [],
+    exhausted: null,
+  })
+
+  it('discloses the AI before the first exchange', () => {
+    const html = render(<AskView state={state([])} today="2026-09-04" />)
+    expect(html).toContain('Antwort von einer KI')
+  })
+
+  it('keeps the disclosure once a conversation has started', () => {
+    // "At the latest at the first interaction" is a floor, not a moment that
+    // passes. A notice that disappears after the first answer informs only the
+    // people who did not need it yet.
+    const html = render(
+      <AskView
+        state={state([
+          {
+            id: '1',
+            question: 'Warum Montag?',
+            answer: 'Weil du montags abends Zeit hast.',
+            canAnswer: true,
+            needs: null,
+            evidence: [],
+          },
+        ])}
+        today="2026-09-04"
+      />,
+    )
+    expect(html).toContain('Antwort von einer KI')
+  })
+})

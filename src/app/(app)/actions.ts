@@ -23,6 +23,7 @@ import { loadPlanInput } from '@/lib/db/plan-input'
 import { refreshProposal } from '@/lib/db/propose'
 import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
 import { adoptProposalIntoCurrentWeek } from '@/lib/db/adopt-proposal'
+import { deleteOwnAccount, exportEverything, type AccountExport } from '@/lib/db/account'
 import {
   loadActionPreferences, setActionPreference, type PreferenceResult,
 } from '@/lib/db/action-preferences'
@@ -571,4 +572,43 @@ export async function saveActionPreference(payload: unknown): Promise<Preference
 export async function getActionPreferences(): Promise<ActionPreferences> {
   const user = await requireUser()
   return loadActionPreferences(user.id)
+}
+
+// ------------------------------------------------------------------ account ---
+
+/**
+ * A copy of everything stored about the signed-in person.
+ *
+ * Articles 15 and 20 GDPR, and for an app holding health data under Article 9
+ * neither is a nice-to-have. Returned as an object rather than written to a
+ * file here — the browser turns it into a download, which keeps the data on the
+ * person's own device and out of any log on the way.
+ */
+export async function downloadMyData(): Promise<AccountExport> {
+  await requireUser()
+  return exportEverything()
+}
+
+/**
+ * Erasure, Article 17.
+ *
+ * Irreversible and immediate: there is no soft delete, no thirty-day window and
+ * no copy kept "in case". A person asking for their health data to be gone is
+ * entitled to it being gone, and a retention period nobody asked for is the
+ * thing the right exists against.
+ *
+ * The session is dropped afterwards, because the account it belonged to no
+ * longer exists.
+ */
+export async function deleteMyAccount(): Promise<{ ok: boolean }> {
+  await requireUser()
+
+  const result = await deleteOwnAccount()
+  if (!result.ok) return { ok: false }
+
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+
+  revalidatePath('/', 'layout')
+  return { ok: true }
 }

@@ -96,6 +96,23 @@ export function AskView({ state, today }: { state: AskState; today: string }) {
 
   return (
     <Framed>
+        {/* Said before the first answer, every time, and not only on the empty
+            state.
+            
+            Article 50 of the EU AI Act has applied since 2 August 2026: a
+            person must be told they are interacting with an AI system, clearly,
+            at the latest at the first interaction, unless it would be obvious.
+            It is not obvious here — the box sits inside a screen where
+            everything else is computed by deterministic code, and the app has
+            spent considerable effort making that distinction meaningful.
+            
+            Kept as one quiet line rather than a banner. The duty is to inform,
+            not to interrupt, and a warning strip would misrepresent an ordinary
+            feature as something risky. */}
+        <p className="label mb-2.5 text-[10px] font-semibold text-faint">
+          Antwort von einer KI
+        </p>
+
         {history.length === 0 && (
           <p className="text-sm leading-relaxed text-muted">
             Frag mich etwas zu deinem Plan, deiner Woche oder deinem Ziel. Ich antworte aus

@@ -7,6 +7,71 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-04 — ADR-115: Auskunft und Löschung sind Rechte, keine Features
+
+**Entscheidung:** Unter **Profil → Deine Daten** lädt man eine vollständige, maschinenlesbare
+Kopie aller eigenen Daten herunter und löscht das Konto samt allem, was daran hängt — sofort,
+ohne Frist, ohne Kopie. Impressum und Datenschutzerklärung sind **ohne Anmeldung** erreichbar.
+Die Fragebox sagt, dass dort eine KI antwortet.
+
+**Begründung:** Die App verarbeitet Gesundheitsdaten nach Art. 9 DSGVO — die am strengsten
+geschützte Kategorie — und hatte weder eine Möglichkeit, eine Kopie zu bekommen (Art. 15/20),
+noch das Konto zu löschen (Art. 17). Damit war jedes Versprechen, das das Onboarding über die
+Daten macht, für die Person unüberprüfbar und nicht durchsetzbar.
+
+**Die Löschung war die technisch heikle Stelle.** Alles in `public` kaskadiert von `profiles`,
+und `profiles` von `auth.users` — aber eine Auth-Zeile zu löschen braucht erhöhte Rechte, und
+ADR-034 hält den Service-Key bewusst aus dem Deployment heraus. Nur die `public`-Zeilen zu
+löschen und das Löschung zu nennen, hätte eine E-Mail-Adresse zurückgelassen.
+
+Die Auflösung ist eine `security definer`-Funktion in der Datenbank, und sie ist keine
+Hintertür: die erhöhten Rechte liegen **in** der Datenbank, sind nur über diese eine Funktion
+erreichbar, und die Funktion nimmt **keine Parameter** — sie kann ausschließlich `auth.uid()`
+löschen. Es gibt kein Argument zum Manipulieren und keine ID zu raten. `search_path` ist
+gepinnt, `anon` ist nicht berechtigt; beides gegen die echte Datenbank verifiziert.
+
+**Keine Aufbewahrungsfrist, und das ist Absicht.** Kein Soft-Delete, kein 30-Tage-Fenster,
+keine Kopie „für den Fall". Wer verlangt, dass seine Gesundheitsdaten weg sind, hat Anspruch
+darauf, dass sie weg sind — eine Frist, die niemand erbeten hat, ist genau das, wogegen das
+Recht existiert.
+
+**Die Rechtsseiten liegen vor der Anmeldung, nicht dahinter.** § 5 DDG verlangt ein Impressum
+„leicht erkennbar, unmittelbar erreichbar und ständig verfügbar", Art. 13 DSGVO die
+Datenschutzinformation **bevor** jemand Daten herausgibt. Beide richten sich an Menschen ohne
+Konto — auch an den, der noch überlegt. Hinter `requireUser` wären sie nur für die lesbar
+gewesen, die schon zugestimmt haben. Ein Test hält das fest.
+
+**Die Erklärung ist aus dem Code geschrieben, nicht aus einem Generator.** Jede Kategorie
+entspricht einer echten Tabelle, jeder Empfänger einem echten ausgehenden Aufruf. Bei
+Art.-9-Daten ist das nicht Sorgfalt, sondern Voraussetzung: die Rechtsgrundlage ist die
+ausdrückliche Einwilligung, und eine Einwilligung ist nur wirksam, wenn sie **informiert** ist.
+Eine Erklärung, die eine generische App beschreibt, informiert über diese hier nicht.
+
+Was nur der Product Owner weiß — Anschrift, Hoster, KI-Anbieter, Aufsichtsbehörde — bleibt als
+`[ausfüllen]` stehen. **Ein Impressum mit erfundenen Angaben ist schlechter als keines**: es
+ist eine falsche Aussage darüber, wer haftet.
+
+**KI-Offenlegung, weil die Frist bereits läuft.** Art. 50 EU AI Act gilt seit dem 2. August
+2026: Menschen müssen klar und spätestens bei der ersten Interaktion erfahren, dass sie mit
+einem KI-System sprechen — außer es wäre offensichtlich. Hier ist es das nicht: die Fragebox
+sitzt auf einem Screen, auf dem alles andere deterministisch berechnet wird, und das Produkt
+hat erheblichen Aufwand darauf verwendet, diesen Unterschied bedeutsam zu machen. Eine leise
+Zeile, kein Warnbanner — die Pflicht ist zu informieren, nicht zu unterbrechen. Der Bußgeldrahmen
+liegt bei 15 Mio. € oder 3 % des Weltumsatzes, also ist es einen Test wert und keinen Vorsatz.
+
+**Ausdrücklich kein Medizinprodukt.** Die Erklärung sagt jetzt hin, dass Trace nicht dazu
+bestimmt ist, Krankheiten zu erkennen, zu verhüten, zu überwachen, zu behandeln oder zu
+lindern. Nach der MDR entscheidet die **Zweckbestimmung** über die Einstufung, nicht die
+Technik — ein Kalorienzähler für die Bikinifigur ist Wellness, derselbe Rechner mit einem
+Insulinvorschlag ist ein zertifizierungspflichtiges Medizinprodukt. Diese Grenze muss
+ausgesprochen werden, sonst verschiebt sie sich unbemerkt mit dem nächsten Feature.
+
+**Was offen bleibt, steht in `docs/PRODUCTION_READINESS.md`** und ist bewusst nicht hier
+entschieden: AVVs nach Art. 28, die Prüfung einer DSFA nach Art. 35, und die anwaltliche
+Durchsicht. Ich bin kein Anwalt, und bei Gesundheitsdaten ist das keine Floskel.
+
+---
+
 ## 2026-09-04 — ADR-114: Die Engine wird gegen eine Population geprüft, nicht gegen zehn Menschen
 
 **Entscheidung:** `scripts/simulate-population.ts` erzeugt aus einem Seed tausende Profile über

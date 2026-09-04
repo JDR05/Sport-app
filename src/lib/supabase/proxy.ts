@@ -12,7 +12,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { supabasePublishableKey, supabaseUrl } from './env'
 
 /** Reachable without a session. Everything else needs one. */
-const PUBLIC_PATHS = ['/login', '/signup', '/auth']
+// The legal pages belong here and not behind the sign-in.
+//
+// § 5 DDG wants an Impressum "leicht erkennbar, unmittelbar erreichbar und
+// ständig verfügbar", and Art. 13 DSGVO wants the privacy notice available
+// *before* somebody hands over any data. Both are addressed to people who have
+// not signed up — including the person deciding whether to. Behind
+// `requireUser` they would be reachable only by those who already agreed,
+// which is the wrong way round.
+const PUBLIC_PATHS = ['/login', '/signup', '/auth', '/impressum', '/datenschutz']
 
 export function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
