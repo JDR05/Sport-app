@@ -40,6 +40,7 @@ import { STATUS_REASONS, type Reaction } from '@/lib/adaptive/reaction'
 
 // Shared with the onboarding: a shape check is not a value check.
 import { isoDate } from '@/lib/domain/isoDate'
+import { canCheckInOn } from '@/lib/domain/checkInDay'
 
 /** The date comes from the client because the server runs in UTC. */
 export async function loadWeek(today: unknown): Promise<WeekResult> {
@@ -104,6 +105,17 @@ export async function submitCheckIn(payload: unknown): Promise<{ ok: boolean }> 
   const user = await requireUser()
   const parsed = checkInSchema.safeParse(payload)
   if (!parsed.success) return { ok: false }
+
+  // Heute can be moved back across the week, which is what makes filling in a
+  // missed Wednesday possible. Forward is a different thing entirely: a
+  // check-in is a report on a day that happened, and the adaptive engine reads
+  // it as evidence. A row about next Friday would be indistinguishable from a
+  // real one downstream.
+  //
+  // Checked here rather than only in the screen. A rule that lives in the
+  // interface holds until the first stale tab or replayed request.
+  if (!canCheckInOn(parsed.data.checkedInOn, await serverToday())) return { ok: false }
+
   return saveCheckIn(user.id, parsed.data)
 }
 

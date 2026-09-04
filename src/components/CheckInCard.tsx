@@ -16,9 +16,10 @@
 // training can leave someone tired and content at once, and a plan that read
 // those as one number would draw the wrong conclusion from both.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
-import { getCheckIns, submitCheckIn } from '@/app/(app)/actions'
+import { submitCheckIn } from '@/app/(app)/actions'
+import type { CheckIn } from '@/lib/db/tracking'
 import { Card, SectionHeading } from '@/components/ui'
 import { checkInFields, type CheckInField } from '@/lib/engine/checkin-fields'
 import type { GoalArchetype } from '@/lib/domain/types'
@@ -70,76 +71,68 @@ const EMPTY: Values = {
   dietQuality: null, soreness: null, alcoholUnits: null, caffeineLate: null,
 }
 
-export function CheckInCard({
-  today,
-  archetype,
-}: {
-  today: string
-  archetype: GoalArchetype
-}) {
-  const [values, setValues] = useState<Values>(EMPTY)
-  const [note, setNote] = useState('')
-  const [saved, setSaved] = useState(false)
-  // Whether this person has already answered something today, so a late reply
-  // from the server cannot overwrite a tap that came first.
-  const touched = useRef(false)
+/** A stored day as the scales read it. Nothing stored is every scale empty. */
+function valuesOf(entry: CheckIn | null): Values {
+  if (!entry) return EMPTY
+  return {
+    energy: entry.energy,
+    mood: entry.mood,
+    stress: entry.stress,
+    sleepHours: entry.sleepHours,
+    dietQuality: entry.dietQuality,
+    soreness: entry.soreness,
+    alcoholUnits: entry.alcoholUnits,
+    caffeineLate: entry.caffeineLate,
+  }
+}
 
-  // Drawn immediately, filled in when the answer arrives.
+export function CheckInCard({
+  date,
+  archetype,
+  entry,
+  onSaved,
+}: {
+  /** The day being reported on. Not necessarily today — see WeekStrip. */
+  date: string
+  archetype: GoalArchetype
+  /** What is already stored for that day, or null. */
+  entry: CheckIn | null
+  /** Called with what was just written, so the week strip can mark the day. */
+  onSaved?: (checkIn: CheckIn) => void
+}) {
+  // No syncing, because there is nothing to sync.
   //
-  // This used to render nothing until `getCheckIns` came back, and nothing at
-  // all if that call ever failed — there was no catch, so one bad response left
-  // the card invisible for the rest of the session with no trace anywhere. From
-  // the sofa that is indistinguishable from the feature having been deleted:
-  // "das mit wie es mir heute geht, Essen, Stress — hast du komplett entfernt,
-  // gibt's jetzt einfach nicht mehr."
+  // The day can change under this card now, and each day is a different set of
+  // answers — so the obvious version compares the previous date with the
+  // current one and resets three pieces of state. Get that wrong and stepping
+  // from Freitag to Mittwoch shows Freitag's numbers over Mittwoch's date and
+  // then saves them onto Mittwoch, overwriting the day the person came back to
+  // fill in. Silent, and the worst thing this screen could do.
   //
-  // The scales need no server data to be usable, so waiting for one bought
-  // nothing and cost the whole card. An empty scale is the honest starting
-  // state anyway: nothing recorded yet.
-  useEffect(() => {
-    let current = true
-    void getCheckIns(today)
-      .then((entries) => {
-        if (!current || touched.current) return
-        const todays = entries.find((e) => e.checkedInOn === today)
-        if (!todays) return
-        setValues({
-          energy: todays.energy,
-          mood: todays.mood,
-          stress: todays.stress,
-          sleepHours: todays.sleepHours,
-          dietQuality: todays.dietQuality,
-          soreness: todays.soreness,
-          alcoholUnits: todays.alcoholUnits,
-          caffeineLate: todays.caffeineLate,
-        })
-        setNote(todays.note ?? '')
-        setSaved(true)
-      })
-      .catch(() => {
-        // Nothing to say and nothing to hide. The card still works; a value
-        // typed now overwrites whatever was there, which is what the person
-        // meant by typing it.
-      })
-    return () => {
-      current = false
-    }
-  }, [today])
+  // Heute renders this with `key={viewing}`, so a different day is a different
+  // card and these three lines are all there is. A bug of that shape has
+  // nowhere left to live.
+  const [values, setValues] = useState<Values>(() => valuesOf(entry))
+  const [note, setNote] = useState(entry?.note ?? '')
+  const [saved, setSaved] = useState(entry !== null)
 
   const save = useCallback(
     (next: Values, nextNote: string) => {
-      void submitCheckIn({
-        checkedInOn: today,
+      const checkIn: CheckIn = {
+        checkedInOn: date,
         ...next,
         note: nextNote.trim() || null,
-      }).then((result) => setSaved(result.ok))
+      }
+      void submitCheckIn(checkIn).then((result) => {
+        setSaved(result.ok)
+        if (result.ok) onSaved?.(checkIn)
+      })
     },
-    [today],
+    [date, onSaved],
   )
 
   /** Writes one field and saves, so nothing depends on state having settled. */
   function set<K extends keyof Values>(field: K, value: Values[K]) {
-    touched.current = true
     const next = { ...values, [field]: value }
     setValues(next)
     save(next, note)

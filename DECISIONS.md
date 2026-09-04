@@ -7,6 +7,56 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-04 — ADR-112: Heute ist ein Tag der Woche, nicht nur heute
+
+**Entscheidung:** Über dem Tagestitel steht eine Leiste mit allen sieben Tagen. Der gewählte
+Tag bestimmt Aktionen, Termine, Tagesregeln und **Check-in samt Notiz**. Zurück geht bis zum
+Wochenanfang, vorwärts nur bis heute — ein Check-in für einen Tag, der noch nicht war, wird
+**serverseitig** abgelehnt.
+
+**Begründung:** „In dem Tab Heute möchte ich oben, wo Freitag steht, rüberwechseln können zu
+den Tagen davor und danach aus deiner Woche, somit kann ich noch Notizen einfügen oder den
+Teil ‚wie war dein Tag' bearbeiten und die KI weiß dann mehr."
+
+Die Lücke war real und einseitig. Aktionen eines vergangenen Tages ließen sich seit ADR-108
+im Plan nachtragen — aber der Teil, der sagt, wie ein Tag sich *angefühlt* hat (Energie,
+Stress, Schlaf, Ernährung, Notiz), hatte nach Mitternacht **überhaupt keinen Screen mehr**.
+Genau daraus lernt die adaptive Engine am meisten, und genau da gab es keinen Weg zurück.
+
+**Sieben Chips statt zwei Pfeile.** Pfeile sagen „es gibt einen nächsten". Die Leiste sagt,
+welche Tage es gibt, auf welchem man ist, und — über den Strich unter der Zahl — **wo noch
+nichts eingetragen ist**. Das ist der eigentliche Grund zurückzugehen, und ein Pfeil kann es
+nicht zeigen. Bewusst kein Kreuz und kein leerer Ring auf den Tagen ohne Eintrag: ein
+fehlender Check-in ist fehlende Information, kein Versagen.
+
+**Vorwärts ist etwas anderes als rückwärts.** Ein Check-in ist ein Bericht über einen Tag, der
+stattgefunden hat, und die Mustererkennung liest ihn als Evidenz. Eine Zeile „nächster Freitag
+war eine Fünf" wäre für alles Nachgelagerte von einer echten nicht zu unterscheiden. Deshalb
+ist das **deterministischer Code** und kein deaktivierter Button (Prinzip 1): der Screen bietet
+die Steuerung nicht an, und `submitCheckIn` weist die Zeile ab. **Ein Tag Spielraum** ist
+eingebaut, und zwar wegen Uhren, nicht wegen Erlaubnis — `serverToday` fällt vor Ankunft des
+Zeitzonen-Cookies auf UTC zurück, und jemand in Auckland bekäme sonst seinen eigenen Abend
+verweigert.
+
+**Was *nicht* mitwandert:** Impuls, Rückfrage und Fragebox bleiben auf heute. Das sind die
+Dinge, die die App über den *jetzigen* Moment sagt; unter Mittwoch gerendert wäre das die App,
+die über einen Tag spricht, auf dem sie nicht steht.
+
+**Ein Bug wurde weggebaut statt getestet.** Die naheliegende Variante vergleicht das vorige
+Datum mit dem aktuellen und setzt drei Zustände zurück. Macht man das falsch, zeigt der Schritt
+von Freitag auf Mittwoch weiter Freitags Zahlen und **speichert sie auf Mittwoch** — der Tag,
+zu dem die Person extra zurückgekommen ist, wird stillschweigend überschrieben. Die Karte wird
+jetzt mit `key={viewing}` gerendert: ein anderer Tag ist eine andere Karte, der Anfangszustand
+ist die einzige Wahrheit, und diese Fehlerform hat keinen Ort mehr. Ein Mutationstest hatte
+genau diese Zeile überlebt — die Antwort darauf war nicht ein weiterer Test, sondern eine
+Konstruktion, in der der Fehler nicht vorkommen kann.
+
+**Nebenbei eine Runde weniger.** Die Karte holte ihre Check-ins selbst — eine Anfrage pro
+angesehenem Tag, hinter der Woche. Jetzt lädt Heute die Woche einmal; das speist die Marken
+der Leiste und jeden Tag, den sie erreicht.
+
+---
+
 ## 2026-09-03 — ADR-111: Tab-Wechsel ohne Rundreise
 
 **Entscheidung:** Zwei Änderungen. Das Layout des angemeldeten Bereichs beantwortet „gibt es
