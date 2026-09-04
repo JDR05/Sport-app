@@ -7,6 +7,66 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-04 — ADR-118: Erinnerungen — ohne Service-Key und ohne Schuldmechanik
+
+**Entscheidung:** Ein Service Worker macht die App offline lesbar und empfängt Push. Eine
+Erinnerung pro Tag, zur selbst gewählten Stunde. Der stündliche Versand läuft **ohne
+Service-Key**: der übergreifende Lesezugriff sitzt in einer Datenbankfunktion, die das
+Deployment-Geheimnis verlangt.
+
+**Begründung:** Die App wartete darauf, geöffnet zu werden. Der Check-in ist die Datenquelle
+des Verhaltensmodells — wer abends nicht an die App denkt, trägt nichts ein, also lernt sie
+nichts, also wird sie schlechter, also denkt er noch seltener daran. Diese Schleife ist der
+größte einzelne Hebel zwischen dieser App und tatsächlicher Nutzung, und sie kostet **keine
+neue Datenkategorie**: ein Push-Endpoint ist eine Adresse, keine Aussage über einen Menschen.
+
+**Der Service Worker cacht bewusst keine Nutzerdaten.** Gesundheitsdaten in der Cache API sind
+Gesundheitsdaten unverschlüsselt auf einem womöglich geteilten Gerät. Die Regel ist deshalb
+nicht „sorgfältig filtern", sondern **nie sehen**: der Worker behandelt ausschließlich
+GET-Navigationen. Alles, was Daten trägt, sind Fetches zu Supabase — und die sind keine
+Navigationen. Gecacht wird die Hülle: HTML, JavaScript, Schriften, für alle gleich.
+
+Network-first, nicht cache-first. Ein Screen aus dem Netz ist aktuell, einer aus dem Cache ist
+eine Hülle; andersherum bekäme jemand mit Verbindung die App von gestern.
+
+**Der Versand ohne Service-Key ist der interessante Teil.** Reminders zu verschicken heißt,
+über alle Nutzer zu lesen — genau das, was RLS verhindert. Die naheliegende Lösung ist der
+Service-Role-Key, und ADR-034 hält ihn bewusst aus dem Deployment: ein Schlüssel, der RLS
+umgeht, umgeht in dem Moment, in dem er leakt, das ganze Sicherheitsmodell. Eine geplante
+Route ist davon keine Ausnahme.
+
+Also liegt der erhöhte Zugriff in der Datenbank, in einer Funktion, die
+
+- das Geheimnis des Deployments verlangt (in `app_secrets`, einer Tabelle mit RLS und **null
+  Policies** — über die API unerreichbar, gegen die echte Datenbank verifiziert);
+- **ausschließlich** Endpoint und die beiden Schlüssel zurückgibt. Kein Name, kein Ziel, keine
+  Gesundheitsdaten. Selbst mit dem Geheimnis lässt sich damit nichts über irgendjemanden
+  erfahren;
+- nur fällige Zeilen liefert, also auch kein Massenexport ist.
+
+Verglichen wird in konstanter Zeit — ein Timing-Orakel auf ein Geheimnis bleibt ein Leak, auch
+wenn die Nutzlast langweilig ist.
+
+**Stündlich, weil die Stunde dem Menschen gehört.** Wer in Berlin 20:00 wählt und wer in
+Lissabon 20:00 wählt, liegen eine Stunde auseinander und meinen beide ihren eigenen Abend.
+Deshalb speichert die Zeile die **Zeitzone** und nicht eine UTC-Stunde: sonst verschiebt sich
+die Erinnerung zweimal im Jahr stillschweigend.
+
+**Und ausdrücklich keine Schuldmechanik.** Keine Serien, kein „du hast 3 Tage verpasst", kein
+zweiter Stupser, wenn der erste ignoriert wurde. Die Benachrichtigung trägt ein `tag`, ersetzt
+also die vorherige statt sich zu stapeln — drei Abende weg ergeben sonst drei gestapelte
+Meldungen, und das ist die Schuldmechanik, die der Brief ausschließt, nur eben per Push
+zugestellt. Ein Test prüft, dass die Wörter „verpasst", „Serie", „geschafft" und „%" im Worker
+nicht vorkommen: eine Benachrichtigung wird auf einem Sperrbildschirm gelesen, von jemandem,
+der vielleicht eine schlechte Woche hatte. Sie stellt eine Frage; sie meldet nie einen Stand.
+
+**Was ich nicht verifizieren konnte:** die tatsächliche Zustellung. Dafür braucht es echte
+VAPID-Schlüssel, einen echten Push-Dienst und ein echtes Gerät — nichts davon existiert in
+dieser Umgebung. Datenbankseite, Berechtigungen und Payload-Form sind geprüft; dass Apple und
+Google die Nachricht annehmen, ist es nicht.
+
+---
+
 ## 2026-09-04 — ADR-117: Fehler landen in der eigenen Datenbank, nicht bei einem Dritten
 
 **Entscheidung:** Abstürze werden in `public.error_reports` geschrieben — im eigenen

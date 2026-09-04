@@ -13,6 +13,7 @@ import { BottomNav } from '@/components/BottomNav'
 import { TimeZoneSync } from '@/components/TimeZoneSync'
 import { AppHeader } from '@/components/AppHeader'
 import { AppRefresh } from '@/components/AppRefresh'
+import { ServiceWorker } from '@/components/ServiceWorker'
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   const user = await requireUser()
@@ -28,6 +29,9 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
       <TimeZoneSync />
       {/* Inside the provider, because refreshing means re-fetching the week as
           well as re-rendering the server components. */}
+      {/* Offline reading and reminders. Registered after load, never on the
+          critical path. */}
+      <ServiceWorker />
       <AppRefresh>
         <AppHeader />
         <main>{children}</main>

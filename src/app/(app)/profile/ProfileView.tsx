@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { RequirePlan } from '@/components/RequirePlan'
 import Link from 'next/link'
 import { AccountData } from '@/components/AccountData'
+import { Reminders } from '@/components/Reminders'
+import type { ReminderSettings } from '@/lib/db/push'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeSetting } from '@/components/ThemeSetting'
 import { Button, Card, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
@@ -34,6 +36,7 @@ export function ProfileView({
   provider,
   learnsFromData,
   consent,
+  reminders,
 }: {
   answers: StoredPlanInput
   theme: Theme
@@ -41,6 +44,7 @@ export function ProfileView({
   /** Whether the configured tier lets the provider learn from what is sent. */
   learnsFromData: boolean
   consent: ConsentView
+  reminders: ReminderSettings
 }) {
   const router = useRouter()
 
@@ -156,6 +160,10 @@ export function ProfileView({
                 )}
               </>
             )}
+
+            {/* Above the display settings, because it is the one thing here
+                that changes whether the app gets used at all. */}
+            <Reminders enabled={reminders.enabled} hour={reminders.remindHour} />
 
             <SectionHeading>Darstellung</SectionHeading>
             <ThemeSetting current={theme} />

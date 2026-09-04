@@ -20,7 +20,7 @@ import { supabasePublishableKey, supabaseUrl } from './env'
 // not signed up — including the person deciding whether to. Behind
 // `requireUser` they would be reachable only by those who already agreed,
 // which is the wrong way round.
-const PUBLIC_PATHS = ['/login', '/signup', '/auth', '/impressum', '/datenschutz']
+const PUBLIC_PATHS = ['/login', '/signup', '/auth', '/impressum', '/datenschutz', '/offline']
 
 export function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
@@ -55,6 +55,11 @@ function contentSecurityPolicy(nonce: string): string {
     // The one external origin this app talks to. Anything else — an injected
     // script trying to exfiltrate a plan — has nowhere to send it.
     `connect-src 'self' ${supabaseUrl()}`,
+    // Without this, `worker-src` falls back to `script-src` — which carries
+    // 'strict-dynamic' and a per-request nonce, neither of which a worker
+    // script can present. The registration is then refused and the app has no
+    // service worker at all, silently.
+    "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

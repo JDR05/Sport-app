@@ -25,8 +25,13 @@ gerne hätte.
 | Sichtbarkeit von Button-Rändern | 1,26:1 | 3,30:1 |
 | Automatische Prüfung vor dem Merge | keine | GitHub Action |
 | Auf dem Homescreen installierbar | nein | Manifest |
+| Personalisierung `general_health` | 0,26 | 0,40 |
+| Identische Pläne im Fallback | 7,6 % | 1,0 % |
+| Fehler-Monitoring | keins | eigene Datenbank |
+| Offline lesbar | nein | Service Worker |
+| Erinnerungen | keine | Push, stündlicher Versand |
 
-Details in ADR-114 und ADR-115.
+Details in ADR-114 bis ADR-118.
 
 ---
 
@@ -77,40 +82,14 @@ Arbeit.
 
 ## Wichtig
 
-### 5. `general_health` personalisiert zu schwach — gemessen
+### 5. Push-Zustellung ist ungetestet
 
-Das ist der einzige Befund der Simulation, den ich **nicht** behoben habe, weil er Inhalt
-braucht und keinen Bugfix.
+Datenbank, Berechtigungen und Payload-Form sind geprüft. Ob Apple und Google die Nachricht
+tatsächlich zustellen, ist es nicht — dafür braucht es echte VAPID-Schlüssel und ein echtes
+Gerät. Einrichten: `npx tsx scripts/vapid-keys.ts`, die vier Variablen setzen, `cron_secret`
+in `app_secrets` eintragen, dann auf dem eigenen Handy einschalten und einen Abend abwarten.
 
-| Archetyp | mittlere Distanz | praktisch identische Paare |
-| --- | ---: | ---: |
-| strength | 0,52 | 0,1 % |
-| body_composition | 0,50 | 0,0 % |
-| endurance | 0,50 | 0,0 % |
-| nutrition_quality | 0,47 | 0,0 % |
-| habit_routine | 0,45 | 0,0 % |
-| sleep_recovery | 0,38 | 0,0 % |
-| **general_health** | **0,26** | **7,6 %** |
-
-Die Projektschwelle ist 0,45 im Mittel. `general_health` ist der Auffang-Archetyp — wer „ich
-will mich einfach besser fühlen" eingibt, landet dort. Bei 7,6 % der Paare bekommen zwei
-deutlich unterschiedliche Menschen **denselben** Plan.
-
-Das ist genau der Vorwurf, den du selbst mehrfach gemacht hast: „es ist alles zu generisch."
-Er trifft nicht mehr auf die Zielspuren zu, aber auf den Fallback. Und ausgerechnet dort
-landen die unentschlossenen Nutzer, also die erste Sitzung vieler Leute.
-
-`sleep_recovery` mit 0,38 liegt ebenfalls unter der Schwelle, aber ohne identische Paare —
-der Archetyp hat schlicht weniger Stellschrauben.
-
-### 7. Kein Fehler-Monitoring
-
-Wenn die App bei einem Nutzer abstürzt, erfährst du es nur, wenn er es dir sagt. Vor der
-Reparatur hätten 4,4 % der Leute „Plan nicht möglich" gesehen — und niemand hätte es
-gewusst. Sentry o. ä., mit ausgeschaltetem Session-Replay: bei Gesundheitsdaten darf kein
-Screen-Recording nach außen.
-
-### 8. Barrierefreiheit: Kontraste erledigt, der Rest nicht
+### 6. Barrierefreiheit: Kontraste erledigt, der Rest nicht
 
 Die Kontraste sind jetzt gemessen und behoben — `faint` auf Weiß lag bei **3,10:1** gegen die
 geforderten 4,5:1, Button-Ränder bei **1,26:1** gegen 3:1. 28 Prüfungen laufen bei jedem
@@ -122,29 +101,11 @@ Dafür braucht es einen echten Browser und idealerweise jemanden, der die App so
 Ob das BFSG dich trifft, hängt an Unternehmensgröße und Angebot — Kleinstunternehmen sind
 teilweise ausgenommen. Gehört in die anwaltliche Prüfung.
 
-### 9. Keine Erinnerungen
-
-Die App wartet darauf, geöffnet zu werden. Der Check-in ist die wichtigste Datenquelle für das
-Verhaltensmodell, und wer abends nicht an die App denkt, trägt nichts ein — damit lernt sie
-nichts, damit wird sie schlechter, damit denkt er noch seltener daran.
-
-Web-Push funktioniert inzwischen auf iOS für installierte PWAs. Das ist der größte einzelne
-Hebel auf tatsächliche Nutzung, und er kostet keine neue Datenkategorie.
-
----
-
-## Später
-
-### 11. Offline lesbar
-
-Ohne Netz zeigt die App nichts. Für etwas, das im Fitnessstudio oder auf einer Laufstrecke
-geöffnet wird, ist der Plan der wichtigste Bildschirm — und der ändert sich pro Woche einmal.
-
-### 12. Löschen des Ziels ohne Löschen des Kontos
+### 7. Löschen des Ziels ohne Löschen des Kontos
 
 Man kann das Ziel wechseln und das ganze Konto löschen, aber nichts dazwischen.
 
-### 13. Zweitmeinung zum KI-Anbieter
+### 8. Zweitmeinung zum KI-Anbieter
 
 Offen als #38. Vor dem ersten fremden Nutzer musst du wissen, welcher Anbieter läuft, wo er
 steht und ob er die Texte zum Training verwendet — die App zeigt das bereits an, aber die

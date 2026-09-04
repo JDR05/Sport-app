@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["fra1"]
+  "crons": [
+    {
+      "comment": "Hourly, because the reminder hour belongs to the person. Somebody in Berlin who chose 20:00 and somebody in Lisbon who chose 20:00 are an hour apart, and both mean their own evening. The database decides who is due in their own zone; the route only sends.",
+      "path": "/api/reminders",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

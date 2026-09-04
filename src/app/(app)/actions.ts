@@ -24,6 +24,8 @@ import { refreshProposal } from '@/lib/db/propose'
 import { ensureCommitmentInsights } from '@/lib/db/commitment-insights'
 import { adoptProposalIntoCurrentWeek } from '@/lib/db/adopt-proposal'
 import { deleteOwnAccount, exportEverything, type AccountExport } from '@/lib/db/account'
+import { removeSubscription, saveSubscription, setReminderHour } from '@/lib/db/push'
+import { isValidTimeZone } from '@/lib/engine/localDate'
 import {
   loadActionPreferences, setActionPreference, type PreferenceResult,
 } from '@/lib/db/action-preferences'
@@ -611,4 +613,50 @@ export async function deleteMyAccount(): Promise<{ ok: boolean }> {
 
   revalidatePath('/', 'layout')
   return { ok: true }
+}
+
+// ---------------------------------------------------------------- reminders ---
+
+const subscriptionSchema = z.object({
+  endpoint: z.string().url().max(1000),
+  p256dh: z.string().min(1).max(200),
+  auth: z.string().min(1).max(200),
+  remindHour: z.number().int().min(0).max(23),
+  // Validated against the platform's own list rather than a regex: an invalid
+  // zone stored here makes the sending job's date arithmetic throw for that row
+  // and quietly stop reminding that person.
+  timeZone: z.string().max(64).refine(isValidTimeZone, 'Unbekannte Zeitzone'),
+})
+
+/** Turns reminders on for this device. */
+export async function enableReminders(payload: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+  const parsed = subscriptionSchema.safeParse(payload)
+  if (!parsed.success) return { ok: false }
+
+  const result = await saveSubscription(user.id, parsed.data)
+  revalidatePath('/profile')
+  return result
+}
+
+/** Turns them off for this device, by deleting the endpoint rather than flagging it. */
+export async function disableReminders(endpoint: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+  const parsed = z.string().url().max(1000).safeParse(endpoint)
+  if (!parsed.success) return { ok: false }
+
+  const result = await removeSubscription(user.id, parsed.data)
+  revalidatePath('/profile')
+  return result
+}
+
+/** Moves the reminder to another hour, on every device this person has. */
+export async function setReminderTime(hour: unknown): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+  const parsed = z.number().int().min(0).max(23).safeParse(hour)
+  if (!parsed.success) return { ok: false }
+
+  const result = await setReminderHour(user.id, parsed.data)
+  revalidatePath('/profile')
+  return result
 }
