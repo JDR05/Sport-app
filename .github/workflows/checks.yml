@@ -39,6 +39,15 @@ jobs:
       # package.json and the lock have drifted, which is the point of having one.
       - run: npm ci
 
+      # Before `tsc`, and this is the step whose absence made the first three
+      # runs fail. `PageProps` and `LayoutProps` are globals Next generates from
+      # the route tree; they live in `.next/types`, which `tsconfig.json`
+      # includes and a fresh checkout does not have. Locally they are always
+      # there because a build ran at some point, so `tsc` passed on a machine
+      # and failed in CI — exactly the class of thing CI exists to catch.
+      - name: Route types
+        run: npx next typegen
+
       - name: Types
         run: npx tsc --noEmit
 

@@ -12,7 +12,7 @@
     "plans": "tsx scripts/print-plans.ts",
     "screenshots": "tsx scripts/screenshot.ts",
     "check:nonces": "node scripts/check-nonces.mjs",
-    "verify": "npm run lint && tsc --noEmit && vitest run && next build && npm run check:nonces",
+    "verify": "next typegen && npm run lint && tsc --noEmit && vitest run && next build && npm run check:nonces",
     "ai:check": "tsx scripts/ai-check.ts"
   },
   "dependencies": {
