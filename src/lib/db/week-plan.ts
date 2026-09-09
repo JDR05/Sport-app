@@ -35,6 +35,14 @@ import type {
 /** A planned action that now exists as a row, so a status can point at it. */
 export type StoredItem = PlannedItem & {
   id: string
+  /**
+   * Which plan wrote this row — and through it, which goal it was for.
+   *
+   * Optional because plenty of code builds an item without one, and the
+   * absence has a safe meaning: no plan to compare against, so treat it as
+   * current. An omission widens the data rather than silently emptying it.
+   */
+  planId?: string
   status: PlanItemStatus
 }
 

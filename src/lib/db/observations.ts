@@ -30,7 +30,11 @@ export function analysisWindowStart(today: string, weeks: number = ANALYSIS_WEEK
   return addDays(startOfWeek(today), -7 * (weeks - 1))
 }
 
-export function toObservations(items: StoredItem[]): Observation[] {
+export function toObservations(
+  items: StoredItem[],
+  /** Plans belonging to the active goal. Omitted means "treat everything as current". */
+  currentPlanIds?: ReadonlySet<string>,
+): Observation[] {
   return items.map((item) => ({
     itemId: item.id,
     scheduledOn: item.scheduledOn,
@@ -40,5 +44,7 @@ export function toObservations(items: StoredItem[]): Observation[] {
     timeSlot: item.timeSlot,
     plannedDurationMin: item.plannedDurationMin,
     status: item.status,
+    fromCurrentGoal:
+      currentPlanIds === undefined || item.planId === undefined || currentPlanIds.has(item.planId),
   }))
 }

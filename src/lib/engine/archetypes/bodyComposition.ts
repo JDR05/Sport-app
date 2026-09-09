@@ -206,6 +206,22 @@ export const bodyComposition: ArchetypeStrategy = {
       text: clamped.reason,
       basedOn: ['goal.targetDate', 'metrics.weight_kg'],
     })
+    // Where the number came from, every week it appears.
+    //
+    // The target moved from 3019 to 3194 kcal between two weeks on a real
+    // account and the app said nothing about it. Both inputs had changed —
+    // the person was 1.4 kg heavier, so the daily need was higher, and the
+    // deadline was six days closer, so the same distance had less time. The
+    // arithmetic was right and the silence was the defect: this is the number
+    // somebody arranges their day around, and a figure that moves on its own
+    // is one people stop trusting rather than one they ask about.
+    ctx.rationale.push({
+      text:
+        `${targetIntakeKcal} kcal am Tag: ${energy.dailyNeedKcal} kcal Bedarf ` +
+        `${losing ? '−' : '+'} ${Math.abs(deltaKcal)} kcal für ${formatDecimal(ratePerWeekKg)} kg pro Woche. ` +
+        `Ändert sich dein Gewicht oder das Zieldatum, ändert sich diese Zahl mit.`,
+      basedOn: ['metrics.weight_kg', 'goal.targetDate', 'profile.sport.sessionsPerWeekTarget'],
+    })
     if (losing && intake.cappedBy === 'floor') {
       ctx.rationale.push({
         text:

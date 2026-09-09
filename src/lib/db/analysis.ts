@@ -140,6 +140,23 @@ export const weeklyReview = cache(async function weeklyReview(
   const thisWeek = observations.filter((o) => o.scheduledOn >= weekStart)
   const thisWeekForGoal = await scopeToActiveGoal(profileId, activeGoal, thisWeek, weekStart, today)
 
+  // Marked rather than filtered, because the two halves of the analysis want
+  // different answers from the same six weeks. Deviation detection reads the
+  // lot — "I miss Wednesday evenings" is a fact about a week, not about a goal.
+  // Strength detection reads only what belongs to the goal being pursued now,
+  // or the app ends up saying "Ernährung funktioniert bei dir" on the strength
+  // of nine actions done for a goal that was abandoned in August.
+  const currentItems = await itemIdsForGoal(
+    profileId,
+    activeGoal,
+    analysisWindowStart(today),
+    today,
+  )
+  const scoped =
+    currentItems === null
+      ? observations
+      : observations.map((o) => ({ ...o, fromCurrentGoal: currentItems.has(o.itemId) }))
+
   // The check-ins over the same window. Without them a pattern can only be
   // stated bare — "Dienstags läuft es schlechter" — and a shortfall with no
   // circumstance beside it reads as a verdict on the person.
@@ -158,7 +175,7 @@ export const weeklyReview = cache(async function weeklyReview(
   return {
     observations,
     thisWeek: thisWeekForGoal,
-    analysis: analyze({ ...input, today }, observations, { days, week: wholeWeek }),
+    analysis: analyze({ ...input, today }, scoped, { days, week: wholeWeek }),
     completion: completionRate(observations),
     completionThisWeek: completionRate(thisWeekForGoal),
     weeksWithData: new Set(observations.map((o) => startOfWeek(o.scheduledOn))).size,
@@ -188,14 +205,21 @@ async function activeGoalId(profileId: string): Promise<string | null> {
   return goal.data?.id ?? null
 }
 
-async function scopeToActiveGoal(
+/**
+ * The plan items belonging to one goal, across a span of weeks.
+ *
+ * Null on any failure and on "no goal", and the two callers below both read
+ * that as "do not narrow anything" — which is the safe direction. An empty set
+ * would mean the opposite and would blank every number on the screen the first
+ * time a query failed.
+ */
+async function itemIdsForGoal(
   profileId: string,
   goalId: string | null,
-  week: Observation[],
-  weekStart: string,
-  today: string,
-): Promise<Observation[]> {
-  if (week.length === 0 || goalId === null) return week
+  fromWeek: string,
+  toWeek: string,
+): Promise<Set<string> | null> {
+  if (goalId === null) return null
   const supabase = await createClient()
 
   const plans = await supabase
@@ -203,20 +227,31 @@ async function scopeToActiveGoal(
     .select('id')
     .eq('profile_id', profileId)
     .eq('goal_id', goalId)
-    .gte('week_start', weekStart)
-    .lte('week_start', today)
-  if (plans.error) return week
+    .gte('week_start', fromWeek)
+    .lte('week_start', toWeek)
+  if (plans.error) return null
 
   const planIds = new Set((plans.data ?? []).map((row) => row.id))
-  if (planIds.size === 0) return week
+  if (planIds.size === 0) return null
 
   const items = await supabase
     .from('plan_items')
     .select('id')
     .eq('profile_id', profileId)
     .in('plan_id', [...planIds])
-  if (items.error) return week
+  if (items.error) return null
 
-  const belongs = new Set((items.data ?? []).map((row) => row.id))
-  return week.filter((o) => belongs.has(o.itemId))
+  return new Set((items.data ?? []).map((row) => row.id))
+}
+
+async function scopeToActiveGoal(
+  profileId: string,
+  goalId: string | null,
+  week: Observation[],
+  weekStart: string,
+  today: string,
+): Promise<Observation[]> {
+  if (week.length === 0) return week
+  const belongs = await itemIdsForGoal(profileId, goalId, weekStart, today)
+  return belongs === null ? week : week.filter((o) => belongs.has(o.itemId))
 }

@@ -13,6 +13,7 @@ import { addDays } from '@/lib/engine/dates'
 
 export type ItemRow = {
   id: string
+  plan_id: string
   scheduled_on: string
   domain: PlannedItem['domain']
   track: PlanTrack
@@ -59,9 +60,12 @@ export function toInsert(
   }
 }
 
-export function fromRow(row: ItemRow): PlannedItem & { id: string; status: PlanItemStatus } {
+export function fromRow(
+  row: ItemRow,
+): PlannedItem & { id: string; planId: string; status: PlanItemStatus } {
   return {
     id: row.id,
+    planId: row.plan_id,
     scheduledOn: row.scheduled_on,
     domain: row.domain,
     track: row.track,

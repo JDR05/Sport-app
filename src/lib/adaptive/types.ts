@@ -27,6 +27,26 @@ export type Observation = {
   timeSlot: TimeSlot | null
   plannedDurationMin: number | null
   status: PlanItemStatus
+  /**
+   * Whether this action belonged to the goal that is active now.
+   *
+   * The analysis window is six weeks and a goal can change inside it, so it
+   * routinely holds actions planned for a goal somebody has since abandoned.
+   * Both readings of that are defensible, and they are defensible about
+   * *different questions*:
+   *
+   *   * "I miss Wednesday evenings" is true whatever the action was for.
+   *     Weekday, time of day and duration are facts about a person's week, so
+   *     deviation detection counts everything.
+   *   * "Ernährung funktioniert bei dir" is not. Nine nutrition actions done
+   *     for a goal that was dropped say nothing about the goal being pursued
+   *     now, and strength detection is scoped to the current goal because of
+   *     it.
+   *
+   * Defaults to true where a caller has no goal to compare against, so an
+   * omission widens the data rather than silently emptying it.
+   */
+  fromCurrentGoal?: boolean
 }
 
 /** The axes detection looks along. Each yields at most one deviation. */

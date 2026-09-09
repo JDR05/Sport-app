@@ -69,7 +69,16 @@ export function analyze(
 ): Analysis {
   const patch = refinePlan(options.week ?? observations, input.today)
   const deviations = detectDeviations(observations)
-  const strengths = detectStrengths(observations)
+  // Scoped to the goal being pursued now, while deviations above are not.
+  //
+  // The analysis window is six weeks and a goal can change inside it. "I miss
+  // Wednesday evenings" stays true whatever the action was for — weekday, time
+  // of day and duration are facts about a person's week. "Ernährung
+  // funktioniert bei dir" does not: nine nutrition actions completed for a goal
+  // since abandoned say nothing about the goal being pursued now, and saying
+  // they do is the app claiming to know something it worked out from the wrong
+  // data.
+  const strengths = detectStrengths(observations.filter((o) => o.fromCurrentGoal !== false))
 
   // A pattern is stated together with what was different about those days.
   // Detection alone reports that Tuesdays go badly, and a shortfall with no

@@ -19,6 +19,7 @@ import { ALL_COMBINATIONS } from './fixtures/profiles'
 function roundTrip(insert: ReturnType<typeof toInsert>): ItemRow {
   return {
     id: '00000000-0000-4000-8000-000000000001',
+    plan_id: '00000000-0000-4000-8000-0000000000aa',
     scheduled_on: insert.scheduled_on,
     domain: insert.domain,
     track: insert.track,
@@ -79,6 +80,7 @@ describe('a planned action survives being stored', () => {
 describe('a row that is not quite right', () => {
   const base: ItemRow = {
     id: 'x',
+    plan_id: 'p',
     scheduled_on: '2026-08-20',
     domain: 'training',
     track: 'goal',
