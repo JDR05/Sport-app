@@ -37,11 +37,21 @@ function offenders(pattern: RegExp, allow: (file: string, line: string) => boole
   return found
 }
 
-describe('two radii, no pill', () => {
+describe('radius is decided in one place', () => {
   it('uses no Tailwind radius scale anywhere', () => {
     // The scale is what drifts: rounded-md on a skeleton, rounded-lg on a
     // button, and the app is soft again without anyone deciding it should be.
     expect(offenders(/\brounded-(sm|md|lg|xl|2xl|3xl)\b/)).toEqual([])
+  })
+
+  it('uses no literal pixel radius anywhere', () => {
+    // The stronger version of the rule above, and the one that actually held
+    // this app back. `rounded-[3px]` stood at 49 call sites, so changing the
+    // radius meant editing 49 files and any one of them could be missed — the
+    // literal *was* the drift, not the number in it. Both radii now come from
+    // `--radius-card` and `--radius-control`, so the shape of the app is one
+    // decision in globals.css.
+    expect(offenders(/\brounded-\[\d+px\]/)).toEqual([])
   })
 
   it('uses rounded-full only for the rings the design system names', () => {
@@ -70,9 +80,27 @@ describe('two typefaces with separate jobs', () => {
   })
 })
 
-describe('no shadows and no hard-coded colours', () => {
-  it('uses hairlines, not shadows', () => {
+describe('depth is spent, not sprinkled', () => {
+  it('uses the two elevation tokens, never the Tailwind shadow scale', () => {
+    // There used to be no shadow at all here, and the reasoning was sound for
+    // print and wrong for a phone: fifteen elements at one depth means nothing
+    // can be more important than anything else. So depth exists now — as
+    // exactly two tokens, `shadow-lift` and `shadow-key`.
+    //
+    // The Tailwind scale stays banned for the same reason the radius scale is:
+    // six interchangeable steps are how "everything is slightly raised" comes
+    // back one component at a time.
     expect(offenders(/\bshadow-(sm|md|lg|xl|2xl)\b/)).toEqual([])
+  })
+
+  it('lifts at most one thing per screen', () => {
+    // `shadow-key` marks the single most important thing on a screen. Two of
+    // them in one file means neither is, which is the failure mode this whole
+    // change exists to fix — so the rule is mechanical rather than tasteful.
+    const overspent = FILES.filter(
+      (file) => (readFileSync(file, 'utf8').match(/\bshadow-key\b/g) ?? []).length > 1,
+    )
+    expect(overspent).toEqual([])
   })
 
   it('takes every colour from a token', () => {
@@ -95,6 +123,7 @@ describe('the control test', () => {
     // Every assertion above passes against an empty file list. Without this,
     // a broken glob would read as a clean codebase.
     expect(FILES.length).toBeGreaterThan(40)
-    expect(offenders(/\brounded-\[3px\]/).length).toBeGreaterThan(3)
+    expect(offenders(/\brounded-card\b/).length).toBeGreaterThan(3)
+    expect(offenders(/\brounded-control\b/).length).toBeGreaterThan(3)
   })
 })

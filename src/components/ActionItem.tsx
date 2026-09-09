@@ -113,7 +113,7 @@ export function ActionItem({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-[3px] border border-line bg-surface pl-1 transition-opacity ${
+      className={`relative overflow-hidden rounded-card border border-line bg-surface pl-1 transition-opacity ${
         settled ? 'opacity-60' : ''
       }`}
     >
@@ -158,7 +158,7 @@ export function ActionItem({
                 deliberately quiet — an action is an action, and where it came
                 from is a footnote on it, not its headline. */}
             {isProposed(item) && (
-              <span className="label rounded-[2px] border border-line px-1.5 py-px text-[10px] font-semibold text-faint">
+              <span className="label rounded-control border border-line px-1.5 py-px text-[10px] font-semibold text-faint">
                 KI
               </span>
             )}
@@ -216,7 +216,7 @@ export function ActionItem({
                 type="button"
                 aria-pressed={status === option.status}
                 onClick={() => answered(status === option.status ? 'unknown' : option.status)}
-                className={`label rounded-[2px] border min-h-11 px-3 py-2 text-[11px] font-semibold transition-colors duration-[var(--motion-tap)] ${
+                className={`label rounded-control border min-h-11 px-3 py-2 text-[11px] font-semibold transition-colors duration-[var(--motion-tap)] ${
                   status === option.status
                     ? 'border-accent bg-accent text-[color:var(--accent-ink)]'
                     : 'border-line bg-surface text-muted active:bg-sunken'
@@ -242,7 +242,7 @@ export function ActionItem({
                     type="button"
                     disabled={busy}
                     onClick={() => void give(reason)}
-                    className="label min-h-11 rounded-[2px] border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
+                    className="label min-h-11 rounded-control border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
                   >
                     {REASON_LABELS[reason]}
                   </button>
@@ -264,7 +264,7 @@ export function ActionItem({
                     type="button"
                     disabled={busy}
                     onClick={() => void take()}
-                    className="label min-h-11 rounded-[2px] border border-accent bg-accent px-3 py-2 text-[11px] font-semibold text-[color:var(--accent-ink)] transition-colors duration-[var(--motion-tap)] disabled:opacity-50"
+                    className="label min-h-11 rounded-control border border-accent bg-accent px-3 py-2 text-[11px] font-semibold text-[color:var(--accent-ink)] transition-colors duration-[var(--motion-tap)] disabled:opacity-50"
                   >
                     Passt
                   </button>
@@ -275,7 +275,7 @@ export function ActionItem({
                       setOffer(null)
                       setDone('Alles klar — bleibt, wie es war.')
                     }}
-                    className="label min-h-11 rounded-[2px] border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
+                    className="label min-h-11 rounded-control border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
                   >
                     Lieber nicht
                   </button>

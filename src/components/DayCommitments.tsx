@@ -57,7 +57,7 @@ export function DayCommitments({
       {today.map((commitment) => (
         <article
           key={`${commitment.weekday}-${commitment.start}-${commitment.label}`}
-          className="relative overflow-hidden rounded-[3px] border border-dashed border-line bg-sunken/40 p-3.5 pl-4"
+          className="relative overflow-hidden rounded-card border border-dashed border-line bg-sunken/40 p-3.5 pl-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -65,7 +65,7 @@ export function DayCommitments({
                 {commitment.label}
               </h3>
               <div className="mt-1 flex items-center gap-2">
-                <span className="label rounded-[2px] border border-line px-1.5 py-px text-[10px] font-semibold text-muted">
+                <span className="label rounded-control border border-line px-1.5 py-px text-[10px] font-semibold text-muted">
                   {KIND_LABEL[commitment.kind]}
                 </span>
                 <span className="num text-[11px] text-faint">
@@ -109,7 +109,7 @@ export function CommitmentLine({
   note?: string
 }) {
   return (
-    <div className="rounded-[2px] border border-dashed border-line bg-sunken/40 p-3">
+    <div className="rounded-control border border-dashed border-line bg-sunken/40 p-3">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-ink">{commitment.label}</p>
         <span className="num shrink-0 text-[11px] text-faint">{commitment.start}</span>

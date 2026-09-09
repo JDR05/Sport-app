@@ -65,7 +65,7 @@ export function AiConsent({
 
   return (
     <div>
-      <label className="flex cursor-pointer items-start gap-3 rounded-[3px] border border-line bg-surface p-3">
+      <label className="flex cursor-pointer items-start gap-3 rounded-card border border-line bg-surface p-3">
         <input
           type="checkbox"
           checked={granted}

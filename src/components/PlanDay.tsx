@@ -53,7 +53,7 @@ export function PlanDay({
     <Link
       href={href}
       aria-current={position === 'today' ? 'date' : undefined}
-      className={`flex items-center gap-3 rounded-[3px] border bg-surface px-3.5 py-3 ${
+      className={`flex items-center gap-3 rounded-card border bg-surface px-3.5 py-3 ${
         position === 'today' ? 'border-ink/25' : 'border-line'
       }`}
     >
@@ -86,7 +86,7 @@ export function PlanDay({
       </span>
 
       {unanswered > 0 && (
-        <span className="label shrink-0 rounded-[2px] border border-line px-1.5 py-px text-[10px] font-semibold text-ink">
+        <span className="label shrink-0 rounded-control border border-line px-1.5 py-px text-[10px] font-semibold text-ink">
           {unanswered} offen
         </span>
       )}

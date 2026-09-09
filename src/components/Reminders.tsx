@@ -146,7 +146,7 @@ export function Reminders({ enabled, hour }: { enabled: boolean; hour: number })
                   type="button"
                   onClick={() => changeHour(h)}
                   aria-pressed={pick === h}
-                  className={`num rounded-[2px] border px-2.5 py-1.5 text-[13px] ${
+                  className={`num rounded-control border px-2.5 py-1.5 text-[13px] ${
                     pick === h
                       ? 'border-ink bg-sunken text-ink'
                       : 'border-line-strong bg-surface text-muted'

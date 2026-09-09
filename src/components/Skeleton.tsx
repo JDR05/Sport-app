@@ -10,12 +10,12 @@
 // is about to have says "it is coming, and here is where".
 
 export function Line({ w, h = 'h-4' }: { w: string; h?: string }) {
-  return <div className={`${h} ${w} animate-pulse rounded-[3px] bg-sunken`} />
+  return <div className={`${h} ${w} animate-pulse rounded-card bg-sunken`} />
 }
 
 function CardSkeleton() {
   return (
-    <div className="rounded-[3px] border border-line bg-surface p-4">
+    <div className="rounded-card border border-line bg-surface p-4">
       <div className="flex flex-col gap-2.5">
         <Line w="w-2/3" />
         <Line w="w-full" h="h-3" />

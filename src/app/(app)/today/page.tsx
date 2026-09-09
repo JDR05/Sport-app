@@ -218,7 +218,7 @@ function Today() {
                   ) : (
                     <div
                       key={item.id}
-                      className="rounded-[3px] border border-line bg-surface p-3.5"
+                      className="rounded-card border border-line bg-surface p-3.5"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <p className="text-sm font-medium text-ink">{item.title}</p>

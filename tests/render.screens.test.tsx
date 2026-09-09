@@ -304,7 +304,12 @@ describe('the action card', () => {
     expect(html.match(/rounded-full/g)).toHaveLength(1)
     expect(html).not.toMatch(/shadow-(sm|md|lg|xl)/)
     expect(html).not.toMatch(/(class|Name)="[^"]*(?:bg|text|border)-\[#/)
-    expect(html).toMatch(/rounded-\[3px\]/)
+    // The radius comes from the token, never from a literal. This used to
+    // assert `rounded-[3px]`, which meant the test agreed with the app about a
+    // number rather than about where the number is decided — so changing the
+    // shape of the app broke a test that was not about shape.
+    expect(html).toMatch(/rounded-card/)
+    expect(html).not.toMatch(/rounded-\[\d+px\]/)
   })
 
   it('renders unchanged where an answer would make no sense', () => {

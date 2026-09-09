@@ -84,14 +84,36 @@ export function SectionHeading({ children }: { children: ReactNode }) {
  * half of what made the surface read as generated. Separation comes from the
  * line, the way it does on a printed panel.
  */
-export function Card({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'accent' | 'warn' }) {
+/**
+ * A card, at one of two depths.
+ *
+ * `key` is for the single most important thing on a screen — the next action,
+ * the answer somebody came to read. One per screen, and a test enforces it:
+ * two things lifted this far means neither is.
+ *
+ * The default card no longer draws a border. It sits on a sunken ground with a
+ * shadow instead, which is a different claim than a hairline makes: a hairline
+ * says "this region is fenced off", a shadow says "this object is on top of the
+ * page". The app is a stack of objects you act on, not a form with sections.
+ */
+export function Card({
+  children,
+  tone = 'default',
+  depth = 'rest',
+}: {
+  children: ReactNode
+  tone?: 'default' | 'accent' | 'warn'
+  depth?: 'rest' | 'key' | 'flat'
+}) {
   const toneClass =
     tone === 'accent'
-      ? 'border-accent/25 bg-accent-soft'
+      ? 'bg-accent-soft'
       : tone === 'warn'
-        ? 'border-warn/25 bg-warn-soft'
-        : 'border-line bg-surface'
-  return <div className={`rounded-[3px] border ${toneClass} p-4`}>{children}</div>
+        ? 'bg-warn-soft'
+        : 'bg-surface'
+  const depthClass =
+    depth === 'key' ? 'shadow-key' : depth === 'flat' ? 'border border-line' : 'shadow-lift'
+  return <div className={`rounded-card ${toneClass} ${depthClass} p-4`}>{children}</div>
 }
 
 export function DomainBadge({ domain, track }: { domain: PlanDomain; track?: 'goal' | 'baseline' }) {
@@ -103,7 +125,7 @@ export function DomainBadge({ domain, track }: { domain: PlanDomain; track?: 'go
         <span className="label text-[10px] font-semibold text-faint">Basis</span>
       )}
       <span
-        className={`label rounded-[2px] border px-1.5 py-px text-[10px] font-semibold ${DOMAIN_CLASS[domain]}`}
+        className={`label rounded-control border px-1.5 py-px text-[10px] font-semibold ${DOMAIN_CLASS[domain]}`}
       >
         {DOMAIN_LABEL[domain]}
       </span>
@@ -129,7 +151,7 @@ export function Reasoning({ children }: { children: ReactNode }) {
 
 export function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-[3px] border border-line bg-surface p-4">
+    <div className="rounded-card border border-line bg-surface p-4">
       <div className="label text-[10px] font-semibold text-faint">{label}</div>
       {/* 22px of mono broke "14. November" across two lines and left the tile
           looking like a layout bug. The mono is the point, so the size gives
@@ -143,7 +165,7 @@ export function StatTile({ label, value, hint }: { label: string; value: string;
 }
 
 const BUTTON_BASE =
-  'inline-flex w-full items-center justify-center rounded-[2px] px-4 py-3 text-sm font-semibold transition disabled:opacity-40'
+  'inline-flex w-full items-center justify-center rounded-control px-4 py-3 text-sm font-semibold transition disabled:opacity-40'
 
 function buttonLook(variant: 'primary' | 'quiet'): string {
   return variant === 'primary'

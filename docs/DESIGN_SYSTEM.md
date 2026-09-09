@@ -43,10 +43,20 @@ zurückdriftet, wenn niemand sie festhält:
 
 1. **Weiß, kein Papier.** Keine Wärme in den Neutraltönen. Wärme kommt in diesem Produkt aus
    den Sätzen, nicht aus den Wänden.
-2. **Kanten, keine Kissen.** 3 px auf der Karte, 2 px auf dem Bedienelement. Die Pille ist
-   ersatzlos gestrichen, damit die Rundung nicht leise zurückkommt.
-3. **Linien, keine Schatten.** Es gibt in der ganzen App keinen `box-shadow`. Eine Karte ist
-   ein Rechteck mit einer Haarlinie — so wie eine gedruckte Instrumententafel.
+2. **Form nach Aufgabe, nicht überall gleich.** 14 px auf einer Fläche, 10 px auf einem
+   Bedienelement. *Ersetzt die alte Regel „3 px auf allem".* Die alte Regel hatte recht damit,
+   dass die vorige Weichheit — 16 px auf allem, ein Schatten unter jedem Block — nach
+   generierter App aussieht, und unrecht mit dem Schluss, dass Schärfe die Kur ist. Eine
+   3-px-Kante auf jedem Element ist genauso einheitlich wie eine 16-px-Rundung. **Einheitlichkeit
+   war das Problem, nicht der Radius.** Die Pille bleibt auf genau eine Aufgabe beschränkt:
+   Ringe und Statuschips, wo die Form Bedeutung trägt.
+3. **Tiefe wird ausgegeben, nicht verstreut.** Genau zwei Stufen: `--lift` für alles, was
+   Inhalt hält, `--lift-key` für die **eine** Sache, die auf einem Screen gerade zählt — eine
+   pro Screen, und ein Test setzt das durch. *Ersetzt die alte Regel „kein `box-shadow` in der
+   ganzen App".* Auf Papier stimmte sie; auf einem Telefon erzeugte sie einen Screen, auf dem
+   fünfzehn Elemente auf exakt derselben Ebene lagen und deshalb nichts wichtiger sein konnte
+   als irgendetwas anderes. Der Grund ist gesunken (`--surface-sunken`), damit eine Karte
+   überhaupt auf etwas liegen kann.
 4. **Zwei Schriften mit verschiedenen Aufgaben.** **Barlow** sagt etwas, **IBM Plex Mono**
    misst es. Jede Zahl, an der sich die App messen lassen muss — eine Uhrzeit, eine Quote,
    ein Datum, eine Dauer — steht im Mono. Das ist die sichtbarste Signatur hier und keine

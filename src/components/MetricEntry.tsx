@@ -72,7 +72,7 @@ export function MetricEntry({
           value={value}
           placeholder={spec.unit}
           onChange={(e) => setValue(e.target.value)}
-          className="w-full rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
+          className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
         />
         <div className="shrink-0 basis-28">
           <Button type="button" onClick={submit} disabled={saving || value.trim() === ''}>

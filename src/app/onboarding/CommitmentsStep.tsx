@@ -104,7 +104,7 @@ export function CommitmentsStep({
                 <button
                   type="button"
                   onClick={() => onChange(value.filter((c) => c.label !== group.label))}
-                  className="shrink-0 min-h-11 rounded-[2px] px-3 py-2 text-sm font-medium text-muted active:bg-sunken"
+                  className="shrink-0 min-h-11 rounded-control px-3 py-2 text-sm font-medium text-muted active:bg-sunken"
                 >
                   Entfernen
                 </button>

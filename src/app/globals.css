@@ -112,16 +112,48 @@
   --warn-soft: light-dark(#fbe9e5, #2e1a16);
 
   /* -------------------------------------------------------------- shape --
-     Two radii and no pill. 3 px reads as a cut edge rather than a rounded
-     corner; the difference between this and 16 px is most of what made the
-     old surface look soft. The pill token is deliberately gone so nothing can
-     quietly bring the roundness back. */
-  --radius-card: 3px;
-  --radius-control: 2px;
+     14 px on a surface, 10 px on a control, and the pill is back for one job
+     only (see --radius-pill).
+
+     This replaces 3 px, and the reasoning that put 3 px here was half right.
+     It was right that the *old* softness — 16 px on everything, one typeface,
+     a shadow under every block — is the default look of a generated app. It
+     was wrong to conclude that the cure is sharpness. A 3 px edge on every
+     element is just as uniform as a 16 px one; uniformity was the problem, not
+     the radius. What actually stops a surface looking generated is that its
+     parts are told apart — and this app was spending nothing on that.
+
+     So the radius is spent by role now, not stamped on everything: a surface
+     the eye rests on is 14 px, a control you hit is 10 px, and the two are
+     visibly different sizes rather than two flavours of the same cut. */
+  --radius-card: 14px;
+  --radius-control: 10px;
+  /* One job: a ring or a status chip, where the shape carries meaning that a
+     rectangle would not. Never a button. */
+  --radius-pill: 999px;
+
+  /* ---------------------------------------------------------- elevation --
+     Two steps, and the app uses one of them at a time.
+
+     There used to be no box-shadow anywhere, on the grounds that a card is a
+     rectangle with a hairline like a printed instrument panel. On paper that
+     holds. On a phone it produced a screen where fifteen elements all sat at
+     exactly the same depth and nothing could be more important than anything
+     else — which is the actual complaint people have with this surface.
+
+     `--lift` is the resting state of anything that holds content. `--lift-key`
+     is for the one element on a screen that matters most right now, and the
+     rule is one per screen: a second thing lifted this far means neither is.
+     Both are near-neutral and tinted with the ink's blue cast, so they read as
+     depth rather than as a grey smear. */
+  --lift: 0 1px 2px light-dark(rgba(11,12,14,.05), rgba(0,0,0,.4)),
+          0 6px 16px -10px light-dark(rgba(11,12,14,.16), rgba(0,0,0,.6));
+  --lift-key: 0 2px 4px light-dark(rgba(11,12,14,.07), rgba(0,0,0,.45)),
+              0 14px 32px -14px light-dark(rgba(11,12,14,.24), rgba(0,0,0,.7));
 
   /* --------------------------------------------------------------- rules --
-     A hairline is the only structural device. Stated as a token so a second
-     border weight cannot creep in. */
+     A hairline is still the quiet structural device, but it is no longer the
+     only one. Stated as a token so a second border weight cannot creep in. */
   --hairline: 1px;
 
   /* ------------------------------------------------------------- motion --
@@ -167,11 +199,20 @@
 
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
+  --radius-pill: var(--radius-pill);
+  --shadow-lift: var(--lift);
+  --shadow-key: var(--lift-key);
 }
 
 @layer base {
+  /* The ground the app sits on.
+     
+     Sunken rather than white, and that one line is what makes depth possible
+     at all: a white card on a white page is not a card, it is a region of the
+     same sheet with a line drawn round it. Everything the app puts in front of
+     you now sits *on* something. */
   body {
-    background: var(--paper);
+    background: var(--surface-sunken);
     color: var(--ink);
     font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;

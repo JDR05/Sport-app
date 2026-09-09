@@ -21,7 +21,7 @@ export function Field({
 }
 
 const CHIP_BASE =
-  'rounded-[2px] border px-3 py-2 text-sm font-medium transition select-none'
+  'rounded-control border px-3 py-2 text-sm font-medium transition select-none'
 
 // Written out rather than interpolated: Tailwind scans the source for literal
 // class names, so `grid-cols-${n}` would silently produce no styles at all.
@@ -109,7 +109,7 @@ export function NumberInput({
   placeholder?: string
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-[2px] border border-line bg-surface px-3 py-2.5">
+    <div className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2.5">
       <input
         type="number"
         inputMode="decimal"
@@ -141,7 +141,7 @@ export function DateInput({
       value={value ?? ''}
       min={min}
       onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-      className="w-full rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none"
+      className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none"
     />
   )
 }
@@ -164,7 +164,7 @@ export function TextInput({
       placeholder={placeholder}
       maxLength={maxLength}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
+      className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none placeholder:text-faint focus:border-accent"
     />
   )
 }
@@ -186,7 +186,7 @@ export function TextArea({
       rows={rows}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full resize-none rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
+      className="w-full resize-none rounded-control border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
     />
   )
 }
@@ -203,7 +203,7 @@ export function TimeInput({
       type="time"
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-      className="w-full rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base tabular-nums text-ink outline-none"
+      className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base tabular-nums text-ink outline-none"
     />
   )
 }
@@ -215,7 +215,7 @@ export function StepProgress({ step, total }: { step: number; total: number }) {
         {Array.from({ length: total }, (_, i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-[2px] ${i <= step ? 'bg-accent' : 'bg-sunken'}`}
+            className={`h-1 flex-1 rounded-control ${i <= step ? 'bg-accent' : 'bg-sunken'}`}
           />
         ))}
       </div>

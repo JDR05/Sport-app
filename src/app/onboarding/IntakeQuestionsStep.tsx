@@ -76,7 +76,7 @@ export function IntakeQuestionsStep({
                       // mis-tap does not become an answer somebody is stuck
                       // with on a screen that has no "undo".
                       onClick={() => set(index, on ? null : option)}
-                      className={`rounded-[2px] border px-3 py-2 text-sm font-medium transition select-none ${
+                      className={`rounded-control border px-3 py-2 text-sm font-medium transition select-none ${
                         on
                           ? 'border-accent bg-accent text-accent-ink'
                           : 'border-line bg-surface text-ink active:bg-sunken'
@@ -108,7 +108,7 @@ export function IntakeQuestionsStep({
       ))}
 
       {error && (
-        <p role="alert" className="mt-6 rounded-[2px] bg-warn-soft px-3 py-2.5 text-sm text-ink">
+        <p role="alert" className="mt-6 rounded-control bg-warn-soft px-3 py-2.5 text-sm text-ink">
           {error}
         </p>
       )}

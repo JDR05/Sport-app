@@ -22,7 +22,7 @@ export default function OfflinePage() {
           JavaScript, and this page exists for the case where fetching it failed. */}
       <a
         href="/today"
-        className="mt-6 inline-flex rounded-[2px] border border-line-strong px-4 py-3 text-sm font-semibold text-ink"
+        className="mt-6 inline-flex rounded-control border border-line-strong px-4 py-3 text-sm font-semibold text-ink"
       >
         Nochmal versuchen
       </a>

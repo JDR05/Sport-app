@@ -555,7 +555,7 @@ export function OnboardingForm({
       )}
 
       {saveError && (
-        <p role="alert" className="mt-6 rounded-[2px] bg-warn-soft px-3 py-2.5 text-sm text-ink">
+        <p role="alert" className="mt-6 rounded-control bg-warn-soft px-3 py-2.5 text-sm text-ink">
           {saveError}
         </p>
       )}

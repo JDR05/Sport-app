@@ -157,7 +157,7 @@ export function AskView({ state, today }: { state: AskState; today: string }) {
                     type="button"
                     disabled={busy}
                     onClick={() => void send(suggestion.question)}
-                    className="label min-h-11 rounded-[2px] border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
+                    className="label min-h-11 rounded-control border border-line bg-surface px-3 py-2 text-[11px] font-semibold text-muted transition-colors duration-[var(--motion-tap)] active:bg-sunken disabled:opacity-50"
                   >
                     {suggestion.label}
                   </button>
@@ -173,13 +173,13 @@ export function AskView({ state, today }: { state: AskState; today: string }) {
                 disabled={busy}
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="Deine Frage …"
-                className="w-full resize-none rounded-[2px] border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent disabled:opacity-50"
+                className="w-full resize-none rounded-control border border-line bg-surface px-3 py-2.5 text-base leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent disabled:opacity-50"
               />
               <button
                 type="button"
                 disabled={busy || draft.trim().length === 0}
                 onClick={() => void send(draft)}
-                className="label mt-2 min-h-11 w-full rounded-[2px] border border-accent bg-accent px-4 py-3 text-[11px] font-semibold text-[color:var(--accent-ink)] transition-colors duration-[var(--motion-tap)] disabled:opacity-40"
+                className="label mt-2 min-h-11 w-full rounded-control border border-accent bg-accent px-4 py-3 text-[11px] font-semibold text-[color:var(--accent-ink)] transition-colors duration-[var(--motion-tap)] disabled:opacity-40"
               >
                 {busy ? 'Ich schau nach …' : 'Fragen'}
               </button>

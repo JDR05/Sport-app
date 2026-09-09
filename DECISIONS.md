@@ -3350,6 +3350,41 @@ noch validiert wird. Achtung: Next.js 16 weicht von älteren Konventionen ab —
 
 ---
 
+## 2026-09-09 — ADR-120: Einheitlichkeit war das Problem, nicht der Radius
+
+**Entscheidung:** ADR-079s Regeln 2 und 3 werden ersetzt. Statt 3 px auf allem und keinem
+Schatten in der ganzen App: 14 px auf Flächen, 10 px auf Bedienelementen, ein gesunkener Grund
+und zwei Tiefenstufen — `--lift` für alles, was Inhalt hält, `--lift-key` für die eine Sache,
+die gerade zählt.
+
+**Begründung:** Der Product Owner sagte, die App sehe „vibecoding-mäßig" aus, und nannte vier
+Punkte: flach, keine Hierarchie, zu viel Text, langweilige Farbe. Drei davon sind dieselbe
+Ursache.
+
+ADR-079 hatte zur Hälfte recht. Richtig war, dass die vorige Fassung — 16 px auf allem, ein
+Schatten unter jedem Block — wie eine generierte App aussieht. Falsch war der Schluss, dass
+Schärfe die Kur ist. **Eine 3-px-Kante auf jedem Element ist genauso einheitlich wie eine
+16-px-Rundung.** Was eine Oberfläche generiert aussehen lässt, ist nicht der Radius, sondern
+dass ihre Teile nicht auseinandergehalten werden — und darauf gab diese App nichts aus. Kein
+Schatten hieß: fünfzehn Elemente auf einer Ebene, also konnte nichts wichtiger sein als
+irgendetwas anderes.
+
+**Der Radius wird nicht mehr getippt.** `rounded-[3px]` stand an 49 Stellen. Die Form der App
+zu ändern hieß, 49 Dateien zu bearbeiten, und jede einzelne konnte vergessen werden — das
+Literal *war* die Drift, nicht die Zahl darin. Beide Radien kommen jetzt aus
+`--radius-card` und `--radius-control`; ein Test verbietet jedes Pixel-Literal.
+
+**Die Regeln bleiben Regeln.** `shadow-key` darf pro Datei genau einmal vorkommen, mechanisch
+geprüft: zwei hervorgehobene Dinge heißen, dass keines hervorgehoben ist. Die Tailwind-Skalen
+für Radius *und* Schatten bleiben verboten, aus demselben Grund wie vorher — sechs
+austauschbare Stufen sind der Weg, auf dem „alles ist leicht angehoben" Komponente für
+Komponente zurückkommt.
+
+**Mutationsgeprüft:** ein eingeschmuggeltes `rounded-[3px]` und ein zweites `shadow-key`
+lassen je einen Test fallen.
+
+---
+
 ## 2026-09-09 — ADR-119: Das Onboarding fragt, was der Plan liest
 
 **Entscheidung:** Welche Intake-Fragen erscheinen, wird aus der gemessenen Frage abgeleitet,

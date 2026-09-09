@@ -59,7 +59,7 @@ export function WeekStrip({
             onClick={() => onSelect(date)}
             aria-current={isSelected ? 'date' : undefined}
             aria-label={`${WEEKDAY_SHORT[weekdayOf(date)]}, ${dayOf(date)}.`}
-            className={`flex flex-col items-center gap-1 rounded-[3px] border py-2 transition-colors duration-[var(--motion-tap)] ${
+            className={`flex flex-col items-center gap-1 rounded-card border py-2 transition-colors duration-[var(--motion-tap)] ${
               isSelected
                 ? 'border-ink bg-sunken'
                 // Unselected chips are still buttons somebody has to hit, but
