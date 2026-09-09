@@ -22,10 +22,14 @@ import {
 import { CommitmentsStep } from './CommitmentsStep'
 import { classifyGoalText } from '@/lib/engine'
 import { addDays } from '@/lib/engine/dates'
-import { EMPTY, SLOT_START, toDraft, type Draft } from './draft'
+import { buildAnswers, EMPTY, METRIC_FOR, toDraft, type Draft } from './draft'
+// Typed by the very schema the server validates against, so a drift between
+// what the form sends and what the action accepts is a compile error here
+// rather than a refusal the person reads on the last step.
+import type { OnboardingPayload } from './schema'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
 import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
-import type { GoalMetric, IntakeAnswer, Weekday } from '@/lib/domain/types'
+import type { IntakeAnswer, Weekday } from '@/lib/domain/types'
 import type { IntakeQuestion } from '@/lib/ai/schemas'
 
 const WEEKDAY_SHORT: Record<Weekday, string> = {
@@ -43,99 +47,6 @@ const ARCHETYPE_LABEL: Record<GoalArchetype, string> = {
 }
 
 const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Fest', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
-
-/**
- * Which archetypes carry a numeric target, and what that number is.
- *
- * The point of this table is that it is *per archetype*. Someone working on
- * their sleep is never asked what they weigh, and never shown a weight chart —
- * their number is hours, because that is the thing their goal is about. The
- * rest of the intake is still collected (ADR-024) and still shapes the plan; it
- * simply does not get a chart on a screen where it would only be noise.
- *
- * Archetypes missing from this table have no number, and the app says so
- * rather than inventing one. Not everything worth changing is measurable.
- */
-const METRIC_FOR: Partial<Record<GoalArchetype, { key: string; unit: string; label: string; startLabel: string; targetLabel: string }>> = {
-  body_composition: { key: 'weight_kg', unit: 'kg', label: 'Gewicht', startLabel: 'Was wiegst du aktuell?', targetLabel: 'Was möchtest du wiegen?' },
-  endurance: { key: 'distance_km', unit: 'km', label: 'Umfang', startLabel: 'Wie viele km schaffst du aktuell pro Woche?', targetLabel: 'Wie viele km sollen es werden?' },
-  strength: { key: 'load_kg', unit: 'kg', label: 'Last', startLabel: 'Womit trainierst du aktuell?', targetLabel: 'Was ist dein Ziel?' },
-  sleep_recovery: { key: 'sleep_hours', unit: 'h', label: 'Schlaf', startLabel: 'Wie viele Stunden schläfst du aktuell?', targetLabel: 'Wie viele sollen es werden?' },
-}
-
-/** The payload the server action validates again before writing anything. */
-type OnboardingPayload = Parameters<typeof completeOnboarding>[0]
-
-function buildAnswers(
-  d: Draft,
-  archetype: GoalArchetype,
-  classifiedBy: 'ai' | 'keywords' | 'user',
-) {
-  const metricSpec = METRIC_FOR[archetype]
-  const metrics: Array<Omit<GoalMetric, 'currentValue'>> =
-    metricSpec && (d.metricStart !== null || d.metricTarget !== null)
-      ? [{ metricKey: metricSpec.key, startValue: d.metricStart, targetValue: d.metricTarget, unit: metricSpec.unit }]
-      : []
-
-  return {
-    profile: {
-      birthYear: d.birthYear,
-      heightCm: d.heightCm,
-      weightKg: d.weightKg ?? (archetype === 'body_composition' ? d.metricStart : null),
-      sexAtBirth: d.sexAtBirth,
-      sport: {
-        preferredActivities: d.preferredActivities,
-        dislikedActivities: d.dislikedActivities,
-        sessionsPerWeekTarget: d.sessionsPerWeekTarget,
-        preferredSessionMinutes: d.preferredSessionMinutes,
-        equipment: d.equipment.length > 0 ? d.equipment : ['none'],
-        experience: d.experience,
-      },
-      nutrition: {
-        cooksAtHome: d.cooksAtHome,
-        timeForCookingMin: d.timeForCookingMin,
-        eatsOutPerWeek: d.eatsOutPerWeek,
-        dietaryPattern: d.dietaryPattern,
-        mealsPerDay: d.mealsPerDay,
-        vegetablePortionsPerDay: d.vegetablePortionsPerDay,
-        sugaryDrinksPerDay: d.sugaryDrinksPerDay,
-      },
-      sleep: {
-        usualBedtime: d.usualBedtime,
-        usualWakeTime: d.usualWakeTime,
-        quality: d.sleepQuality,
-        wakesAtNight: d.wakesAtNight,
-        screenBeforeBed: d.screenBeforeBed,
-      },
-      mind: {
-        screenTimeHoursPerDay: d.screenTimeHoursPerDay,
-        focusStruggle: d.focusStruggle,
-        existingRoutines: d.existingRoutines.split(',').map((r) => r.trim()).filter(Boolean),
-      },
-    },
-    goal: {
-      rawText: d.goalText.trim(),
-      archetype,
-      targetDate: d.targetDate,
-      classifiedBy,
-    },
-    metrics,
-    constraints:
-      d.blockedDays.length > 0
-        ? [{ kind: 'time', hard: true, value: { type: 'no_training_on', weekdays: d.blockedDays } }]
-        : [],
-    schedule: {
-      workPattern: d.workPattern,
-      freeSlots: d.freeDays.map((weekday) => ({
-        weekday,
-        start: SLOT_START[d.slotTime ?? 'evening'],
-        minutes: d.slotMinutes ?? 45,
-      })),
-      commitments: d.commitments,
-      wakeTimes: d.wakeTimes,
-    },
-  }
-}
 
 export function OnboardingForm({
   existing,

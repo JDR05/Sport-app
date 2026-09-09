@@ -20,9 +20,41 @@
 import { WEEKDAYS } from '@/lib/domain/types'
 import type {
   Activity, Commitment, CookingFrequency, DietaryPattern, Equipment, Experience,
-  FocusStruggle, GoalArchetype, SexAtBirth, SleepQuality, Weekday, WorkPattern,
+  FocusStruggle, GoalArchetype, GoalMetric, SexAtBirth, SleepQuality, Weekday, WorkPattern,
 } from '@/lib/domain/types'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
+// Type-only, so the server schema binds this file without pulling zod into the
+// client bundle. It is what makes a drift between the two halves a compile
+// error instead of a refusal the person reads on the last step.
+import type { OnboardingPayload } from './schema'
+
+/**
+ * What the payload carries when nobody picked any equipment.
+ *
+ * A named constant rather than an inline `['none']`, because inline it widens
+ * to `string[]` and quietly breaks the link to the server's enum — which is how
+ * the two halves of this mapping were able to disagree unnoticed.
+ */
+const NO_EQUIPMENT: Equipment[] = ['none']
+
+/**
+ * Which archetypes carry a numeric target, and what that number is.
+ *
+ * The point of this table is that it is *per archetype*. Someone working on
+ * their sleep is never asked what they weigh, and never shown a weight chart —
+ * their number is hours, because that is the thing their goal is about. The
+ * rest of the intake is still collected (ADR-024) and still shapes the plan; it
+ * simply does not get a chart on a screen where it would only be noise.
+ *
+ * Archetypes missing from this table have no number, and the app says so
+ * rather than inventing one. Not everything worth changing is measurable.
+ */
+export const METRIC_FOR: Partial<Record<GoalArchetype, { key: string; unit: string; label: string; startLabel: string; targetLabel: string }>> = {
+  body_composition: { key: 'weight_kg', unit: 'kg', label: 'Gewicht', startLabel: 'Was wiegst du aktuell?', targetLabel: 'Was möchtest du wiegen?' },
+  endurance: { key: 'distance_km', unit: 'km', label: 'Umfang', startLabel: 'Wie viele km schaffst du aktuell pro Woche?', targetLabel: 'Wie viele km sollen es werden?' },
+  strength: { key: 'load_kg', unit: 'kg', label: 'Last', startLabel: 'Womit trainierst du aktuell?', targetLabel: 'Was ist dein Ziel?' },
+  sleep_recovery: { key: 'sleep_hours', unit: 'h', label: 'Schlaf', startLabel: 'Wie viele Stunden schläfst du aktuell?', targetLabel: 'Wie viele sollen es werden?' },
+}
 
 export const SLOT_START = { early: '07:00', midday: '12:00', evening: '18:30' } as const
 export type SlotTime = keyof typeof SLOT_START
@@ -147,6 +179,86 @@ export function toDraft(stored: StoredPlanInput): Draft {
 
     dislikedActivities: profile.sport.dislikedActivities,
     blockedDays: blockedDaysOf(stored),
+  }
+}
+
+/**
+ * The draft, in the shape the server action validates.
+ *
+ * The exact inverse of `toDraft` above, and it lives here for that reason: the
+ * two halves of one mapping drift apart when they sit in different files, and
+ * only one of them was reachable from a test while this half lived inside the
+ * form component. A round trip has to come back unchanged, and now it can be
+ * checked against the real server schema rather than against a copy of it.
+ */
+export function buildAnswers(
+  d: Draft,
+  archetype: GoalArchetype,
+  classifiedBy: 'ai' | 'keywords' | 'user',
+): OnboardingPayload {
+  const metricSpec = METRIC_FOR[archetype]
+  const metrics: Array<Omit<GoalMetric, 'currentValue'>> =
+    metricSpec && (d.metricStart !== null || d.metricTarget !== null)
+      ? [{ metricKey: metricSpec.key, startValue: d.metricStart, targetValue: d.metricTarget, unit: metricSpec.unit }]
+      : []
+
+  return {
+    profile: {
+      birthYear: d.birthYear,
+      heightCm: d.heightCm,
+      weightKg: d.weightKg ?? (archetype === 'body_composition' ? d.metricStart : null),
+      sexAtBirth: d.sexAtBirth,
+      sport: {
+        preferredActivities: d.preferredActivities,
+        dislikedActivities: d.dislikedActivities,
+        sessionsPerWeekTarget: d.sessionsPerWeekTarget,
+        preferredSessionMinutes: d.preferredSessionMinutes,
+        equipment: d.equipment.length > 0 ? d.equipment : NO_EQUIPMENT,
+        experience: d.experience,
+      },
+      nutrition: {
+        cooksAtHome: d.cooksAtHome,
+        timeForCookingMin: d.timeForCookingMin,
+        eatsOutPerWeek: d.eatsOutPerWeek,
+        dietaryPattern: d.dietaryPattern,
+        mealsPerDay: d.mealsPerDay,
+        vegetablePortionsPerDay: d.vegetablePortionsPerDay,
+        sugaryDrinksPerDay: d.sugaryDrinksPerDay,
+      },
+      sleep: {
+        usualBedtime: d.usualBedtime,
+        usualWakeTime: d.usualWakeTime,
+        quality: d.sleepQuality,
+        wakesAtNight: d.wakesAtNight,
+        screenBeforeBed: d.screenBeforeBed,
+      },
+      mind: {
+        screenTimeHoursPerDay: d.screenTimeHoursPerDay,
+        focusStruggle: d.focusStruggle,
+        existingRoutines: d.existingRoutines.split(',').map((r) => r.trim()).filter(Boolean),
+      },
+    },
+    goal: {
+      rawText: d.goalText.trim(),
+      archetype,
+      targetDate: d.targetDate,
+      classifiedBy,
+    },
+    metrics,
+    constraints:
+      d.blockedDays.length > 0
+        ? [{ kind: 'time', hard: true, value: { type: 'no_training_on', weekdays: d.blockedDays } }]
+        : [],
+    schedule: {
+      workPattern: d.workPattern,
+      freeSlots: d.freeDays.map((weekday) => ({
+        weekday,
+        start: SLOT_START[d.slotTime ?? 'evening'],
+        minutes: d.slotMinutes ?? 45,
+      })),
+      commitments: d.commitments,
+      wakeTimes: d.wakeTimes,
+    },
   }
 }
 
