@@ -23,6 +23,8 @@ import { useSearchParams } from 'next/navigation'
 import { usePlan } from '@/components/PlanProvider'
 import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
+import { DayRoundup } from '@/components/DayRoundup'
+import { shouldOfferRoundup } from '@/lib/domain/roundup'
 import { AskCard } from '@/components/AskCard'
 import { CheckInCard } from '@/components/CheckInCard'
 import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
@@ -131,6 +133,10 @@ function Today() {
         const rules = all.filter((i) => i.cadence === 'daily')
         const items = all.filter((i) => i.cadence !== 'daily')
         const fixed = commitmentsForDay(week.commitments, weekdayOf(viewing))
+        // Everything still without a verdict, rules included: the round-up is
+        // the catch-all, so leaving the standing rules out of it would leave
+        // the one thing somebody has every single day unanswerable in bulk.
+        const open = all.filter((i) => i.status === 'planned' || i.status === 'unknown')
 
         const isToday = viewing === today
         // The same rule Plan marks its rows with, from the same module. Written
@@ -230,6 +236,27 @@ function Today() {
                 )}
               </div>
             )}
+
+            {/* The day in one card, in the evening and on days already past.
+                
+                Swiping answers one action, which is the right shape while the
+                day is happening. At eleven at night with three cards open it
+                is three gestures for one thought, and three quarters of all
+                actions were never answered at all. */}
+            {answerable &&
+              shouldOfferRoundup(
+                dayPosition(viewing, today),
+                new Date().getHours(),
+                open.length,
+              ) && (
+                <div className="mt-6">
+                  <DayRoundup
+                    items={open}
+                    onStatus={setStatus}
+                    label={isToday ? 'Heute' : 'Den Tag'}
+                  />
+                </div>
+              )}
 
             {/* Standing rules. Already one card with one ring and its own
                 disclosure inside — wrapping it in a second one produced the

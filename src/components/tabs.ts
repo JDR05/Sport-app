@@ -3,18 +3,22 @@
 // Both the bottom bar and the header label read from here, so a renamed screen
 // cannot be called one thing at the top and another at the bottom.
 
-import {
-  IconInsights, IconPlan, IconProfile, IconProgress, IconToday,
-} from '@/components/NavIcons'
+import { IconInsights, IconProfile, IconToday } from '@/components/NavIcons'
 
-// Five destinations, as in the product plan. The playbook has its own route but
-// is reached from Insights: a sixth tab would crowd the bar on a phone, which is
-// exactly the kind of clutter the brief rules out.
+// Three destinations, down from five, and the two that went were not carrying
+// their own weight.
+//
+// Plan was seven rows, each a link back to Heute — the week strip on Heute
+// already goes to any day in one tap, so it was a second door to one room.
+// Fortschritt and Insights answered one question between them: how much of the
+// plan happened, and what that means. Splitting that across two tabs meant
+// checking both to find out whether the app had anything to say.
+//
+// What is left is what a person actually navigates between: the day they are
+// in, what the app has worked out, and their own settings.
 export const TABS = [
   { href: '/today', label: 'Heute', Icon: IconToday },
-  { href: '/plan', label: 'Plan', Icon: IconPlan },
-  { href: '/progress', label: 'Fortschritt', Icon: IconProgress },
-  { href: '/insights', label: 'Insights', Icon: IconInsights },
+  { href: '/muster', label: 'Muster', Icon: IconInsights },
   { href: '/profile', label: 'Profil', Icon: IconProfile },
 ] as const
 

@@ -102,26 +102,36 @@ describe('the AI section on Insights', () => {
     expect(html).not.toContain('Was die KI beiträgt')
   })
 
-  it.each([
-    [
-      'consent given but nothing back yet',
-      { provider: 'Groq', granted: true, proposal: null, openQuestions: [], preferences: {}, placement: {} },
-      'Noch nichts von der KI',
-    ],
-    [
-      'consent withheld',
-      { provider: 'Groq', granted: false, proposal: null, openQuestions: [], preferences: {}, placement: {} },
-      'KI nicht erlaubt',
-    ],
-  ])('tells the two empty states apart: %s', (_case, ai, expected) => {
-    const html = render(<InsightsView data={insights({ ai })} />)
-    expect(html).toContain(expected)
-    // Both must say the plan still stands. "No AI" is not a broken app, and
-    // the empty state is where somebody decides whether it is.
-    //
-    // Asserted on the promise rather than on the word "deterministisch": the
-    // copy was shortened, and the guarantee is what has to survive that, not
-    // the vocabulary it was first written in.
+  it('says nothing when consent is given and the model had nothing to add', () => {
+    // The old copy here was "Noch nichts von der KI — noch nicht angesehen,
+    // oder es gab nichts beizutragen". True, and about the app rather than
+    // about the person, on the screen that is supposed to be about the person.
+    // Six sections on this screen explained their own emptiness that way.
+    const html = render(
+      <InsightsView
+        data={insights({
+          ai: { provider: 'Groq', granted: true, proposal: null, openQuestions: [], preferences: {}, placement: {} },
+        })}
+      />,
+    )
+    expect(html).not.toContain('Noch nichts von der KI')
+  })
+
+  it('still offers the switch when consent is withheld', () => {
+    // Not an empty state — a setting the person can change, and one they
+    // cannot change if the app never mentions it. Deleting this along with the
+    // empty states was a mistake, and this test is what caught it.
+    const html = render(
+      <InsightsView
+        data={insights({
+          ai: { provider: 'Groq', granted: false, proposal: null, openQuestions: [], preferences: {}, placement: {} },
+        })}
+      />,
+    )
+    expect(html).toContain('KI nicht erlaubt')
+    expect(html).toContain('/profile')
+    // "No AI" is not a broken app. Asserted on the promise rather than on the
+    // word "deterministisch": copy gets shortened, the guarantee must not.
     expect(html).toMatch(/Plan (steht|funktioniert)/)
   })
 

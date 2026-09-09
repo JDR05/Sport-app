@@ -25,8 +25,11 @@
 // who can tell them apart. Untouched items stay `unknown` and never feed
 // pattern detection (ADR-011).
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CheckRing } from '@/components/CheckRing'
+import {
+  isHorizontal, swipeOffset, swipeProgress, swipeVerdict,
+} from '@/lib/domain/swipe'
 import { DomainBadge } from '@/components/ui'
 import { isAiAuthored } from '@/lib/engine/proposed'
 import { WEEKDAY_LABELS } from '@/lib/adaptive/labels'
@@ -76,6 +79,53 @@ export function ActionItem({
   const [open, setOpen] = useState(false)
   const settled = status !== 'planned' && status !== 'unknown'
 
+  // --------------------------------------------------------------- swipe --
+  //
+  // Right is done, left is not managed. One gesture, no aim, and it works
+  // without reading the card — which is the whole point: the verdict this app
+  // runs on was costing two taps and a decision, and three quarters of them
+  // never got given.
+  //
+  // The geometry is in lib/domain/swipe.ts and tested there. What stays here is
+  // the part that needs a DOM: the finger.
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const locked = useRef(false)
+  const [dx, setDx] = useState(0)
+
+  function onTouchStart(event: React.TouchEvent) {
+    const touch = event.touches[0]
+    start.current = { x: touch.clientX, y: touch.clientY }
+    locked.current = false
+  }
+
+  function onTouchMove(event: React.TouchEvent) {
+    if (!start.current) return
+    const touch = event.touches[0]
+    const moveX = touch.clientX - start.current.x
+    const moveY = touch.clientY - start.current.y
+    // Decided once per gesture. Re-deciding on every frame lets a swipe turn
+    // into a scroll halfway through, which reads as the card sticking.
+    if (!locked.current) {
+      if (!isHorizontal(moveX, moveY)) {
+        if (Math.abs(moveY) > 10) start.current = null
+        return
+      }
+      locked.current = true
+    }
+    setDx(moveX)
+  }
+
+  function onTouchEnd() {
+    const verdict = swipeVerdict(dx)
+    start.current = null
+    locked.current = false
+    setDx(0)
+    if (verdict) answered(verdict)
+  }
+
+  const offset = swipeOffset(dx)
+  const progress = swipeProgress(dx)
+
   // The status a reason is being asked for. Null means no question is open —
   // either none was asked, or it has been answered.
   const [asking, setAsking] = useState<PlanItemStatus | null>(null)
@@ -113,10 +163,42 @@ export function ActionItem({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-card border border-line bg-surface pl-1 transition-opacity ${
+      className={`relative overflow-hidden rounded-card bg-surface shadow-lift transition-opacity ${
         settled ? 'opacity-60' : ''
       }`}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
     >
+      {/* What the swipe is about to do, behind the card.
+          
+          Only ever one of the two, and only while a thumb is down: a permanent
+          pair of coloured edges would be two more things competing for
+          attention on a screen whose whole problem was that everything
+          competed equally. */}
+      {dx !== 0 && (
+        <span
+          aria-hidden
+          className={`absolute inset-y-0 flex w-24 items-center px-4 text-xs font-semibold ${
+            dx > 0
+              ? 'left-0 justify-start bg-accent-soft text-accent'
+              : 'right-0 justify-end bg-warn-soft text-warn'
+          }`}
+          style={{ opacity: progress }}
+        >
+          {dx > 0 ? 'Erledigt' : 'Nicht geschafft'}
+        </span>
+      )}
+      <div
+        className="relative bg-surface pl-1"
+        style={{
+          transform: `translateX(${offset}px)`,
+          // Only while the thumb is off the card. Animating during the drag
+          // makes the card lag behind the finger, which reads as jank.
+          transition: dx === 0 ? 'transform var(--motion-enter) var(--ease)' : 'none',
+        }}
+      >
       {/* The mark, on every action.
           
           The logo is two strokes of unequal height: the health baseline that
@@ -291,6 +373,7 @@ export function ActionItem({
           )}
         </div>
       )}
+      </div>
     </article>
   )
 }

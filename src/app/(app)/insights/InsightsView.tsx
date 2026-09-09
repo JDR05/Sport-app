@@ -15,8 +15,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { applyCorrections, respondToExperiment } from '@/app/(app)/actions'
 import { ActionPreferenceControl } from '@/components/ActionPreference'
-import { Button, Card, EmptyState, LinkButton, Note, Screen, ScreenTitle, SectionHeading } from '@/components/ui'
-import { MIN_DISTINCT_WEEKS } from '@/lib/adaptive/constants'
+import { Button, Card, LinkButton, Note, SectionHeading } from '@/components/ui'
 import { TRIGGER_LABELS } from '@/lib/adaptive/labels'
 import { formatGermanDate } from '@/lib/engine/dates'
 import type { Insight } from '@/lib/adaptive'
@@ -107,8 +106,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
   }
 
   return (
-    <Screen>
-      <ScreenTitle title="Insights" subtitle="Was funktioniert bei dir – und was nicht?" />
+    <>
 
       {/* The one thing a rule could not have found.
           
@@ -195,15 +193,24 @@ export function InsightsView({ data }: { data: InsightsData }) {
                     'Im Plan und unter Heute sind sie mit KI markiert.'}
               </p>
             </Card>
+          ) : data.ai.granted ? (
+            // Consent given and nothing came back: say nothing. A card
+            // explaining its own emptiness is the app talking about itself on
+            // the screen that is supposed to be about the person.
+            null
           ) : (
-            <EmptyState
-              title={data.ai.granted ? 'Noch nichts von der KI' : 'KI nicht erlaubt'}
-              body={
-                data.ai.granted
-                  ? 'Noch nicht angesehen — oder es gab nichts beizutragen. Der Plan steht trotzdem.'
-                  : 'Ohne dein Häkchen geht nichts an ein Modell. Der Plan funktioniert vollständig.'
-              }
-            />
+            // Consent withheld is a different thing entirely, and deleting it
+            // with the empty states was a mistake a test caught: this is not
+            // an absence of data, it is a switch the person can throw, and one
+            // they cannot throw if the app never mentions it.
+            <Card depth="flat">
+              <p className="text-sm leading-relaxed text-muted">
+                KI nicht erlaubt. Der Plan funktioniert vollständig ohne.
+              </p>
+              <div className="mt-3">
+                <LinkButton href="/profile">Im Profil erlauben</LinkButton>
+              </div>
+            </Card>
           )}
 
           {data.ai.openQuestions.length > 0 && (
@@ -260,14 +267,8 @@ export function InsightsView({ data }: { data: InsightsData }) {
         </>
       )}
 
-      <SectionHeading>Muster</SectionHeading>
-      {data.insights.length === 0 ? (
-        <EmptyState
-          title="Noch kein Muster erkannt"
-          body="Eine einzelne Abweichung ist kein Muster. Die App wartet auf Wiederholung — lieber später etwas Belastbares als früh etwas Erfundenes."
-          progress={{ done: data.weeksWithData, needed: MIN_DISTINCT_WEEKS, unit: 'Wochen' }}
-        />
-      ) : (
+      {data.insights.length > 0 && <SectionHeading>Muster</SectionHeading>}
+      {data.insights.length === 0 ? null : (
         <div className="flex flex-col gap-3">
           {data.insights.map((insight, index) => (
             <Card key={index}>
@@ -298,7 +299,9 @@ export function InsightsView({ data }: { data: InsightsData }) {
         </>
       )}
 
-      <SectionHeading>Laufende Experimente</SectionHeading>
+      {(data.running !== null || data.experiment !== null) && (
+        <SectionHeading>Laufende Experimente</SectionHeading>
+      )}
       {data.running !== null ? (
         <Card tone="accent">
           <p className="label text-[10px] text-accent">Läuft</p>
@@ -313,12 +316,7 @@ export function InsightsView({ data }: { data: InsightsData }) {
             eine Zwischenbewertung wäre nur Rauschen.
           </p>
         </Card>
-      ) : data.experiment === null ? (
-        <EmptyState
-          title="Kein Experiment aktiv"
-          body="Ist ein Muster belegt, schlägt die App eine kleine Änderung vor und misst sie und behält sie nur, wenn sie wirkt."
-        />
-      ) : (
+      ) : data.experiment === null ? null : (
         <Card tone="accent">
           <p className="label text-[10px] text-accent">Vorschlag</p>
           <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
@@ -381,28 +379,17 @@ export function InsightsView({ data }: { data: InsightsData }) {
         </>
       )}
 
-      <SectionHeading>Dein Playbook</SectionHeading>
-      <Link href="/playbook" className="block">
-        <Card>
+      {/* One line and a chevron. It used to be a heading, a card, a title and
+          two sentences explaining what a playbook is — five elements for a
+          link somebody either wants or does not. */}
+      <Link href="/playbook" className="mt-6 block">
+        <Card depth="flat">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-ink">Persönliche Regeln</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted">
-                Was die App über dich gelernt hat. Nur bestätigte Experimente landen hier.
-              </p>
-            </div>
-            <span aria-hidden className="text-xl text-faint">
-              ›
-            </span>
+            <p className="text-sm font-semibold text-ink">Dein Playbook</p>
+            <span aria-hidden className="text-xl text-faint">›</span>
           </div>
         </Card>
       </Link>
-
-      <Note>
-        Ein Vorschlag entsteht erst, wenn sich eine Abweichung über mindestens{' '}
-        {MIN_DISTINCT_WEEKS} verschiedene Wochen zieht und deutlich vom Rest abweicht. Tage ohne
-        Eintrag zählen nie als Versäumnis.
-      </Note>
-    </Screen>
+    </>
   )
 }

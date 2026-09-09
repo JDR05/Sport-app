@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { RequirePlan } from '@/components/RequirePlan'
 import { MetricEntry, type MetricSpec } from '@/components/MetricEntry'
 import { ScoreRing } from '@/components/ScoreRing'
-import { Card, DOMAIN_LABEL, EmptyState, LinkButton, Note, Screen, ScreenTitle, SectionHeading, StatTile } from '@/components/ui'
+import { Card, DOMAIN_LABEL, EmptyState, LinkButton, Note, SectionHeading, StatTile } from '@/components/ui'
 import { formatGermanDateShort } from '@/lib/engine/dates'
 import { ANALYSIS_WEEKS } from '@/lib/adaptive/constants'
 import type { WeekScores } from '@/lib/adaptive/scores'
@@ -27,8 +27,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
       {(plan) => {
         const s = plan.strategy
         return (
-          <Screen>
-            <ScreenTitle title="Fortschritt" subtitle="Wo stehst du, und was hält dich zurück?" />
+          <>
 
             {/* Said here rather than on Today: this is the screen where the
                 number is entered and read, so it is where arriving at it
@@ -200,7 +199,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
                 </div>
               </Card>
             </Link>
-          </Screen>
+          </>
         )
       }}
     </RequirePlan>
