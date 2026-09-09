@@ -63,6 +63,31 @@ describe('the reminder does not nag', () => {
   })
 })
 
+describe('the cached shell is dropped when a deployment changes', () => {
+  // The cache key was the literal 'trace-shell-v1' and never moved. The
+  // activate handler deletes every cache whose key is not the current one —
+  // with a constant key it could delete nothing, ever, so a phone kept the
+  // shell of whatever deployment it first met. The comment above that handler
+  // claimed the opposite, which is the shape of defect this project keeps
+  // finding: intent in the prose, the reverse in the code.
+
+  it('takes its cache key from the script URL, not from a constant', () => {
+    expect(worker).toMatch(/self\.location\.search/)
+    expect(worker).not.toMatch(/const VERSION = ['\`]trace-shell-v\d+['\`]/)
+  })
+
+  it('still deletes every cache that is not the current one', () => {
+    expect(worker).toMatch(/caches\.delete/)
+    expect(worker).toMatch(/!==\s*VERSION/)
+  })
+
+  it('is registered with a version the deployment sets', () => {
+    const registration = readFileSync('src/components/ServiceWorker.tsx', 'utf8')
+    expect(registration).toMatch(/sw\.js\?v=/)
+    expect(registration).toContain('NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA')
+  })
+})
+
 describe('the schedule', () => {
   // This test used to assert an hourly schedule, and it was right about the
   // design and wrong about the platform. The hour belongs to the person —

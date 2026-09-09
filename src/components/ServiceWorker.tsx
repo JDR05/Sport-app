@@ -18,7 +18,11 @@ export function ServiceWorker() {
       // reading and reminders. An app that shows an error because it could not
       // install one is an app complaining about a feature the person never
       // asked about.
-      void navigator.serviceWorker.register('/sw.js').catch(() => {})
+      // Versioned, and that is the whole point of the query string: the
+      // browser compares script URLs, so an unchanged '/sw.js' is a worker it
+      // never replaces — and the cache it holds is never dropped either.
+      const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? 'dev'
+      void navigator.serviceWorker.register(`/sw.js?v=${build}`).catch(() => {})
     }
 
     if (document.readyState === 'complete') register()

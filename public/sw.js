@@ -14,7 +14,19 @@
 // HTML, the JavaScript, the fonts — which is the same for everybody and
 // contains nothing about anyone.
 
-const VERSION = 'trace-shell-v1'
+// The cache key, and it has to change when a deployment does.
+//
+// This was the literal 'trace-shell-v1' — a constant, forever. The activate
+// handler below deletes every cache whose key is not the current one, and its
+// comment says "old versions go immediately"; with a key that never changed,
+// that line could never delete anything. The comment stated the intent and the
+// code did the opposite, which is how an app keeps serving a shell from a
+// deployment that is weeks old.
+//
+// The version arrives in the script URL — the page registers `/sw.js?v=<build>`
+// — so a new deployment is a new script URL, which is a new worker, which
+// installs, activates, and drops every cache but its own.
+const VERSION = `trace-shell-${new URLSearchParams(self.location.search).get('v') || 'dev'}`
 
 // The routes worth having offline: the ones somebody opens in a gym or on a
 // run. They are cached as *shells*; their content still needs the network, and
