@@ -26,6 +26,7 @@ import {
 import type {
   AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
 } from './schemas'
+import { skippedAreas, type IntakeArea } from '@/lib/domain/intakeFocus'
 import type { PlanInput } from '@/lib/domain/types'
 
 /** What a parse attempt can say. `implausible` means a safety rule fired. */
@@ -516,6 +517,21 @@ export function knownFields(input: PlanInput): string[] {
   return ALL_FIELDS.filter((field) => !open.has(field))
 }
 
+/**
+ * The intake steps this goal never showed, in the words the model already uses.
+ *
+ * Only whole steps, not single fields: "wir haben ihn nicht nach Körperdaten
+ * gefragt" is something a model can act on, a list of twelve field names is
+ * noise it will pick from at random.
+ */
+const AREA_LABEL: ReadonlyArray<readonly [IntakeArea, string]> = [
+  ['body', 'Körperdaten'],
+  ['sport', 'bevorzugte Sportarten'],
+  ['nutrition', 'Ernährungsform'],
+  ['sleep', 'Schlafzeiten'],
+  ['mind', 'Bildschirmzeit'],
+]
+
 const ALL_FIELDS = [
   'Leistungsstand', 'bevorzugte Sportarten', 'Arbeitsform', 'freie Zeitfenster',
   'Kochen', 'Ernährungsform', 'Schlafzeiten', 'Schlafqualität',
@@ -523,7 +539,11 @@ const ALL_FIELDS = [
 ] as const
 
 export function questionsUserMessage(input: PlanInput): string {
-  const open = openFields(input)
+  const skipped = new Set(skippedAreas(input.goal.archetype))
+  const notAsked = ([...AREA_LABEL] as [IntakeArea, string][])
+    .filter(([area]) => skipped.has(area))
+    .map(([, label]) => label)
+  const open = openFields(input).filter((f) => !notAsked.includes(f))
 
   return [
     // The same coarsened picture the proposal gets. The question step must not
@@ -533,9 +553,19 @@ export function questionsUserMessage(input: PlanInput): string {
       '',
     ).trimEnd(),
     '',
+    // Two different silences, and telling them apart is the whole point of
+    // this step now. "Nicht gefragt" is the app's decision: the intake only
+    // asks what the plan for *this* goal reads, so somebody working on their
+    // sleep was never asked how long they have to cook. "Offen" is the
+    // person's: they were asked and skipped it. The first is the gap the model
+    // is here to close if it thinks the goal needs it; the second is a
+    // preference to respect rather than a hole to fill.
+    notAsked.length > 0
+      ? `Nicht gefragt, weil der Plan für dieses Ziel es nicht liest: ${notAsked.join(', ')}. Wenn du eines davon für dieses Ziel doch brauchst, frag danach.`
+      : '',
     open.length > 0
-      ? `Offen geblieben ist: ${open.join(', ')}.`
-      : 'Er hat alles ausgefüllt, wonach das Onboarding fragt.',
+      ? `Gefragt, aber offen gelassen: ${open.join(', ')}.`
+      : 'Er hat alles ausgefüllt, wonach das Onboarding gefragt hat.',
     '',
     'Brauchst du etwas davon oder etwas ganz anderes, um für dieses Ziel besser zu planen? Wenn nicht, sag das — needsMore false, leere Liste.',
   ].join('\n')

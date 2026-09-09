@@ -3350,6 +3350,54 @@ noch validiert wird. Achtung: Next.js 16 weicht von älteren Konventionen ab —
 
 ---
 
+## 2026-09-09 — ADR-119: Das Onboarding fragt, was der Plan liest
+
+**Entscheidung:** Welche Intake-Fragen erscheinen, wird aus der gemessenen Frage abgeleitet,
+**welcher Code welches Feld liest** — nicht aus einer Einschätzung, was zu einem Ziel passt.
+`src/lib/domain/intakeFocus.ts` hält diese Karte; das Formular blendet ein Feld aus, wenn
+nichts, was für dieses Ziel läuft, die Antwort lesen würde. Ein Schritt, der dadurch leer
+wäre, entfällt ganz.
+
+**Begründung:** Das Onboarding stellte allen dieselben 24 Profilfragen. Wer „besser schlafen"
+eingab, wurde nach Kochzeit, Mahlzeiten pro Tag und Gemüseportionen gefragt — kein einziges
+davon liest irgendetwas, das für ein Schlafziel läuft. Der eigene Prompt hielt das schriftlich
+fest: „Das Onboarding stellt allen dieselben Fragen."
+
+Gemessen statt geschätzt, weil eine Meinung darüber, was zu einem Ziel gehört, still vom Code
+wegdriftet — und weil eine fest verdrahtete Liste, die etwas über einen Menschen entscheidet,
+in diesem Projekt als Fehler gilt. Die Karte ist keine Meinung über Menschen, sondern eine
+Tatsache über Aufrufe.
+
+**Ergebnis:** 24 Fragen werden zu 9 (Ausdauer) bis 18 (Körper/Gewicht). Für fünf der sieben
+Archetypen entfällt mindestens ein ganzer Schritt.
+
+**Der Beweis, nicht die Behauptung:** 70 Vergleiche — sieben Ziele × zehn Profile — bauen
+einmal den Plan aus dem vollen Intake und einmal aus dem gekürzten und verlangen, dass beide
+**identisch** sind, Signatur und alle Items. Der Test fand drei Fehler in der Karte, die eine
+Durchsicht nicht gefunden hatte: destrukturierte Zugriffe (`const { sleep } = input.profile`)
+verfehlt jede Suche nach `profile.sleep.*`; `general_health` liest so `wakesAtNight` und
+`sessionsPerWeekTarget`; und ein Helfer gehört seinen **Aufrufern**, nicht der Datei, in der
+er steht — `pickSessionMinutes` liegt in `bodyComposition.ts` und wird von `strength.ts`
+benutzt. Bis das stimmte, änderten sich Pläne.
+
+**Die KI darf erweitern, nie kürzen.** Die Einschätzung „dieses Ziel braucht trotzdem den
+Schlaf" ist ein Urteil und gehört dem Modell; eine Frage wegzulassen, die die Engine liest,
+ist kein Urteil, sondern ein Defekt. Die Vereinigungsmenge ist die Garantie — es gibt keinen
+Pfad, der etwas entfernt. Ein `assertCovers` stand zuerst zusätzlich darin und wurde entfernt,
+nachdem ein Mutationstest zeigte, dass er nicht auslösen kann: eine Zusicherung, die kein Test
+töten kann, ist Dekoration in Form eines Sicherheitsnetzes.
+
+**Die KI weiß jetzt, was sie nicht weiß.** Der Fragen-Prompt unterscheidet „nicht gefragt,
+weil der Plan es nicht liest" von „gefragt und offen gelassen". Das erste ist die Lücke, die
+das Modell schließen soll, wenn es sie für dieses Ziel für wichtig hält; das zweite ist eine
+Entscheidung des Menschen, die zu respektieren ist.
+
+**Sichtbar gemacht:** Jeder gekürzte Schritt sagt „Gefragt wird nur, was für … in den Plan
+einfließt", und der Zielschritt nennt, was entfällt. Eine Personalisierung, die niemand
+bemerkt, hat nicht stattgefunden (Kritik K7).
+
+---
+
 ## 2026-08-19 — ADR-001: Schrittweise Entwicklung mit Review-Punkten
 
 **Entscheidung:** Entwicklung in klar getrennten Schritten. Nach jedem Schritt wird

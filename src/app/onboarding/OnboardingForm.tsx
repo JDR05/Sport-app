@@ -27,6 +27,9 @@ import { buildAnswers, EMPTY, METRIC_FOR, toDraft, type Draft } from './draft'
 // what the form sends and what the action accepts is a compile error here
 // rather than a refusal the person reads on the last step.
 import type { OnboardingPayload } from './schema'
+import {
+  areaIsAsked, fieldsFor, skippedAreas, type IntakeArea, type IntakeField,
+} from '@/lib/domain/intakeFocus'
 import type { StoredPlanInput } from '@/lib/db/plan-input'
 import { WEEKDAYS, type GoalArchetype } from '@/lib/domain/types'
 import type { IntakeAnswer, Weekday } from '@/lib/domain/types'
@@ -47,6 +50,32 @@ const ARCHETYPE_LABEL: Record<GoalArchetype, string> = {
 }
 
 const STEPS = ['Ziel', 'Messbar', 'Über dich', 'Alltag', 'Fest', 'Sport', 'Ernährung', 'Schlaf', 'Kopf', 'Grenzen'] as const
+type Step = (typeof STEPS)[number]
+
+/**
+ * Which steps ask about the person, and are therefore skippable.
+ *
+ * The five that are not listed are asked of everybody: the goal is the point,
+ * the metric follows from it, "Alltag" and "Fest" are the only source of the
+ * hours a plan can be placed in, and "Grenzen" is where somebody says what the
+ * app may never schedule. None of those depend on which goal it is.
+ */
+/** What each skippable step is called when the app explains that it skipped it. */
+const AREA_LABEL: Record<IntakeArea, string> = {
+  body: 'Körperdaten',
+  sport: 'Sport',
+  nutrition: 'Ernährung',
+  sleep: 'Schlaf',
+  mind: 'Kopf',
+}
+
+const STEP_AREA: Partial<Record<Step, IntakeArea>> = {
+  'Über dich': 'body',
+  Sport: 'sport',
+  'Ernährung': 'nutrition',
+  Schlaf: 'sleep',
+  Kopf: 'mind',
+}
 
 export function OnboardingForm({
   existing,
@@ -89,10 +118,41 @@ export function OnboardingForm({
   const archetype = d.archetype ?? aiArchetype ?? detected.archetype
   const metricSpec = METRIC_FOR[archetype]
 
-  // The metric step is skipped for goals that have no number to state.
-  const visibleSteps = STEPS.filter((_, i) => i !== 1 || metricSpec !== undefined)
-  const stepName = visibleSteps[step]
-  const isLast = step === visibleSteps.length - 1
+  /**
+   * What this goal is asked.
+   *
+   * Derived from which code reads which field (see `intakeFocus.ts`), so a
+   * question disappears only when nothing that runs for this goal would have
+   * read the answer. Somebody working on their sleep is no longer asked how
+   * long they have to cook; somebody working on their weight still is, because
+   * the calorie target depends on it.
+   */
+  const asked = useMemo(() => fieldsFor(archetype), [archetype])
+  const ask = (field: IntakeField) => asked.has(field)
+  /** The steps this goal is spared, named on the goal screen so it is not a silent cut. */
+  const spared = useMemo(
+    () => skippedAreas(archetype).map((area) => AREA_LABEL[area]),
+    [archetype],
+  )
+
+  // The metric step is skipped for goals that have no number to state; a
+  // profile step is skipped when this goal reads none of its fields.
+  const visibleSteps = STEPS.filter((name, i) => {
+    if (i === 1) return metricSpec !== undefined
+    const area = STEP_AREA[name]
+    return area === undefined || areaIsAsked(area, asked)
+  })
+  /**
+   * Clamped, because the list of steps is not fixed any more.
+   *
+   * Editing the goal reclassifies it, and a different archetype can have fewer
+   * steps. An index held across that change can point past the end, and the
+   * screen for a step that is not there is a blank page with a button that
+   * does nothing — the worst kind of dead end, because nothing looks broken.
+   */
+  const current = Math.min(step, visibleSteps.length - 1)
+  const stepName = visibleSteps[current]
+  const isLast = current === visibleSteps.length - 1
   const canContinue =
     !ai.pending && (stepName !== 'Ziel' || d.goalText.trim().length >= 3)
 
@@ -139,7 +199,7 @@ export function OnboardingForm({
    *  the deterministic answer, which is already on screen. */
   const advanceFromGoal = async () => {
     if (d.archetype !== null) {
-      setStep(step + 1)
+      setStep(current + 1)
       return
     }
     // Not even a request. The route would decline it and answer from the
@@ -147,7 +207,7 @@ export function OnboardingForm({
     // trip, and more importantly it means "no consent" is visible in the
     // network tab as no traffic at all rather than as a call that was refused.
     if (!ai.granted) {
-      setStep(step + 1)
+      setStep(current + 1)
       return
     }
     setClassifying(true)
@@ -168,7 +228,7 @@ export function OnboardingForm({
       // Offline or the route is unavailable — the deterministic answer stands.
     } finally {
       setClassifying(false)
-      setStep(step + 1)
+      setStep(current + 1)
     }
   }
 
@@ -189,13 +249,19 @@ export function OnboardingForm({
 
   return (
     <Screen>
-      <StepProgress step={step} total={visibleSteps.length} />
+      <StepProgress step={current} total={visibleSteps.length} />
       <ScreenTitle
         title={stepName}
         subtitle={
           stepName === 'Ziel'
             ? 'Schreib in eigenen Worten, was du erreichen willst. Alles Weitere richtet sich danach.'
-            : undefined
+            : STEP_AREA[stepName] !== undefined
+              // Said out loud, on every step that was shortened, because a
+              // personalisation nobody notices is one that did not happen — the
+              // product critique's own point. It is also the honest answer to
+              // "warum fragt ihr das nicht?": nothing here would read it.
+              ? `Gefragt wird nur, was für ${ARCHETYPE_LABEL[archetype].toLowerCase()} in den Plan einfließt.`
+              : undefined
         }
       />
 
@@ -237,6 +303,12 @@ export function OnboardingForm({
                 />
               </div>
             </Card>
+          )}
+
+          {spared.length > 0 && (
+            <Note>
+              {`Für dieses Ziel entfällt: ${spared.join(', ')}. Die KI kann am Ende trotzdem nachfragen, wenn ihr etwas fehlt.`}
+            </Note>
           )}
 
           {provider !== null && (
@@ -281,15 +353,23 @@ export function OnboardingForm({
 
       {stepName === 'Über dich' && (
         <>
-          <Field label="Geburtsjahr"><NumberInput value={d.birthYear} onChange={(v) => set('birthYear', v)} placeholder="z. B. 1995" /></Field>
-          <Field label="Größe"><NumberInput value={d.heightCm} onChange={(v) => set('heightCm', v)} suffix="cm" /></Field>
-          <Field label="Gewicht"><NumberInput value={d.weightKg} onChange={(v) => set('weightKg', v)} suffix="kg" /></Field>
-          <Field label="Geschlecht bei Geburt" hint="Nur für die Bedarfsberechnung. Ohne Angabe rechnet die App vorsichtiger.">
-            <ChoiceGroup
-              options={[{ value: 'female', label: 'Weiblich' }, { value: 'male', label: 'Männlich' }, { value: 'unspecified', label: 'Keine Angabe' }]}
-              value={d.sexAtBirth} onChange={(v) => set('sexAtBirth', v)} columns={3}
-            />
-          </Field>
+          {ask('birthYear') && (
+            <Field label="Geburtsjahr"><NumberInput value={d.birthYear} onChange={(v) => set('birthYear', v)} placeholder="z. B. 1995" /></Field>
+          )}
+          {ask('heightCm') && (
+            <Field label="Größe"><NumberInput value={d.heightCm} onChange={(v) => set('heightCm', v)} suffix="cm" /></Field>
+          )}
+          {ask('weightKg') && (
+            <Field label="Gewicht"><NumberInput value={d.weightKg} onChange={(v) => set('weightKg', v)} suffix="kg" /></Field>
+          )}
+          {ask('sexAtBirth') && (
+            <Field label="Geschlecht bei Geburt" hint="Nur für die Bedarfsberechnung. Ohne Angabe rechnet die App vorsichtiger.">
+              <ChoiceGroup
+                options={[{ value: 'female', label: 'Weiblich' }, { value: 'male', label: 'Männlich' }, { value: 'unspecified', label: 'Keine Angabe' }]}
+                value={d.sexAtBirth} onChange={(v) => set('sexAtBirth', v)} columns={3}
+              />
+            </Field>
+          )}
         </>
       )}
 
@@ -323,99 +403,139 @@ export function OnboardingForm({
 
       {stepName === 'Sport' && (
         <>
-          <Field label="Was machst du gerne?" hint="Mehrfachauswahl.">
-            <MultiChoice
-              options={[
-                { value: 'gym', label: 'Gym' }, { value: 'bodyweight', label: 'Körpergewicht' },
-                { value: 'running', label: 'Laufen' }, { value: 'cycling', label: 'Radfahren' },
-                { value: 'swimming', label: 'Schwimmen' }, { value: 'football', label: 'Fußball' },
-                { value: 'climbing', label: 'Klettern' }, { value: 'yoga', label: 'Yoga' },
-              ]}
-              values={d.preferredActivities} onChange={(v) => set('preferredActivities', v)}
-            />
-          </Field>
-          <Field label="Was steht dir zur Verfügung?">
-            <MultiChoice
-              options={[
-                { value: 'none', label: 'Nichts' }, { value: 'home_basics', label: 'Kleingeräte' },
-                { value: 'home_gym', label: 'Heimstudio' }, { value: 'gym_membership', label: 'Gym-Abo' },
-              ]}
-              values={d.equipment} onChange={(v) => set('equipment', v)}
-            />
-          </Field>
-          <Field label="Wie erfahren bist du?">
-            <ChoiceGroup options={[{ value: 'beginner', label: 'Einsteiger' }, { value: 'intermediate', label: 'Geübt' }, { value: 'advanced', label: 'Erfahren' }]} value={d.experience} onChange={(v) => set('experience', v)} columns={3} />
-          </Field>
-          <Field label="Wie oft pro Woche?">
-            <ChoiceGroup options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}×` }))} value={d.sessionsPerWeekTarget} onChange={(v) => set('sessionsPerWeekTarget', v)} columns={4} />
-          </Field>
-          <Field label="Wie lange pro Einheit?">
-            <ChoiceGroup options={[25, 45, 60, 75].map((n) => ({ value: n, label: `${n} Min` }))} value={d.preferredSessionMinutes} onChange={(v) => set('preferredSessionMinutes', v)} columns={4} />
-          </Field>
+          {ask('preferredActivities') && (
+            <Field label="Was machst du gerne?" hint="Mehrfachauswahl.">
+              <MultiChoice
+                options={[
+                  { value: 'gym', label: 'Gym' }, { value: 'bodyweight', label: 'Körpergewicht' },
+                  { value: 'running', label: 'Laufen' }, { value: 'cycling', label: 'Radfahren' },
+                  { value: 'swimming', label: 'Schwimmen' }, { value: 'football', label: 'Fußball' },
+                  { value: 'climbing', label: 'Klettern' }, { value: 'yoga', label: 'Yoga' },
+                ]}
+                values={d.preferredActivities} onChange={(v) => set('preferredActivities', v)}
+              />
+            </Field>
+          )}
+          {ask('equipment') && (
+            <Field label="Was steht dir zur Verfügung?">
+              <MultiChoice
+                options={[
+                  { value: 'none', label: 'Nichts' }, { value: 'home_basics', label: 'Kleingeräte' },
+                  { value: 'home_gym', label: 'Heimstudio' }, { value: 'gym_membership', label: 'Gym-Abo' },
+                ]}
+                values={d.equipment} onChange={(v) => set('equipment', v)}
+              />
+            </Field>
+          )}
+          {ask('experience') && (
+            <Field label="Wie erfahren bist du?">
+              <ChoiceGroup options={[{ value: 'beginner', label: 'Einsteiger' }, { value: 'intermediate', label: 'Geübt' }, { value: 'advanced', label: 'Erfahren' }]} value={d.experience} onChange={(v) => set('experience', v)} columns={3} />
+            </Field>
+          )}
+          {ask('sessionsPerWeekTarget') && (
+            <Field label="Wie oft pro Woche?">
+              <ChoiceGroup options={[1, 2, 3, 4, 5].map((n) => ({ value: n, label: `${n}×` }))} value={d.sessionsPerWeekTarget} onChange={(v) => set('sessionsPerWeekTarget', v)} columns={4} />
+            </Field>
+          )}
+          {ask('preferredSessionMinutes') && (
+            <Field label="Wie lange pro Einheit?">
+              <ChoiceGroup options={[25, 45, 60, 75].map((n) => ({ value: n, label: `${n} Min` }))} value={d.preferredSessionMinutes} onChange={(v) => set('preferredSessionMinutes', v)} columns={4} />
+            </Field>
+          )}
         </>
       )}
 
       {stepName === 'Ernährung' && (
         <>
-          <Field label="Wie oft kochst du?">
-            <ChoiceGroup options={[{ value: 'never', label: 'Nie' }, { value: 'sometimes', label: 'Manchmal' }, { value: 'often', label: 'Oft' }]} value={d.cooksAtHome} onChange={(v) => set('cooksAtHome', v)} columns={3} />
-          </Field>
-          <Field label="Wie viel Zeit hast du dafür?">
-            <ChoiceGroup options={[15, 30, 45, 60].map((n) => ({ value: n, label: `${n} Min` }))} value={d.timeForCookingMin} onChange={(v) => set('timeForCookingMin', v)} columns={4} />
-          </Field>
-          <Field label="Wie oft isst du auswärts?" hint="Pro Woche. Die App verbietet es nicht – sie plant damit.">
-            <ChoiceGroup options={[0, 1, 2, 4, 6].map((n) => ({ value: n, label: `${n}×` }))} value={d.eatsOutPerWeek} onChange={(v) => set('eatsOutPerWeek', v)} columns={4} />
-          </Field>
-          <Field label="Ernährungsform">
-            <ChoiceGroup options={[{ value: 'omnivore', label: 'Alles' }, { value: 'vegetarian', label: 'Vegetarisch' }, { value: 'vegan', label: 'Vegan' }]} value={d.dietaryPattern} onChange={(v) => set('dietaryPattern', v)} columns={3} />
-          </Field>
-          <Field label="Mahlzeiten pro Tag">
-            <ChoiceGroup options={[2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} value={d.mealsPerDay} onChange={(v) => set('mealsPerDay', v)} columns={4} />
-          </Field>
-          <Field label="Portionen Gemüse oder Obst am Tag">
-            <ChoiceGroup options={[0, 1, 2, 3, 5].map((n) => ({ value: n, label: String(n) }))} value={d.vegetablePortionsPerDay} onChange={(v) => set('vegetablePortionsPerDay', v)} columns={5} />
-          </Field>
-          <Field label="Gesüßte Getränke am Tag">
-            <ChoiceGroup options={[0, 1, 2, 3, 5].map((n) => ({ value: n, label: String(n) }))} value={d.sugaryDrinksPerDay} onChange={(v) => set('sugaryDrinksPerDay', v)} columns={5} />
-          </Field>
+          {ask('cooksAtHome') && (
+            <Field label="Wie oft kochst du?">
+              <ChoiceGroup options={[{ value: 'never', label: 'Nie' }, { value: 'sometimes', label: 'Manchmal' }, { value: 'often', label: 'Oft' }]} value={d.cooksAtHome} onChange={(v) => set('cooksAtHome', v)} columns={3} />
+            </Field>
+          )}
+          {ask('timeForCookingMin') && (
+            <Field label="Wie viel Zeit hast du dafür?">
+              <ChoiceGroup options={[15, 30, 45, 60].map((n) => ({ value: n, label: `${n} Min` }))} value={d.timeForCookingMin} onChange={(v) => set('timeForCookingMin', v)} columns={4} />
+            </Field>
+          )}
+          {ask('eatsOutPerWeek') && (
+            <Field label="Wie oft isst du auswärts?" hint="Pro Woche. Die App verbietet es nicht – sie plant damit.">
+              <ChoiceGroup options={[0, 1, 2, 4, 6].map((n) => ({ value: n, label: `${n}×` }))} value={d.eatsOutPerWeek} onChange={(v) => set('eatsOutPerWeek', v)} columns={4} />
+            </Field>
+          )}
+          {ask('dietaryPattern') && (
+            <Field label="Ernährungsform">
+              <ChoiceGroup options={[{ value: 'omnivore', label: 'Alles' }, { value: 'vegetarian', label: 'Vegetarisch' }, { value: 'vegan', label: 'Vegan' }]} value={d.dietaryPattern} onChange={(v) => set('dietaryPattern', v)} columns={3} />
+            </Field>
+          )}
+          {ask('mealsPerDay') && (
+            <Field label="Mahlzeiten pro Tag">
+              <ChoiceGroup options={[2, 3, 4, 5].map((n) => ({ value: n, label: String(n) }))} value={d.mealsPerDay} onChange={(v) => set('mealsPerDay', v)} columns={4} />
+            </Field>
+          )}
+          {ask('vegetablePortionsPerDay') && (
+            <Field label="Portionen Gemüse oder Obst am Tag">
+              <ChoiceGroup options={[0, 1, 2, 3, 5].map((n) => ({ value: n, label: String(n) }))} value={d.vegetablePortionsPerDay} onChange={(v) => set('vegetablePortionsPerDay', v)} columns={5} />
+            </Field>
+          )}
+          {ask('sugaryDrinksPerDay') && (
+            <Field label="Gesüßte Getränke am Tag">
+              <ChoiceGroup options={[0, 1, 2, 3, 5].map((n) => ({ value: n, label: String(n) }))} value={d.sugaryDrinksPerDay} onChange={(v) => set('sugaryDrinksPerDay', v)} columns={5} />
+            </Field>
+          )}
         </>
       )}
 
       {stepName === 'Schlaf' && (
         <>
-          <Field label="Wann gehst du normalerweise schlafen?"><TimeInput value={d.usualBedtime} onChange={(v) => set('usualBedtime', v)} /></Field>
-          <Field label="Wann musst du raus?">
-            <WakeTimes
-              value={d.wakeTimes}
-              usual={d.usualWakeTime}
-              onUsual={(v) => set('usualWakeTime', v)}
-              onChange={(v) => set('wakeTimes', v)}
-            />
-          </Field>
-          <Field label="Wie gut schläfst du?">
-            <ChoiceGroup options={[{ value: 'poor', label: 'Schlecht' }, { value: 'ok', label: 'Geht so' }, { value: 'good', label: 'Gut' }]} value={d.sleepQuality} onChange={(v) => set('sleepQuality', v)} columns={3} />
-          </Field>
-          <Field label="Wachst du nachts auf?">
-            <ChoiceGroup options={[{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }]} value={d.wakesAtNight === null ? null : d.wakesAtNight ? 'yes' : 'no'} onChange={(v) => set('wakesAtNight', v === 'yes')} columns={2} />
-          </Field>
-          <Field label="Bildschirm kurz vor dem Schlafen?">
-            <ChoiceGroup options={[{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }]} value={d.screenBeforeBed === null ? null : d.screenBeforeBed ? 'yes' : 'no'} onChange={(v) => set('screenBeforeBed', v === 'yes')} columns={2} />
-          </Field>
+          {ask('usualBedtime') && (
+            <Field label="Wann gehst du normalerweise schlafen?"><TimeInput value={d.usualBedtime} onChange={(v) => set('usualBedtime', v)} /></Field>
+          )}
+          {ask('usualWakeTime') && (
+            <Field label="Wann musst du raus?">
+              <WakeTimes
+                value={d.wakeTimes}
+                usual={d.usualWakeTime}
+                onUsual={(v) => set('usualWakeTime', v)}
+                onChange={(v) => set('wakeTimes', v)}
+              />
+            </Field>
+          )}
+          {ask('sleepQuality') && (
+            <Field label="Wie gut schläfst du?">
+              <ChoiceGroup options={[{ value: 'poor', label: 'Schlecht' }, { value: 'ok', label: 'Geht so' }, { value: 'good', label: 'Gut' }]} value={d.sleepQuality} onChange={(v) => set('sleepQuality', v)} columns={3} />
+            </Field>
+          )}
+          {ask('wakesAtNight') && (
+            <Field label="Wachst du nachts auf?">
+              <ChoiceGroup options={[{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }]} value={d.wakesAtNight === null ? null : d.wakesAtNight ? 'yes' : 'no'} onChange={(v) => set('wakesAtNight', v === 'yes')} columns={2} />
+            </Field>
+          )}
+          {ask('screenBeforeBed') && (
+            <Field label="Bildschirm kurz vor dem Schlafen?">
+              <ChoiceGroup options={[{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }]} value={d.screenBeforeBed === null ? null : d.screenBeforeBed ? 'yes' : 'no'} onChange={(v) => set('screenBeforeBed', v === 'yes')} columns={2} />
+            </Field>
+          )}
           <Note>Die App empfiehlt dir nie weniger Schlaf — bei keinem Ziel.</Note>
         </>
       )}
 
       {stepName === 'Kopf' && (
         <>
-          <Field label="Bildschirmzeit am Tag">
-            <ChoiceGroup options={[1, 2, 4, 6, 9].map((n) => ({ value: n, label: `${n} h` }))} value={d.screenTimeHoursPerDay} onChange={(v) => set('screenTimeHoursPerDay', v)} columns={5} />
-          </Field>
-          <Field label="Wie leicht fällt dir Fokus?">
-            <ChoiceGroup options={[{ value: 'low', label: 'Leicht' }, { value: 'medium', label: 'Mittel' }, { value: 'high', label: 'Schwer' }]} value={d.focusStruggle} onChange={(v) => set('focusStruggle', v)} columns={3} />
-          </Field>
-          <Field label="Was machst du schon jeden Tag?" hint="Mit Komma trennen. Neue Gewohnheiten hängt die App daran auf.">
-            <TextArea value={d.existingRoutines} onChange={(v) => set('existingRoutines', v)} placeholder="Kaffee um 7, Hund um 18 Uhr" rows={2} />
-          </Field>
+          {ask('screenTimeHoursPerDay') && (
+            <Field label="Bildschirmzeit am Tag">
+              <ChoiceGroup options={[1, 2, 4, 6, 9].map((n) => ({ value: n, label: `${n} h` }))} value={d.screenTimeHoursPerDay} onChange={(v) => set('screenTimeHoursPerDay', v)} columns={5} />
+            </Field>
+          )}
+          {ask('focusStruggle') && (
+            <Field label="Wie leicht fällt dir Fokus?">
+              <ChoiceGroup options={[{ value: 'low', label: 'Leicht' }, { value: 'medium', label: 'Mittel' }, { value: 'high', label: 'Schwer' }]} value={d.focusStruggle} onChange={(v) => set('focusStruggle', v)} columns={3} />
+            </Field>
+          )}
+          {ask('existingRoutines') && (
+            <Field label="Was machst du schon jeden Tag?" hint="Mit Komma trennen. Neue Gewohnheiten hängt die App daran auf.">
+              <TextArea value={d.existingRoutines} onChange={(v) => set('existingRoutines', v)} placeholder="Kaffee um 7, Hund um 18 Uhr" rows={2} />
+            </Field>
+          )}
         </>
       )}
 
@@ -442,7 +562,7 @@ export function OnboardingForm({
 
       <div className="mt-8 flex flex-col gap-2">
         <Button
-          onClick={isLast ? finish : stepName === 'Ziel' ? advanceFromGoal : () => setStep(step + 1)}
+          onClick={isLast ? finish : stepName === 'Ziel' ? advanceFromGoal : () => setStep(current + 1)}
           disabled={!canContinue || classifying || saving}
         >
           {saving
@@ -453,8 +573,8 @@ export function OnboardingForm({
                 ? 'Plan erstellen'
                 : 'Weiter'}
         </Button>
-        {step > 0 && <Button variant="quiet" onClick={() => setStep(step - 1)}>Zurück</Button>}
-        {step > 0 && !isLast && (
+        {current > 0 && <Button variant="quiet" onClick={() => setStep(current - 1)}>Zurück</Button>}
+        {current > 0 && !isLast && (
           <button
             type="button"
             onClick={() => setStep(visibleSteps.length - 1)}
