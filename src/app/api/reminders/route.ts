@@ -1,9 +1,20 @@
-// Sending the day's reminders. Called by a scheduler, hourly.
+// Sending the day's reminders. Called by a scheduler.
 //
-// Hourly rather than once a day because the hour is the *person's* — somebody
-// in Berlin who picked 20:00 and somebody in Lisbon who picked 20:00 are an
-// hour apart, and both mean their own eight in the evening. The database
-// decides who is due, in their own zone; this route only sends.
+// The hour belongs to the *person* — somebody in Berlin who picked 20:00 and
+// somebody in Lisbon who picked 20:00 are an hour apart, and both mean their
+// own eight in the evening. The database decides who is due, in their own
+// zone; this route only sends. That design wants an hourly schedule.
+//
+// It runs daily, at 18:00 UTC, because the Hobby plan caps cron jobs at once
+// a day. So today it reaches the people whose chosen hour happens to fall in
+// that run and nobody else — a real limitation, written down here rather than
+// hidden, and one line of vercel.json away from correct on a paid plan.
+//
+// The reason this comment is here and not in vercel.json: it was in
+// vercel.json, as a "comment" key inside the cron object, and Vercel's schema
+// allows only `path` and `schedule`. An invalid vercel.json is not a failed
+// deployment — it is no deployment at all, no build, no error in the list. It
+// silently stopped every deploy of this project for five days.
 //
 // It holds no service key. ADR-034 keeps that out of the deployment, and a
 // scheduled route is not an exception to it: reading across everybody happens
