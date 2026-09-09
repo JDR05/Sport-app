@@ -64,12 +64,43 @@ describe('the reminder does not nag', () => {
 })
 
 describe('the schedule', () => {
-  it('runs hourly, because the hour belongs to the person', () => {
-    // Somebody in Berlin who chose 20:00 and somebody in Lisbon who chose
-    // 20:00 are an hour apart, and both mean their own evening. A daily job
-    // could only ever be right for one time zone.
-    expect(JSON.parse(cron).crons[0].schedule).toBe('0 * * * *')
+  // This test used to assert an hourly schedule, and it was right about the
+  // design and wrong about the platform. The hour belongs to the person —
+  // somebody in Berlin who chose 20:00 and somebody in Lisbon who chose 20:00
+  // are an hour apart, and both mean their own evening — so hourly is what
+  // this wants. The Hobby plan caps cron at once a day and *rejects the whole
+  // vercel.json* otherwise, which is not a failed build but no deployment at
+  // all. Five days of pushes went nowhere behind that.
+  //
+  // So the assertion is now the compromise rather than the wish, and the wish
+  // is written down beside it instead of being enforced against reality.
+
+  it('points at the sending route', () => {
     expect(JSON.parse(cron).crons[0].path).toBe('/api/reminders')
+  })
+
+  it('runs at a fixed hour, which is all the current plan allows', () => {
+    const [minute, hour] = JSON.parse(cron).crons[0].schedule.split(' ')
+    expect(minute).not.toBe('*')
+    expect(hour).not.toBe('*')
+  })
+
+  it('still decides who is due by their own local hour', () => {
+    // The degradation is in how often the job runs, never in what it does when
+    // it runs. If this ever compares against a server hour instead, a daily
+    // schedule stops being a reduced feature and becomes a wrong one.
+    const migration = readFileSync(
+      'supabase/migrations/20260904160000_push_subscriptions.sql',
+      'utf8',
+    )
+    expect(migration).toContain('now() at time zone s.time_zone')
+    expect(migration).toContain('= s.remind_hour')
+  })
+
+  it('says out loud that hourly is what it wants', () => {
+    // A limitation nobody wrote down is one somebody re-discovers as a bug.
+    const route = readFileSync('src/app/api/reminders/route.ts', 'utf8')
+    expect(route).toMatch(/Hobby|hourly/)
   })
 })
 
