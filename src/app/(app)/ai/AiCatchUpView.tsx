@@ -163,7 +163,7 @@ export function AiCatchUpView({
             </p>
             <p className="mt-1 text-sm leading-relaxed text-muted">
               {phase.answered
-                ? 'Der Vorschlag ist gespeichert. Diese Woche bleibt, wie sie ist — sie ist schon halb gelebt, und zwei Pläne für dieselben Tage wären doppelte Spuren von einer Woche.'
+                ? 'Gespeichert. Ab nächster Woche im Plan.'
                 : (phase.failure !== null && AI_FAILURE_TEXT[phase.failure]) ||
                   'Der Plan wird weiter deterministisch gebaut, wie bisher.'}
             </p>

@@ -157,7 +157,7 @@ export function ProgressView({ data }: { data: ProgressData }) {
             {data.completion === null ? (
               <EmptyState
                 title="Noch nichts abgehakt"
-                body="Sobald du Aktionen bewertest, steht hier, wie viel vom Plan tatsächlich passiert ist. Nicht angetippte Aktionen zählen nie als Versäumnis."
+                body="Sobald du Aktionen bewertest."
                 progress={{ done: data.weeksWithData, needed: 2, unit: 'Wochen' }}
               />
             ) : (

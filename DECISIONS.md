@@ -3350,6 +3350,48 @@ noch validiert wird. Achtung: Next.js 16 weicht von älteren Konventionen ab —
 
 ---
 
+## 2026-09-09 — ADR-121: Drei Tabs, eine Geste, keine Abschnitte, die sich selbst erklären
+
+**Entscheidung:** Fünf Tabs werden drei — Heute, Muster, Profil. Plan und Insights entfallen
+als eigene Ziele, ihre Pfade leiten weiter. Aktionen werden per Wisch beantwortet, abends
+zusätzlich als Sammelkarte. Leere Abschnitte verschwinden ersatzlos; an ihre Stelle tritt eine
+Zeile, die sagt, wie nah die App an ihrer nächsten Erkenntnis ist. Stärken werden auf das
+aktive Ziel eingegrenzt, Abweichungen nicht. Ein Test deckelt jeden Nutzertext bei 110 Zeichen.
+
+**Begründung:** Aus echten Daten dieses Kontos, nicht aus Vermutung.
+
+**Die Verteilung war das Symptom.** Plan hatte einen Abschnitt — sieben Zeilen, jede ein Link
+zurück nach Heute, den der Wochenstreifen ohnehin in einem Tipp erreicht. Insights und Profil
+hatten je acht. Fortschritt und Insights beantworteten zusammen *eine* Frage, verteilt auf zwei
+Tabs, sodass man beide prüfen musste, um zu wissen, ob die App überhaupt etwas gesagt hat.
+
+**Sechs von acht Abschnitten waren strukturell leer** und erklärten ihre eigene Leere je in
+einem Absatz: acht Überschriften, sechs Entschuldigungen, zwei Tatsachen — auf dem Screen, der
+von der Person handeln soll. Den Zustand „KI nicht erlaubt" mitzulöschen war ein Fehler, den
+ein Test gefangen hat: das ist keine fehlende Angabe, sondern ein Schalter, den jemand umlegen
+kann — und nicht kann, wenn die App ihn nie erwähnt.
+
+**Die Schwelle bleibt bei vier.** Drei Datenpunkte sind Zufall. Sie zu senken hätte einen Satz
+gekauft und dafür bezahlt, dass der Satz stimmt. Falsch war nie die Schwelle, sondern das
+Schweigen darüber: wer nichts bewertet hatte und wer eine Bewertung fehlte, sah denselben
+leeren Screen.
+
+**Der eigentliche Engpass:** 74 % aller geplanten Aktionen bekamen nie ein Urteil, und Muster,
+Experimente und Regeln hängen alle daran. Die adaptive Engine war nicht kaputt, sie hat
+gehungert. Also kostet Antworten jetzt eine Geste — rechts erledigt, links nicht geschafft,
+ohne Zielen, ohne Lesen — und abends kommt der ganze Tag als eine Karte, weil drei offene
+Aktionen um elf Uhr nachts *ein* Gedanke sind und drei getrennte Entscheidungen gekostet haben.
+
+**Was die App über wen behauptet.** Das Auswertungsfenster ist sechs Wochen, das Ziel kann
+darin wechseln — hier lagen 32 von 81 Aktionen bei Zielen, die längst aufgegeben waren. „Ich
+verpasse Mittwochabende" bleibt wahr, egal wofür die Aktion war; „Ernährung funktioniert bei
+dir" nicht. Also zählen Abweichungen alles und Stärken nur das aktive Ziel.
+
+**Kein Streak, kein Punktestand.** Wer das um elf Uhr nachts nach einem schlechten Tag öffnet,
+ist genau die Person, für die die Keine-Schuld-Regel geschrieben wurde.
+
+---
+
 ## 2026-09-09 — ADR-120: Einheitlichkeit war das Problem, nicht der Radius
 
 **Entscheidung:** ADR-079s Regeln 2 und 3 werden ersetzt. Statt 3 px auf allem und keinem
