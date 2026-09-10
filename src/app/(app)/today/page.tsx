@@ -28,6 +28,8 @@ import { shouldOfferRoundup } from '@/lib/domain/roundup'
 import { useLocalHour } from '@/lib/domain/useLocalHour'
 import { AskCard } from '@/components/AskCard'
 import { DayBriefCard } from '@/components/DayBriefCard'
+import { CatchUpLine } from '@/components/CatchUpLine'
+import { nextDayToFill, openDaysSentence, openPastDays } from '@/lib/domain/openDays'
 import { CheckInCard } from '@/components/CheckInCard'
 import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
 import { FollowUpCard } from '@/components/FollowUpCard'
@@ -149,6 +151,11 @@ function Today() {
         const open = items.filter((i) => i.status === 'planned' || i.status === 'unknown')
 
         const isToday = viewing === today
+        // Days of this week that have already happened and still hold an
+        // unanswered action. Computed once: the sentence and the button have to
+        // agree about which day they mean, and two calls a render apart can
+        // disagree the moment something is ticked off.
+        const openDays = isToday ? openPastDays(week.items, today) : []
         // The same rule Plan marks its rows with, from the same module. Written
         // twice, the second copy is the one that drifts — and a day answerable
         // on one screen and not the other just looks like a confused app.
@@ -197,14 +204,20 @@ function Today() {
               </div>
             )}
 
-            {/* The AI, before the work rather than under it.
+            {/* The AI, before the work rather than under it — and both
+                directions of it in one place.
 
-                Every other thing the model says in this app sits at the bottom
-                of Today, below the actions, the roundup and the check-in — which
-                on a phone is below the fold on every single day. That placement
-                was defensible when it spoke once a week. It is not for the one
-                output whose entire job is to answer "was ist heute wichtig?"
-                before somebody starts working through five equal-looking cards.
+                Everything the model said in this app used to sit at the bottom
+                of Today, below the actions, the round-up and the check-in,
+                which on a phone is below the fold every single day. That was
+                defensible while it spoke once a week. It is not for the one
+                output whose whole job is to answer "was ist heute wichtig?"
+                before somebody works through five equal-looking cards — and it
+                was not defensible for the question box either, which was never
+                used once from down there (ADR-123).
+
+                The brief speaks; the line under it is how you answer back, and
+                it stays closed so the day's work keeps its place near the top.
 
                 Only on today. A brief about this morning rendered under
                 Mittwoch is the app talking about a day it is not on. */}
@@ -221,6 +234,8 @@ function Today() {
                 />
               </div>
             )}
+
+            {isToday && <AskCard today={today} />}
 
             {(all.length > 0 || fixed.length > 0) && (
               <div className="mb-2.5 flex items-baseline justify-between">
@@ -311,6 +326,28 @@ function Today() {
                 back to fill in Mittwoch is the reason the strip exists. Not for
                 a day that has not: a report on an unlived day would reach the
                 pattern detection as evidence, so the server refuses one too. */}
+            {/* The days the app still knows nothing about.
+
+                Directly above the question it asks about *this* day, because
+                they are the same question about a different one — and because
+                the check-in is the single richest thing the adaptive engine
+                reads. Only on today: a catch-up line rendered under Montag
+                would be offering to go to the day somebody is already looking
+                at.
+
+                One day at a time, phrased as the app's gap rather than the
+                person's. See openDays.ts for why both of those are rules and
+                not preferences. */}
+            {isToday && (
+              <CatchUpLine
+                sentence={openDaysSentence(openDays)}
+                onGo={() => {
+                  const day = nextDayToFill(openDays)
+                  if (day) setViewing(day)
+                }}
+              />
+            )}
+
             {canCheckInOn(viewing, today) ? (
               <CheckInCard
                 // A different day is a different card. The alternative is
@@ -334,14 +371,18 @@ function Today() {
               </>
             )}
 
-            {/* The two things the app says unprompted, and the box for asking
-                it something. All three are about right now, so they stay on
-                today — and each renders nothing at all when it has nothing. */}
+            {/* The two things the app says unprompted. Both are about right
+                now, so they stay on today — and each renders nothing at all
+                when it has nothing.
+
+                The question box used to be the third of these and is now at the
+                top, closed, next to the brief. It was never once used from down
+                here, and the server log says it was never once failing either
+                (ADR-123). */}
             {isToday && (
               <>
                 <ImpulseCard today={today} />
                 <FollowUpCard today={today} />
-                <AskCard today={today} />
               </>
             )}
           </Screen>

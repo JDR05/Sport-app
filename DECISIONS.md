@@ -7,6 +7,67 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-10 — ADR-123: Ein Prompt ist kein Parser, und eine Tür ohne Schild wird nicht benutzt
+
+**Entscheidung:** Drei Dinge, die alle aus derselben Messung folgen — dem Serverlog und den
+Zeilen in der Datenbank statt einer Vermutung.
+
+**1. `extractJson` statt `stripCodeFence`.** Der Tagesblick ist an seinem ersten
+Produktionstag bei **jedem** Aufruf mit `invalid_json` gescheitert. Im Log stand deutscher
+Fließtext mit einer Selbstkorrektur und Pfeilen: das Modell hatte seine Überlegung
+ausgeschrieben, einen Satz revidiert und das Objekt irgendwo in die Mitte gelegt. Im Prompt
+steht seit dem ersten Tag „Antworte ausschliesslich mit JSON". Genau das ist der Punkt: ein
+Prompt ist eine Bitte, der Parser ist die Garantie — dieselbe Trennung, unter der die
+Sicherheitsprüfungen stehen.
+
+Gesucht wird jetzt ein Zaun irgendwo im Text, dann das **erste balancierte Objekt**, gefunden
+mit einem Scan, der Strings und deren Escapes mitzählt. `indexOf('{')` bis `lastIndexOf('}')`
+sieht gleichwertig aus und ist es nicht: eine geschweifte Klammer in einem `reason` oder ein
+zweites Objekt in einer nachgestellten Erklärung lassen es zu viel greifen. Ein abgeschnittenes
+Objekt wird **nicht repariert**, und der ganze Body kommt zurück, damit im Log weiterhin steht,
+was der Anbieter wirklich gesagt hat.
+
+**2. `daily_briefs.attempts`.** Derselbe Ausfall hat eine schlechtere Entscheidung darunter
+freigelegt: „der Aufruf ging schief" und „das Modell hatte nichts zu sagen" wurden als
+dieselbe Zeile geschrieben. Ein Schluckauf des Anbieters hat damit den **ganzen Tag**
+stillgelegt — exakt die Beschwerde, für die das Feature gebaut wurde. Die Gegenrichtung, bei
+Fehlern gar nichts zu schreiben, ruft den Anbieter bei jedem Seitenaufruf erneut, und
+Pull-to-Refresh und ein Tabwechsel sind Seitenaufrufe. `attempts = 0` heißt: das Modell hat
+geantwortet, Schweigen eingeschlossen, und das ist endgültig. Größer als null heißt: es hat
+sich noch niemand gemeldet, drei Versuche insgesamt.
+
+**3. Die Fragebox steht oben und ist zu.** `ai_questions` hatte in vier Wochen **null**
+Zeilen. Das Serverlog entscheidet, woran das lag: in sieben Tagen keine einzige
+`[ai] ask failed`-Zeile. Sie ist also nie gescheitert — sie wurde nie erreicht. Sie stand als
+neuntes Element auf Heute, unter den Aktionen, dem Tagesabschluss, den Regeln, dem Check-in,
+dem Impuls und der Rückfrage.
+
+Sie ganz nach oben zu heben hätte die Aktionen des Tages nach unten gedrückt, und „Heute ist
+wichtiger als irgendwann" entscheidet das. Also öffnet sie sich als **eine Zeile** direkt
+unter dem Tagesblick: die KI sagt ihren Satz, darunter kann man ihr antworten. Der Bildschirm
+wird dadurch kürzer, nicht länger — unten fällt eine Karte weg.
+
+**4. „Von Montag und Dienstag weiß ich noch nichts."** Von 81 Aktionen waren 58 nie
+beantwortet, und die Mustererkennung braucht vier bewertete Instanzen pro Muster. Nach Tagen
+aufgeschlüsselt ist die Ursache nicht rätselhaft: drei Tage vollständig getrackt, fünf Tage
+kaum, ein Tag wieder vollständig — und die fünf in der Mitte sind genau das Fenster, in dem
+die Wischgeste jeden Tipp gefressen hat. Der Fehler ist behoben; was zusätzlich fehlte, war
+ein Hinweis. Kein Bildschirm sagte, dass Montag noch leer ist, also blieb ein einmal
+verpasster Tag für immer verpasst.
+
+**Der Ton ist hier die eigentliche Entscheidung.** Es ist als **Lücke der App** formuliert,
+nie als Liste dessen, was jemand nicht abgehakt hat: kein Zähler, kein Abzeichen, keine Serie,
+höchstens zwei Wochentage namentlich und dann „und 2 weiteren Tagen". Ein Test verbietet
+`verpasst`, `vergessen`, `versäumt`, `nachholen` und `leider` im Satz. Der Knopf heißt
+**Eintragen**, nicht Nachholen: das erste ist, was der Tipp tut, das zweite ein Urteil
+darüber, was nicht passiert ist.
+
+**Bekannte Grenze:** Heute lädt genau eine Woche, also reicht die Zeile nur bis Montag zurück.
+Die offenen Tage der Vorwoche haben weiterhin keine Tür. Das ist ein eigener Schritt und
+bewusst nicht in diesem.
+
+---
+
 ## 2026-09-10 — ADR-122: Die KI spricht täglich, und sie darf einmal etwas ändern
 
 **Entscheidung:** Ein **Tagesblick** oben auf Heute. Einmal pro Tag liest das Modell die

@@ -22,6 +22,19 @@
 //
 // Hidden entirely when no model can answer. An input box that replies "das
 // weiß ich nicht" to everything is worse than no input box.
+//
+// Closed until it is tapped, and near the top rather than at the bottom.
+//
+// It sat ninth on Today — under the actions, the round-up, the standing rules,
+// the check-in, the impulse and the follow-up — which on a phone is two screens
+// down. The server log settles what that cost: in seven days there is not one
+// `[ai] ask failed` line and the table has never had a row, so it was not
+// failing. Nobody ever got to it.
+//
+// Moving it up whole would have pushed the day's actions down, and "Heute ist
+// wichtiger als irgendwann" is the rule that decides that. So it opens as one
+// line: visible, one tap from the AI's own card, and costing the day's work a
+// single row instead of a card.
 
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -41,6 +54,7 @@ import type { AskState, Exchange } from '@/lib/db/ask'
  */
 export function AskCard({ today }: { today: string }) {
   const [state, setState] = useState<AskState | null>(null)
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     let current = true
@@ -58,8 +72,31 @@ export function AskCard({ today }: { today: string }) {
     }
   }, [today])
 
-  if (!state) return null
+  if (!state?.available) return null
+  if (!open) return <AskOpener onOpen={() => setOpen(true)} />
   return <AskView state={state} today={today} />
+}
+
+/**
+ * The closed state: one line that says what is behind it.
+ *
+ * Not a button labelled "Frag nach" on its own — a label with no example is a
+ * door with no sign on it, and the whole finding from the log is that people do
+ * not open doors they have no reason to expect anything behind. So it says what
+ * it answers, in one line, and looks like the input it becomes.
+ */
+export function AskOpener({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="mb-3 flex min-h-11 w-full items-center gap-2 rounded-control border border-line bg-surface px-3 py-2.5 text-left transition-colors duration-[var(--motion-tap)] active:bg-sunken"
+    >
+      <span className="text-[15px] leading-snug text-faint">
+        Frag mich etwas zu deinem Plan
+      </span>
+    </button>
+  )
 }
 
 /** The card itself, given its state. Separate so it can be rendered in a test. */
