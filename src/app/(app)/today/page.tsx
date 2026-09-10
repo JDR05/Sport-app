@@ -25,6 +25,7 @@ import { RequirePlan } from '@/components/RequirePlan'
 import { ActionItem } from '@/components/ActionItem'
 import { DayRoundup } from '@/components/DayRoundup'
 import { shouldOfferRoundup } from '@/lib/domain/roundup'
+import { useLocalHour } from '@/lib/domain/useLocalHour'
 import { AskCard } from '@/components/AskCard'
 import { CheckInCard } from '@/components/CheckInCard'
 import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
@@ -62,6 +63,9 @@ export default function TodayPage() {
 
 function Today() {
   const { today, setStatus, answer, accept, movedAway } = usePlan()
+  // Null until the browser has answered. Read here rather than at the point of
+  // use, because a clock read during render is a clock the server also reads.
+  const hour = useLocalHour()
 
   // Which day Plan asked for, if it asked for one.
   //
@@ -133,10 +137,15 @@ function Today() {
         const rules = all.filter((i) => i.cadence === 'daily')
         const items = all.filter((i) => i.cadence !== 'daily')
         const fixed = commitmentsForDay(week.commitments, weekdayOf(viewing))
-        // Everything still without a verdict, rules included: the round-up is
-        // the catch-all, so leaving the standing rules out of it would leave
-        // the one thing somebody has every single day unanswerable in bulk.
-        const open = all.filter((i) => i.status === 'planned' || i.status === 'unknown')
+        // The day's own actions still without a verdict — and *not* the
+        // standing rules.
+        //
+        // The first version took them from `all`, on the reasoning that the
+        // round-up should be the catch-all. It made the same rule appear twice
+        // on one screen: once in its own card with its own ring, once as a row
+        // here. Two places to answer one thing is the exact duplication this
+        // screen was rebuilt to remove.
+        const open = items.filter((i) => i.status === 'planned' || i.status === 'unknown')
 
         const isToday = viewing === today
         // The same rule Plan marks its rows with, from the same module. Written
@@ -244,11 +253,8 @@ function Today() {
                 is three gestures for one thought, and three quarters of all
                 actions were never answered at all. */}
             {answerable &&
-              shouldOfferRoundup(
-                dayPosition(viewing, today),
-                new Date().getHours(),
-                open.length,
-              ) && (
+              hour !== null &&
+              shouldOfferRoundup(dayPosition(viewing, today), hour, open.length) && (
                 <div className="mt-6">
                   <DayRoundup
                     items={open}

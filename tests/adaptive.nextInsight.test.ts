@@ -36,18 +36,49 @@ function rated(domain: PlanDomain, n: number, status: PlanItemStatus = 'done'): 
   return Array.from({ length: n }, (_, i) => obs(domain, status, days[i % days.length]))
 }
 
+describe('the bar and the sentence agree', () => {
+  // The bar counted towards the raw threshold while the sentence counted every
+  // rating still needed, including the ones in other domains that form the
+  // comparison group. Four out of four, and "noch zwei" beside it.
+  it('always counts up to what is actually left', () => {
+    for (const observations of [
+      rated('movement', 3),
+      [...rated('nutrition', 6), ...rated('movement', 3)],
+      [...rated('nutrition', 1), ...rated('sleep', 2)],
+    ]) {
+      const result = nextInsight(observations)
+      if (result === null) continue
+      expect(result.needed).toBe(result.done + result.missing)
+      expect(result.done).toBeLessThanOrEqual(result.needed)
+    }
+  })
+})
+
 describe('what the app is still waiting for', () => {
   it('asks for the first rating when nothing has been rated', () => {
     const result = nextInsight([obs('training', 'planned', '2026-09-01')])
-    expect(result).toEqual({ domain: null, missing: MIN_RESOLVED_INSTANCES, done: 0, needed: MIN_RESOLVED_INSTANCES })
+    expect(result).toEqual({
+      domain: null,
+      missing: MIN_RESOLVED_INSTANCES,
+      done: 0,
+      needed: MIN_RESOLVED_INSTANCES,
+    })
   })
 
   it('names the domain that is closest, not the biggest', () => {
-    // Nutrition has more history; movement is one away. The reachable one is
+    // Nutrition has plenty behind it, so it doubles as movement's comparison
+    // group and movement is genuinely one rating away. The reachable one is
     // the one worth naming — "eleven more in a domain you ignore" is noise.
-    const result = nextInsight([...rated('nutrition', 2), ...rated('movement', 3)])
+    const result = nextInsight([...rated('nutrition', 6), ...rated('movement', 3)])
     expect(result?.domain).toBe('movement')
     expect(result?.missing).toBe(1)
+  })
+
+  it('counts what the comparison group still needs, not just the domain', () => {
+    // Three movement answers and nothing else is not one rating away from a
+    // pattern. Detection compares a bucket against the rest of the week, and
+    // there is no rest yet: one more in movement, four anywhere else.
+    expect(nextInsight(rated('movement', 3))?.missing).toBe(5)
   })
 
   it('goes quiet once a domain has enough', () => {
@@ -71,8 +102,12 @@ describe('what the app is still waiting for', () => {
 
   it('counts a missed action as data, because it is', () => {
     // "I did not do it" is the more informative answer of the two, and a
-    // progress bar that only moved on success would be a streak counter.
-    expect(nextInsight(rated('movement', 3, 'missed'))?.missing).toBe(1)
+    // progress bar that only moved on success would be a streak counter. The
+    // number is the same whichever way the three went.
+    expect(nextInsight(rated('movement', 3, 'missed'))?.missing).toBe(
+      nextInsight(rated('movement', 3, 'done'))?.missing,
+    )
+    expect(nextInsight(rated('movement', 3, 'missed'))?.done).toBe(3)
   })
 
   describe('the real account this was built for', () => {

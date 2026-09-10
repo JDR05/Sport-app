@@ -60,8 +60,8 @@ export function PlaybookView({
     <RequirePlan>
       {() => (
         <Screen>
-          <Link href="/insights" className="mb-3 inline-block text-sm font-medium text-muted">
-            ‹ Insights
+          <Link href="/muster" className="mb-3 inline-block text-sm font-medium text-muted">
+            ‹ Muster
           </Link>
           <ScreenTitle
             title="Dein Playbook"

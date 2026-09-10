@@ -83,8 +83,8 @@ export function ProgressView({ data }: { data: ProgressData }) {
                       <p>
                         {data.scores.overall.untouched} Aktionen dieser Woche hast du nicht
                         bewertet. Die zählen nicht mit — weder dafür noch dagegen.{' '}
-                        <Link href="/plan" className="text-accent underline underline-offset-4">
-                          Im Wochenplan nachtragen
+                        <Link href="/today" className="text-accent underline underline-offset-4">
+                          Nachtragen
                         </Link>
                       </p>
                     ) : (

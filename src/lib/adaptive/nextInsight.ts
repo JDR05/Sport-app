@@ -29,9 +29,17 @@ import type { PlanDomain } from '@/lib/domain/types'
 export type NextInsight = {
   /** Which domain is closest, or null when nothing has been rated at all. */
   domain: PlanDomain | null
-  /** Ratings still needed in that domain. Never below 1 — zero means it is met. */
+  /** Ratings still needed before detection can run. Never below 1. */
   missing: number
   done: number
+  /**
+   * What the bar counts up to — always `done + missing`.
+   *
+   * Not the raw threshold. The bar showed `done` out of four while the line
+   * beside it could say "five more", because the count includes ratings needed
+   * in *other* domains to form a comparison group. A bar and a sentence
+   * disagreeing about the same wait is the app arguing with itself.
+   */
   needed: number
 }
 
@@ -70,15 +78,34 @@ export function nextInsight(observations: readonly Observation[]): NextInsight |
     return { domain: null, missing: MIN_RESOLVED_INSTANCES, done: 0, needed: MIN_RESOLVED_INSTANCES }
   }
 
+  // Detection needs a comparison group as well as a bucket: a shortfall
+  // measured against nothing is not a contrast, which `assess` enforces with
+  // the same minimum on `rest`. Modelling only the bucket let this line fill
+  // its bar and produce nothing — a progress indicator that can complete
+  // without the thing it was counting towards is worse than none.
+  const totalResolved = [...resolvedPerDomain.values()].reduce((sum, n) => sum + n, 0)
+
   let best: NextInsight | null = null
   for (const [domain, done] of resolvedPerDomain) {
     const weeks = weeksPerDomain.get(domain)?.size ?? 0
     // Enough here already, so nothing to wait for in this domain. Not a reason
     // to stop looking at the others.
     if (done >= MIN_RESOLVED_INSTANCES && weeks >= MIN_DISTINCT_WEEKS) continue
-    const missing = Math.max(1, MIN_RESOLVED_INSTANCES - done)
+
+    // What this domain still needs, and what everything *around* it still
+    // needs, whichever is further away. Naming a domain that is one rating
+    // short while the rest of the week has two answers in it would be pointing
+    // at the wrong thing.
+    // Added, not maximised. They are different actions: a rating in another
+    // domain fills this one's comparison group without touching its bucket, so
+    // somebody with three movement answers and nothing else needs one more
+    // movement *and* four elsewhere. Taking the larger of the two was the
+    // first version and it under-counted every time both were short.
+    const inDomain = Math.max(0, MIN_RESOLVED_INSTANCES - done)
+    const inRest = Math.max(0, MIN_RESOLVED_INSTANCES - (totalResolved - done))
+    const missing = Math.max(1, inDomain + inRest)
     if (best === null || missing < best.missing) {
-      best = { domain, missing, done, needed: MIN_RESOLVED_INSTANCES }
+      best = { domain, missing, done, needed: done + missing }
     }
   }
   return best

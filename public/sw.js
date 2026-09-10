@@ -31,15 +31,31 @@ const VERSION = `trace-shell-${new URLSearchParams(self.location.search).get('v'
 // The routes worth having offline: the ones somebody opens in a gym or on a
 // run. They are cached as *shells*; their content still needs the network, and
 // the app already shows an honest "could not load" state when it is missing.
-const SHELL = ['/today', '/plan', '/offline']
+const SHELL = ['/today', '/muster', '/offline']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(VERSION)
-      .then((cache) => cache.addAll(SHELL))
-      // A shell that cannot be fetched at install time must not stop the worker
-      // installing. Without this, one 404 leaves the app with no worker at all.
+      // One at a time, and each failure swallowed on its own.
+      //
+      // This was `cache.addAll(SHELL)`, which is all-or-nothing *and* rejects
+      // outright on a redirect. '/plan' became a redirect to '/today' when the
+      // tab went away, so addAll rejected, the catch below swallowed it, and
+      // the worker installed with an empty cache — offline silently did
+      // nothing at all, with no error anywhere. A list where one bad entry
+      // costs every good one is the wrong shape for a best-effort cache.
+      .then((cache) =>
+        Promise.all(
+          SHELL.map((path) =>
+            fetch(path, { redirect: 'follow' })
+              .then((response) =>
+                response.ok && response.type === 'basic' ? cache.put(path, response) : undefined,
+              )
+              .catch(() => {}),
+          ),
+        ),
+      )
       .catch(() => {})
       .then(() => self.skipWaiting()),
   )
