@@ -28,7 +28,7 @@
 import { useRef, useState } from 'react'
 import { CheckRing } from '@/components/CheckRing'
 import {
-  isHorizontal, swipeOffset, swipeProgress, swipeVerdict,
+  isHorizontal, startsOnControl, swipeOffset, swipeProgress, swipeVerdict,
 } from '@/lib/domain/swipe'
 import { DomainBadge } from '@/components/ui'
 import { isAiAuthored } from '@/lib/engine/proposed'
@@ -93,6 +93,18 @@ export function ActionItem({
   const [dx, setDx] = useState(0)
 
   function onTouchStart(event: React.TouchEvent) {
+    // A touch that begins on a control belongs to that control.
+    //
+    // Without this the gesture armed on every touch anywhere in the card,
+    // including directly on the ring. A thumb drifting eleven pixels while
+    // tapping locked the swipe, moved the card, and the browser cancelled the
+    // click — and eleven pixels is far under the answer threshold, so nothing
+    // was recorded either. Every such tap vanished silently, which is exactly
+    // what "es speichert alles nicht" looks like from the outside.
+    if (startsOnControl(event.target as unknown as { closest(s: string): unknown })) {
+      start.current = null
+      return
+    }
     const touch = event.touches[0]
     start.current = { x: touch.clientX, y: touch.clientY }
     locked.current = false

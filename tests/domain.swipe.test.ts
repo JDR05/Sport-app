@@ -6,8 +6,10 @@
 // gesture is worth testing rather than eyeballing.
 
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
-  isHorizontal, SWIPE_MAX_PX, SWIPE_THRESHOLD_PX, swipeOffset, swipeProgress, swipeVerdict,
+  CONTROL_SELECTOR, isHorizontal, startsOnControl, SWIPE_MAX_PX, SWIPE_THRESHOLD_PX,
+  swipeOffset, swipeProgress, swipeVerdict,
 } from '@/lib/domain/swipe'
 
 describe('which answer a gesture means', () => {
@@ -84,5 +86,45 @@ describe('how complete the gesture looks', () => {
 
   it('is the same in both directions', () => {
     expect(swipeProgress(-40)).toBe(swipeProgress(40))
+  })
+})
+
+describe('a tap on a control is not a swipe', () => {
+  // The gesture armed on every touch anywhere in the card, the ring included.
+  // A thumb drifting eleven pixels while tapping locked the swipe, moved the
+  // card, and the browser cancelled the click — and eleven pixels is far under
+  // the answer threshold, so nothing was recorded either. The tap vanished
+  // with no error and no mark on screen, which is what "es speichert alles
+  // nicht" looks like from the outside.
+
+  /** Something with the one method the rule uses. */
+  const target = (matches: boolean) => ({ closest: () => (matches ? {} : null) })
+
+  it('refuses to arm on a control', () => {
+    expect(startsOnControl(target(true))).toBe(true)
+  })
+
+  it('arms on the plain surface of the card', () => {
+    expect(startsOnControl(target(false))).toBe(false)
+  })
+
+  it('treats a missing target as not a control, rather than throwing', () => {
+    expect(startsOnControl(null)).toBe(false)
+  })
+
+  it('covers every control this card actually renders', () => {
+    // The card holds the completion ring, the "why" disclosure and four answer
+    // chips — all <button>. A selector that missed any one of them would eat
+    // exactly the taps this fix exists for.
+    for (const tag of ['button', 'a', 'input', 'textarea', 'select', 'summary']) {
+      expect(CONTROL_SELECTOR).toContain(tag)
+    }
+  })
+
+  it('is wired into the card, not just exported', () => {
+    const card = readFileSync('src/components/ActionItem.tsx', 'utf8')
+    expect(card).toContain('startsOnControl')
+    // And it has to bail out, not merely ask.
+    expect(card).toMatch(/startsOnControl\([\s\S]{0,80}\)\)\s*\{\s*start\.current = null/)
   })
 })
