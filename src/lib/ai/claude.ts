@@ -12,7 +12,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import {
   classifyTask, classifyUserMessage, knownFields, proposeTask, proposeUserMessage,
-  questionsTask, questionsUserMessage, stripCodeFence,
+  questionsTask, questionsUserMessage, extractJson,
   weeklyNoteTask, weeklyNoteUserMessage, askTask, askUserMessage,
   followUpTask, followUpUserMessage, commitmentsTask, commitmentsUserMessage,
   dailyBriefTask, dailyBriefUserMessage,
@@ -155,7 +155,7 @@ export class ClaudeAdapter implements AiAdapter {
 
     let json: unknown
     try {
-      json = JSON.parse(stripCodeFence(text))
+      json = JSON.parse(extractJson(text))
     } catch {
       return { ok: false, reason: 'invalid_json', detail: text.slice(0, 200) }
     }

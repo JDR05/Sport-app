@@ -724,6 +724,90 @@ export function stripCodeFence(text: string): string {
   return fenced ? fenced[1] : text
 }
 
+/**
+ * The JSON inside whatever the model actually sent.
+ *
+ * `stripCodeFence` handled the slip everybody predicts — a fence around the
+ * whole answer — and nothing else. The first day the daily brief ran against
+ * the configured provider it failed with `invalid_json`, and the logged body
+ * was German prose containing a self-correction with arrows: the model had
+ * written out its reasoning, revised one sentence, and put the object
+ * somewhere in the middle. Every rule about bare JSON was in the prompt
+ * already. A prompt is not a parser.
+ *
+ * So three attempts, cheapest first:
+ *
+ *   1. A fence anywhere in the text, not only around all of it.
+ *   2. A bare array, passed through whole — no task here asks for one.
+ *   3. The first balanced object, found by scanning.
+ *
+ * The scan tracks string literals and their escapes, which is the whole reason
+ * it is a scan rather than a regex. `text.indexOf('{')` to `text.lastIndexOf('}')`
+ * looks equivalent and is not: a reason field containing a brace, or a second
+ * object in a trailing explanation, both make it capture too much and produce
+ * an error message pointing at the wrong place.
+ *
+ * Returns the original when nothing looks like an object, so the caller's
+ * `JSON.parse` still throws and still reports what actually came back.
+ */
+export function extractJson(text: string): string {
+  const fenced = text.trim().match(/```(?:json)?\s*([\s\S]*?)```/)
+  const source = fenced ? fenced[1].trim() : text.trim()
+
+  // No task in this file asks for a bare array, so one is passed through
+  // whole rather than scanned. There is nothing to find inside it.
+  if (source.startsWith('[')) return source
+
+  // Scanned even when the text already starts with `{`, which is the bug the
+  // first version of this function had: an answer that opens with the object
+  // and closes with a sentence of commentary starts with a brace, so the fast
+  // path returned the commentary along with it and JSON.parse failed on an
+  // answer that was there all along.
+  return firstBalancedObject(source) ?? source
+}
+
+/**
+ * The first `{ … }` whose braces balance, ignoring braces inside strings.
+ *
+ * Returns null rather than a best guess when the object never closes — a
+ * truncated answer is a failure, and half of one parsed as if it were whole is
+ * worse than the failure.
+ */
+function firstBalancedObject(text: string): string | null {
+  const start = text.indexOf('{')
+  if (start === -1) return null
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\' && inString) {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) return text.slice(start, i + 1)
+    }
+  }
+
+  return null
+}
+
 // ------------------------------------------------------- the day, every day ---
 
 export const dailyBriefTask: AiTask<DailyBrief> = {

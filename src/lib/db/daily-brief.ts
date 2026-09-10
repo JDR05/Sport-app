@@ -40,6 +40,21 @@ import type { TimeSlot } from '@/lib/domain/types'
 /** How far back the model may look. One week of outcomes, and no further. */
 const LOOKBACK_DAYS = 7
 
+/**
+ * How often a failed call may be tried again on the same day.
+ *
+ * Both extremes are wrong. Never writing a row on a failure means every open
+ * of Today calls the provider again — pull-to-refresh and a tab switch are page
+ * loads — so a provider having a bad afternoon gets hammered. Writing silence
+ * on a failure means one hiccup costs the whole day, which is the exact
+ * complaint this feature exists to answer, and it is what happened on the first
+ * day it ran: every call came back invalid_json because the model wrapped its
+ * object in prose, and the day went quiet on the strength of a parser problem.
+ *
+ * Three is enough to cross a bad minute and few enough to be a floor on cost.
+ */
+const MAX_ATTEMPTS = 3
+
 /** What the screen draws. Null everywhere means: no card. */
 export type DayBrief = {
   line: string
@@ -75,27 +90,35 @@ export async function ensureDailyBrief(
   today: string,
 ): Promise<DayBrief | null> {
   try {
-    const existing = await loadDailyBrief(profileId, today)
-    if (existing !== undefined) return existing
-    return await write(profileId, today)
+    const row = await loadRow(profileId, today)
+    if (row && settled(row)) return toBrief(row)
+    return await write(profileId, today, row?.attempts ?? 0)
   } catch {
     return null
   }
 }
 
 /**
- * Today's row.
+ * Whether today's row is the last word.
  *
- * Three states, and the difference between two of them is what stops this
- * costing a call per page load: `undefined` means no row was written today,
- * `null` means one was written and it said nothing, and an object means there
- * is a card. Collapsing the first two into `null` would make every load of an
- * ordinary day ask the model again.
+ * `attempts === 0` means the model answered, and "nothing to say" is an answer
+ * — the commonest one, and final. Anything above zero means nobody has heard
+ * from it yet and the next load may try again, up to the ceiling.
  */
+function settled(row: { attempts: number }): boolean {
+  return row.attempts === 0 || row.attempts >= MAX_ATTEMPTS
+}
+
+/** Today's brief as the screen wants it, without writing one. */
 export const loadDailyBrief = cache(async function loadDailyBrief(
   profileId: string,
   today: string,
-): Promise<DayBrief | null | undefined> {
+): Promise<DayBrief | null> {
+  const row = await loadRow(profileId, today)
+  return row ? toBrief(row) : null
+})
+
+async function loadRow(profileId: string, today: string) {
   const supabase = await createClient()
   const { data } = await supabase
     .from('daily_briefs')
@@ -103,10 +126,8 @@ export const loadDailyBrief = cache(async function loadDailyBrief(
     .eq('profile_id', profileId)
     .eq('brief_on', today)
     .maybeSingle()
-
-  if (!data) return undefined
-  return toBrief(data)
-})
+  return data
+}
 
 function toBrief(row: {
   has_something_to_say: boolean
@@ -155,7 +176,11 @@ function labelFor(kind: 'move' | 'drop', slot: string | null): string {
   return `Auf ${words[slot ?? ''] ?? 'später'} verschieben`
 }
 
-async function write(profileId: string, today: string): Promise<DayBrief | null> {
+async function write(
+  profileId: string,
+  today: string,
+  failedSoFar: number,
+): Promise<DayBrief | null> {
   const weekStart = startOfWeek(today)
 
   const [input, weekItems] = await Promise.all([
@@ -186,7 +211,12 @@ async function write(profileId: string, today: string): Promise<DayBrief | null>
   // read. Checked before the call rather than left to the model, because
   // paying a provider to tell us a blank day is blank is the kind of cost that
   // only shows up on the invoice.
-  if (todaysOpen.length === 0 && recent.length === 0) return null
+  if (todaysOpen.length === 0 && recent.length === 0) {
+    // Settled, not failed: there is genuinely nothing to read, and asking again
+    // three times would not change that.
+    await settle(profileId, today, 'app')
+    return null
+  }
 
   const availableSlots = slotsAvailableOn(input.schedule.freeSlots, today)
 
@@ -222,10 +252,17 @@ async function write(profileId: string, today: string): Promise<DayBrief | null>
     previous: await previousLine(profileId, today),
   })
 
+  // A call that did not work and a model that had nothing to say are written
+  // down differently, and the difference is the whole point of `attempts`.
+  if (!result.ok) {
+    await recordFailure(profileId, today, adapter.name, failedSoFar + 1)
+    return null
+  }
+
   // Silence is written down, not skipped. Without a row, every further load of
   // an ordinary day would ask again and pay again for the same nothing.
-  if (!result.ok || !result.value.hasSomethingToSay) {
-    await store(profileId, today, null, adapter.name)
+  if (!result.value.hasSomethingToSay) {
+    await settle(profileId, today, adapter.name)
     return null
   }
 
@@ -258,8 +295,10 @@ async function write(profileId: string, today: string): Promise<DayBrief | null>
     { line: brief.line, focusItemId, adjust, evidence: brief.basedOn },
     adapter.name,
   )
-  // A lost race means another request wrote today's row first. Theirs counts —
-  // there is only one per day by construction.
+  // The write is an upsert, so a concurrent request no longer loses a race —
+  // it overwrites. What is left here is a genuine write failure, and the honest
+  // answer to that is the row as it actually stands rather than the card this
+  // request was about to draw from memory.
   if (!written) return (await loadDailyBriefFresh(profileId, today)) ?? null
 
   return {
@@ -368,38 +407,79 @@ async function store(
     focusItemId: string | null
     adjust: Adjust | null
     evidence: string[]
-  } | null,
+  },
   source: string,
 ): Promise<boolean> {
   const supabase = await createClient()
-  const { error } = await supabase.from('daily_briefs').insert(
-    said === null
-      ? {
-          profile_id: profileId,
-          brief_on: today,
-          has_something_to_say: false,
-          line: '',
-          evidence: [],
-          source,
-        }
-      : {
-          profile_id: profileId,
-          brief_on: today,
-          has_something_to_say: true,
-          line: said.line,
-          focus_item_id: said.focusItemId,
-          adjust_item_id: said.adjust?.itemId ?? null,
-          adjust_kind: said.adjust?.kind ?? null,
-          // Null for a drop, and the database insists on it: the two kinds are
-          // different changes and the column may not be ambiguous about which
-          // one was offered.
-          adjust_to_slot: said.adjust?.kind === 'move' ? said.adjust.toSlot : null,
-          adjust_reason: said.adjust?.reason ?? null,
-          evidence: said.evidence,
-          source,
-        },
+  // Upsert rather than insert: a failed attempt earlier today already left a
+  // row, and the answer that finally arrives has to be able to replace it.
+  const { error } = await supabase.from('daily_briefs').upsert(
+    {
+      profile_id: profileId,
+      brief_on: today,
+      has_something_to_say: true,
+      line: said.line,
+      focus_item_id: said.focusItemId,
+      adjust_item_id: said.adjust?.itemId ?? null,
+      adjust_kind: said.adjust?.kind ?? null,
+      // Null for a drop, and the database insists on it: the two kinds are
+      // different changes and the column may not be ambiguous about which
+      // one was offered.
+      adjust_to_slot: said.adjust?.kind === 'move' ? said.adjust.toSlot : null,
+      adjust_reason: said.adjust?.reason ?? null,
+      evidence: said.evidence,
+      source,
+      // The model answered. Whatever went wrong before is history.
+      attempts: 0,
+    },
+    { onConflict: 'profile_id,brief_on' },
   )
   return error === null
+}
+
+/**
+ * The day is closed: the model answered and had nothing to say, or there was
+ * nothing to ask about. `attempts: 0` is what makes it final.
+ */
+async function settle(profileId: string, today: string, source: string): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('daily_briefs').upsert(
+    {
+      profile_id: profileId,
+      brief_on: today,
+      has_something_to_say: false,
+      line: '',
+      evidence: [],
+      source,
+      attempts: 0,
+    },
+    { onConflict: 'profile_id,brief_on' },
+  )
+}
+
+/**
+ * The call did not work. Written so the next load knows how many have failed,
+ * and stops after the ceiling instead of asking a broken provider all evening.
+ */
+async function recordFailure(
+  profileId: string,
+  today: string,
+  source: string,
+  attempts: number,
+): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('daily_briefs').upsert(
+    {
+      profile_id: profileId,
+      brief_on: today,
+      has_something_to_say: false,
+      line: '',
+      evidence: [],
+      source,
+      attempts: Math.min(attempts, MAX_ATTEMPTS),
+    },
+    { onConflict: 'profile_id,brief_on' },
+  )
 }
 
 /** The gate's view of today. Deliberately less than an Observation. */

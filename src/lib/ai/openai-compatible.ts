@@ -24,7 +24,7 @@
 
 import {
   classifyTask, classifyUserMessage, knownFields, proposeTask, proposeUserMessage,
-  questionsTask, questionsUserMessage, stripCodeFence,
+  questionsTask, questionsUserMessage, extractJson,
   weeklyNoteTask, weeklyNoteUserMessage, askTask, askUserMessage,
   followUpTask, followUpUserMessage, commitmentsTask, commitmentsUserMessage,
   dailyBriefTask, dailyBriefUserMessage,
@@ -165,7 +165,7 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
           model,
           // Asked for, never relied on. Some providers honour it, some ignore
           // it, and one or two reject the field outright — so the prompt still
-          // demands bare JSON and stripCodeFence still cleans up after it.
+          // demands bare JSON and extractJson still cleans up after it.
           response_format: { type: 'json_object' },
           // The app wants the same answer for the same input. This is a
           // classifier and a planner, not a writer.
@@ -232,7 +232,7 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
 
     let json: unknown
     try {
-      json = JSON.parse(stripCodeFence(text))
+      json = JSON.parse(extractJson(text))
     } catch {
       return { ok: false, reason: 'invalid_json', detail: text.slice(0, 200) }
     }

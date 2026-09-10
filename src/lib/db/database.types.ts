@@ -196,6 +196,7 @@ export type Database = {
       daily_briefs: {
         Row: {
           adjust_applied_at: string | null
+          attempts: number
           adjust_item_id: string | null
           adjust_kind: string | null
           adjust_reason: string | null
@@ -212,6 +213,7 @@ export type Database = {
         }
         Insert: {
           adjust_applied_at?: string | null
+          attempts?: number
           adjust_item_id?: string | null
           adjust_kind?: string | null
           adjust_reason?: string | null
@@ -228,6 +230,7 @@ export type Database = {
         }
         Update: {
           adjust_applied_at?: string | null
+          attempts?: number
           adjust_item_id?: string | null
           adjust_kind?: string | null
           adjust_reason?: string | null
