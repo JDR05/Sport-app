@@ -10,7 +10,8 @@ import { ENDURANCE_ACTIVITIES, STRENGTH_ACTIVITIES } from '@/lib/engine/constant
 import type { CommitmentsContext } from './tasks'
 import type { AiAdapter, AiResult } from './types'
 import type {
-  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+  AskAnswer, CommitmentInsights, DailyBrief, GoalClassification, IntakeQuestions, PlanProposal,
+  WeeklyNote,
 } from './schemas'
 
 const METRIC_FOR: Record<string, { key: string; unit: string } | null> = {
@@ -115,6 +116,21 @@ export class MockAdapter implements AiAdapter {
   }
 
   /**
+   * Says nothing, deliberately, and this is the one where saying nothing costs
+   * the least and would cost the most.
+   *
+   * A deterministic sentence about today would run *every day*. Whatever rule
+   * produced it — most-missed domain, first open action, worst check-in — would
+   * produce the same shape of sentence for every person and every day, which is
+   * a horoscope with a database behind it. The screen shows no card instead,
+   * and the actions, the check-in and the deterministic patterns on Muster are
+   * all still there.
+   */
+  async dailyBrief(): Promise<AiResult<DailyBrief>> {
+    return { ok: false, reason: 'no_api_key', detail: 'a daily sentence from a rule is a horoscope' }
+  }
+
+  /**
    * The lookup table, and the only place in this adapter that answers rather
    * than declines.
    *
@@ -192,6 +208,9 @@ export class NullAdapter implements AiAdapter {
   async judgeCommitments(): Promise<AiResult<CommitmentInsights>> {
     return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
   }
+  async dailyBrief(): Promise<AiResult<DailyBrief>> {
+    return { ok: false, reason: 'disabled', detail: 'AI intentionally disabled' }
+  }
 }
 
 /**
@@ -229,6 +248,9 @@ export class WithheldAdapter implements AiAdapter {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
   async judgeCommitments(): Promise<AiResult<CommitmentInsights>> {
+    return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
+  }
+  async dailyBrief(): Promise<AiResult<DailyBrief>> {
     return { ok: false, reason: 'no_consent', detail: 'no consent for AI processing' }
   }
 }

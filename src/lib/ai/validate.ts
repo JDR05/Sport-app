@@ -8,7 +8,7 @@
 // would hide that the model produced one.
 
 import type {
-  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, WeeklyNote,
+  AskAnswer, CommitmentInsights, DailyBrief, GoalClassification, IntakeQuestions, WeeklyNote,
 } from './schemas'
 
 export type Violation = { rule: string; detail: string }
@@ -307,7 +307,11 @@ const GENERIC_FILLER = [
  * likely sentence, because it sounds constructive.
  */
 const VERDICT = [
-  /\bdisziplinlos\b/i, /\bfaul\b/i, /\bkeine disziplin\b/i,
+  // `disziplinlos` alone missed the commoner word. German negates this
+  // adjective with the prefix, not the suffix, and "du warst diese Woche
+  // ziemlich undiszipliniert" walks past a list looking for the -los form.
+  // Inflected, because it is an adjective: undisziplinierte, undiszipliniertes.
+  /\bdisziplinlos\b/i, /\bundiszipliniert\w*\b/i, /\bfaul\b/i, /\bkeine disziplin\b/i,
   /\bdu musst dich\b/i, /\breiß dich\b/i, /\bausrede/i,
   /\bmangelnde motivation\b/i, /\bwillensschw/i,
 
@@ -660,4 +664,66 @@ const FIELD_TOPICS: Record<string, RegExp> = {
   Konzentration: /\b(konzentr|ablenk|aufmerksam|fokus\w*\s+(f(ä|ae)llt|schwer|leicht))/i,
   'bestehende Routinen': /\b(routine|gewohnheit|machst du (schon|bereits) (jeden|t(ä|ae)glich))/i,
   Zieldatum: /\b(bis wann|zieldatum|deadline|frist|wann willst du.*erreicht)/i,
+}
+
+/**
+ * Plausibility for the one output that changes something.
+ *
+ * The six families every other text goes through, plus `FALSE_ACTION_CLAIM` —
+ * and here that one is not a nicety. The whole point of this card is that a
+ * change happens when the person taps it and not before, so a `reason` reading
+ * "ich habe es auf mittags gelegt" describes a world that does not exist yet.
+ * They read it, believe the day is already rearranged, and do not tap.
+ *
+ * Two checks are specific to this task and to nothing else:
+ *
+ * `move` without a slot is refused rather than treated as a drop. The two are
+ * different changes to somebody's day, and a schema that allows a null there —
+ * it has to, `drop` does not carry one — must not let the ambiguity through as
+ * a guess.
+ *
+ * An adjustment whose reason repeats the line word for word is refused as
+ * thin. Two sentences saying the same thing is what a model produces when it
+ * has one thought and two fields to fill, and the card then costs twice the
+ * attention for one idea.
+ */
+export function checkDailyBrief(value: DailyBrief): Violation[] {
+  const violations: Violation[] = []
+  if (!value.hasSomethingToSay) return violations
+
+  for (const text of [value.line, value.adjust?.reason ?? '']) {
+    violations.push(...scan(text, RESTRICTIVE, 'additive_only'))
+    violations.push(...scan(text, NUMERIC_HEALTH_CLAIM, 'no_numeric_health_claims'))
+    violations.push(...scan(text, SLEEP_REDUCTION, 'never_less_sleep'))
+    violations.push(...scan(text, MEDICAL, 'no_medical_claims'))
+    violations.push(...scan(text, GENERIC_FILLER, 'not_generic'))
+    violations.push(...scan(text, VERDICT, 'no_verdict_on_the_person'))
+    violations.push(...scan(text, FALSE_ACTION_CLAIM, 'claims_an_action_it_did_not_take'))
+  }
+
+  // Speaking means having something to point at — the same bar as the weekly
+  // note, for the same reason.
+  if (value.basedOn.length === 0) {
+    violations.push({ rule: 'must_cite_evidence', detail: 'basedOn is empty' })
+  }
+  if (value.line.trim().length < 20) {
+    violations.push({ rule: 'too_thin', detail: 'line is a fragment' })
+  }
+
+  const adjust = value.adjust
+  if (adjust) {
+    if (adjust.kind === 'move' && adjust.toSlot === null) {
+      violations.push({ rule: 'move_without_slot', detail: 'kind is move but toSlot is null' })
+    }
+    if (normalise(adjust.reason) === normalise(value.line)) {
+      violations.push({ rule: 'reason_repeats_line', detail: 'reason restates line verbatim' })
+    }
+  }
+
+  return violations
+}
+
+/** Case, punctuation and spacing removed, so "gleich" means gleich. */
+function normalise(text: string): string {
+  return text.toLowerCase().replace(/[^a-zäöüß]+/gi, '')
 }

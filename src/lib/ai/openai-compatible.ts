@@ -27,13 +27,15 @@ import {
   questionsTask, questionsUserMessage, stripCodeFence,
   weeklyNoteTask, weeklyNoteUserMessage, askTask, askUserMessage,
   followUpTask, followUpUserMessage, commitmentsTask, commitmentsUserMessage,
-  type AiTask, type AskContext, type CommitmentsContext, type FollowUpContext,
-  type WeeklyNoteContext,
+  dailyBriefTask, dailyBriefUserMessage,
+  type AiTask, type AskContext, type CommitmentsContext, type DailyBriefContext,
+  type FollowUpContext, type WeeklyNoteContext,
 } from './tasks'
 import { logAiFailure } from './log'
 import type { AiAdapter, AiResult } from './types'
 import type {
-  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+  AskAnswer, CommitmentInsights, DailyBrief, GoalClassification, IntakeQuestions, PlanProposal,
+  WeeklyNote,
 } from './schemas'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -106,6 +108,10 @@ export class OpenAiCompatibleAdapter implements AiAdapter {
       this.config.proposeModel,
       commitmentsUserMessage(context),
     )
+  }
+
+  async dailyBrief(context: DailyBriefContext): Promise<AiResult<DailyBrief>> {
+    return this.call(dailyBriefTask, this.config.proposeModel, dailyBriefUserMessage(context))
   }
 
   /**

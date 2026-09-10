@@ -193,6 +193,56 @@ export type Database = {
           value?: Json
         }
       }
+      daily_briefs: {
+        Row: {
+          adjust_applied_at: string | null
+          adjust_item_id: string | null
+          adjust_kind: string | null
+          adjust_reason: string | null
+          adjust_to_slot: string | null
+          brief_on: string
+          created_at: string
+          evidence: Json
+          focus_item_id: string | null
+          has_something_to_say: boolean
+          id: string
+          line: string
+          profile_id: string
+          source: string
+        }
+        Insert: {
+          adjust_applied_at?: string | null
+          adjust_item_id?: string | null
+          adjust_kind?: string | null
+          adjust_reason?: string | null
+          adjust_to_slot?: string | null
+          brief_on: string
+          created_at?: string
+          evidence?: Json
+          focus_item_id?: string | null
+          has_something_to_say: boolean
+          id?: string
+          line: string
+          profile_id: string
+          source: string
+        }
+        Update: {
+          adjust_applied_at?: string | null
+          adjust_item_id?: string | null
+          adjust_kind?: string | null
+          adjust_reason?: string | null
+          adjust_to_slot?: string | null
+          brief_on?: string
+          created_at?: string
+          evidence?: Json
+          focus_item_id?: string | null
+          has_something_to_say?: boolean
+          id?: string
+          line?: string
+          profile_id?: string
+          source?: string
+        }
+      }
       experiment_results: {
         Row: {
           baseline_value: number

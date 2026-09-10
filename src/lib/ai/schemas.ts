@@ -210,3 +210,61 @@ export const commitmentInsightsSchema = z.object({
 
 export type CommitmentInsight = z.infer<typeof commitmentInsightSchema>
 export type CommitmentInsights = z.infer<typeof commitmentInsightsSchema>
+
+// ------------------------------------------------------- the day, every day ---
+
+/**
+ * The one change the model may make to a day.
+ *
+ * Deliberately the smallest vocabulary that is still worth having. `move`
+ * changes *when* today an action happens; `drop` says this one does not belong
+ * in today at all. There is no "add", no "make it longer", no "swap it for
+ * something harder" — every one of those raises load, and load is the thing
+ * `docs/GOAL_ARCHETYPES.md` puts limits around. A model that can only shrink or
+ * reshuffle a day cannot walk somebody into overtraining no matter what it
+ * believes.
+ *
+ * The id has to be one the model was handed. It is checked against today's own
+ * rows before anything is applied — `applicable()` in domain/dayBrief.ts — so
+ * an invented id is a discarded suggestion rather than a write against a row
+ * belonging to somebody else.
+ */
+export const briefAdjustSchema = z.object({
+  itemId: z.string().min(1).max(64),
+  kind: z.enum(['move', 'drop']),
+  /** Required for `move`, ignored for `drop`. */
+  toSlot: z.enum(['early', 'midday', 'evening']).nullable(),
+  /** Said to the person, so it has to be about them and not about the change. */
+  reason: z.string().min(10).max(200),
+})
+
+export type BriefAdjust = z.infer<typeof briefAdjustSchema>
+
+/**
+ * What the model says about today.
+ *
+ * `hasSomethingToSay` is here for the third time in this file, and by now it is
+ * the house rule rather than a per-feature decision: a slot that must be filled
+ * every day is a slot that will be filled with filler on the days nothing has
+ * happened, and filler once is enough to stop anybody reading the card again.
+ * An ordinary Tuesday where the plan fits is a `false`, and the card then does
+ * not exist.
+ *
+ * `focusItemId` is the smallest possible act of prioritising: of the three to
+ * five things on the screen, which one is today's. Null is allowed and means
+ * the model would not single one out.
+ *
+ * `adjust` is the part that makes this more than another sentence. At most one
+ * per day, applied only when the person taps it, and re-checked in code before
+ * it touches a row.
+ */
+export const dailyBriefSchema = z.object({
+  hasSomethingToSay: z.boolean(),
+  focusItemId: z.string().max(64).nullable(),
+  /** One sentence about *this* day. Not a greeting, not a summary. */
+  line: z.string().max(240),
+  adjust: briefAdjustSchema.nullable(),
+  basedOn: z.array(z.string().max(80)).max(12),
+})
+
+export type DailyBrief = z.infer<typeof dailyBriefSchema>

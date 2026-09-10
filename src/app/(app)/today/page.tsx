@@ -27,6 +27,7 @@ import { DayRoundup } from '@/components/DayRoundup'
 import { shouldOfferRoundup } from '@/lib/domain/roundup'
 import { useLocalHour } from '@/lib/domain/useLocalHour'
 import { AskCard } from '@/components/AskCard'
+import { DayBriefCard } from '@/components/DayBriefCard'
 import { CheckInCard } from '@/components/CheckInCard'
 import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
 import { FollowUpCard } from '@/components/FollowUpCard'
@@ -62,7 +63,7 @@ export default function TodayPage() {
 }
 
 function Today() {
-  const { today, setStatus, answer, accept, movedAway } = usePlan()
+  const { today, setStatus, answer, accept, movedAway, refresh } = usePlan()
   // Null until the browser has answered. Read here rather than at the point of
   // use, because a clock read during render is a clock the server also reads.
   const hour = useLocalHour()
@@ -192,6 +193,31 @@ function Today() {
                   commitments={week.commitments}
                   weekday={weekdayOf(viewing)}
                   notes={week.commitmentNotes}
+                />
+              </div>
+            )}
+
+            {/* The AI, before the work rather than under it.
+
+                Every other thing the model says in this app sits at the bottom
+                of Today, below the actions, the roundup and the check-in — which
+                on a phone is below the fold on every single day. That placement
+                was defensible when it spoke once a week. It is not for the one
+                output whose entire job is to answer "was ist heute wichtig?"
+                before somebody starts working through five equal-looking cards.
+
+                Only on today. A brief about this morning rendered under
+                Mittwoch is the app talking about a day it is not on. */}
+            {isToday && (
+              <div className="mb-3">
+                <DayBriefCard
+                  today={today}
+                  items={items}
+                  // The card can move or drop an action, so the day it was
+                  // drawn from has to be re-read afterwards. Without this the
+                  // person taps "auf mittags verschieben", the row changes, and
+                  // the screen keeps showing them the evening.
+                  onChanged={() => void refresh()}
                 />
               </div>
             )}

@@ -12,19 +12,20 @@
 // that sentence more often, not less.
 
 import {
-  askAnswerSchema, commitmentInsightsSchema, goalClassificationSchema, intakeQuestionsSchema,
-  planProposalSchema, weeklyNoteSchema,
+  askAnswerSchema, commitmentInsightsSchema, dailyBriefSchema, goalClassificationSchema,
+  intakeQuestionsSchema, planProposalSchema, weeklyNoteSchema,
 } from './schemas'
 import {
-  checkAnswer, checkClassification, checkCommitmentInsights, checkProposal, checkQuestions,
-  checkWeeklyNote,
+  checkAnswer, checkClassification, checkCommitmentInsights, checkDailyBrief, checkProposal,
+  checkQuestions, checkWeeklyNote,
 } from './validate'
 import {
-  ASK_SYSTEM, CLASSIFY_SYSTEM, COMMITMENTS_SYSTEM, FOLLOWUP_SYSTEM, PROPOSE_SYSTEM,
-  QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM,
+  ASK_SYSTEM, CLASSIFY_SYSTEM, COMMITMENTS_SYSTEM, DAILY_BRIEF_SYSTEM, FOLLOWUP_SYSTEM,
+  PROPOSE_SYSTEM, QUESTIONS_SYSTEM, WEEKLY_NOTE_SYSTEM,
 } from './prompts'
 import type {
-  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+  AskAnswer, CommitmentInsights, DailyBrief, GoalClassification, IntakeQuestions, PlanProposal,
+  WeeklyNote,
 } from './schemas'
 import { skippedAreas, type IntakeArea } from '@/lib/domain/intakeFocus'
 import type { PlanInput } from '@/lib/domain/types'
@@ -721,4 +722,155 @@ function roundTo(value: number, step: number): number {
 export function stripCodeFence(text: string): string {
   const fenced = text.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/)
   return fenced ? fenced[1] : text
+}
+
+// ------------------------------------------------------- the day, every day ---
+
+export const dailyBriefTask: AiTask<DailyBrief> = {
+  name: 'daily-brief',
+  system: DAILY_BRIEF_SYSTEM,
+  // Reading a day and deciding there is nothing to say is the hard half. A
+  // model given a low budget here fills the field, and the filled field is the
+  // failure mode this whole feature is one bad day away from.
+  effort: 'high',
+  maxTokens: 1200,
+  parse: (json) => {
+    const parsed = dailyBriefSchema.safeParse(json)
+    if (!parsed.success) return { ok: false, detail: parsed.error.message }
+    const violations = checkDailyBrief(parsed.data)
+    if (violations.length > 0) {
+      return { ok: false, detail: violations.map((v) => v.rule).join(', '), implausible: true }
+    }
+    return { ok: true, value: parsed.data }
+  },
+}
+
+/**
+ * Today, as the model is allowed to see it.
+ *
+ * The narrowest context of any task in this file, and narrow on purpose: this
+ * call happens every day, so the difference between "a week" and "a day plus
+ * seven days of outcomes" is the difference between a bill that scales with
+ * use and one that scales with use squared.
+ *
+ * `availableSlots` is the field that keeps a `move` honest. Without it the
+ * model would be reasoning about early/midday/evening as if everyone had all
+ * three, and would cheerfully move a session into a slot this person has
+ * already said they do not have. It is still re-checked in code — a context
+ * field is information, not a guarantee.
+ */
+export type DailyBriefContext = {
+  goalText: string
+  archetype: string
+  /** ISO date, plus the weekday spelled out because a model reads it faster. */
+  today: string
+  weekday: string
+  /** Today's actions that are still open, in the order the screen shows them. */
+  items: Array<{
+    id: string
+    title: string
+    domain: string
+    /** Goal track or health baseline — a move that empties the goal track is worse. */
+    track: string
+    slot: string | null
+    durationMin: number | null
+  }>
+  /** The slots this person has today. A move may not leave this set. */
+  availableSlots: string[]
+  /**
+   * The last seven days, resolved actions only.
+   *
+   * `unknown` is left out rather than sent as a third state, because ADR-011
+   * says an untouched action is not evidence of anything — and a model handed
+   * fifty "unknown" rows will read them as fifty failures.
+   */
+  recent: Array<{
+    date: string
+    weekday: string
+    title: string
+    domain: string
+    /** 'done' or 'missed'. */
+    status: string
+    /** What the person themselves said, when they said anything. */
+    reason: string | null
+  }>
+  /** The last seven check-ins. The half nothing else on this screen reads. */
+  checkIns: Array<{
+    date: string
+    energy: number | null
+    stress: number | null
+    sleepHours: number | null
+    note: string | null
+  }>
+  /** Confirmed personal rules, so it does not propose what is already true. */
+  rules: string[]
+  /** Fixed appointments today, so a move does not land on top of one. */
+  commitments: string[]
+  /** Yesterday's line, so two days do not read the same. */
+  previous: string | null
+}
+
+export function dailyBriefUserMessage(ctx: DailyBriefContext): string {
+  const lines = [
+    `Ziel: ${ctx.goalText} (eingeordnet als ${ctx.archetype})`,
+    `Heute: ${ctx.weekday}, ${ctx.today}`,
+    '',
+    ctx.items.length > 0
+      ? 'Heute offen — nur diese ids darfst du verwenden:'
+      : 'Heute ist nichts mehr offen.',
+    ...ctx.items.map((i) => {
+      const parts = [i.domain, i.track === 'goal' ? 'Zielspur' : 'Basis']
+      if (i.slot) parts.push(SLOT_WORDS[i.slot] ?? i.slot)
+      if (i.durationMin) parts.push(`${i.durationMin} min`)
+      return `- ${i.id}: ${i.title} (${parts.join(', ')})`
+    }),
+    '',
+    `Tageszeiten, die dieser Mensch heute hat: ${
+      ctx.availableSlots.map((s) => SLOT_WORDS[s] ?? s).join(', ') || 'keine angegeben'
+    }`,
+  ]
+
+  if (ctx.commitments.length > 0) {
+    lines.push('', 'Feste Termine heute:', ...ctx.commitments.map((c) => `- ${c}`))
+  }
+
+  lines.push('', ctx.recent.length > 0
+    ? 'Die letzten sieben Tage, nur was bewertet wurde:'
+    : 'In den letzten sieben Tagen wurde nichts bewertet.')
+  for (const r of ctx.recent) {
+    const said = r.reason ? ` — angegebener Grund: ${r.reason}` : ''
+    lines.push(`- ${r.weekday} ${r.date}: ${r.title} (${r.domain}) ${
+      r.status === 'done' ? 'geschafft' : 'nicht geschafft'
+    }${said}`)
+  }
+
+  if (ctx.checkIns.length > 0) {
+    lines.push('', 'Check-ins der letzten Tage:')
+    for (const c of ctx.checkIns) {
+      const parts: string[] = []
+      if (c.energy !== null) parts.push(`Energie ${c.energy}`)
+      if (c.stress !== null) parts.push(`Stress ${c.stress}`)
+      if (c.sleepHours !== null) parts.push(`Schlaf ${c.sleepHours} h`)
+      if (c.note) parts.push(`Notiz: ${c.note}`)
+      lines.push(`- ${c.date}: ${parts.join(', ') || 'nichts eingetragen'}`)
+    }
+  }
+
+  if (ctx.rules.length > 0) {
+    lines.push('', 'Bereits bestaetigte persoenliche Regeln (nicht erneut vorschlagen):',
+      ...ctx.rules.map((r) => `- ${r}`))
+  }
+
+  if (ctx.previous) {
+    lines.push('', `Gestern stand hier: „${ctx.previous}" — sag etwas anderes.`)
+  }
+
+  lines.push('', 'Ein Satz zu heute, hoechstens eine Aenderung. Gibt es keinen Anlass, setz hasSomethingToSay auf false.')
+  return lines.join('\n')
+}
+
+const SLOT_WORDS: Record<string, string> = {
+  early: 'frueh',
+  midday: 'mittags',
+  evening: 'abends',
 }

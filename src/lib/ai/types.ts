@@ -5,10 +5,11 @@
 // at all. Which one runs is configuration, not a decision the calling code makes.
 
 import type {
-  AskAnswer, CommitmentInsights, GoalClassification, IntakeQuestions, PlanProposal, WeeklyNote,
+  AskAnswer, CommitmentInsights, DailyBrief, GoalClassification, IntakeQuestions, PlanProposal,
+  WeeklyNote,
 } from './schemas'
 import type {
-  AskContext, CommitmentsContext, FollowUpContext, WeeklyNoteContext,
+  AskContext, CommitmentsContext, DailyBriefContext, FollowUpContext, WeeklyNoteContext,
 } from './tasks'
 import type { PlanInput } from '@/lib/domain/types'
 
@@ -110,6 +111,21 @@ export interface AiAdapter {
    * "Keine Nachschlagetabellen über Menschen").
    */
   judgeCommitments(context: CommitmentsContext): Promise<AiResult<CommitmentInsights>>
+  /**
+   * The only call that runs every day, and the only one that changes anything.
+   *
+   * Every other method here produces text. This one may also produce one
+   * adjustment to today — which is why the interface is the wrong place to
+   * look for what it is allowed to do: the vocabulary is capped in the schema
+   * (`move` inside today, `drop` out of today, nothing else), checked again
+   * against this person's real rows in `domain/dayBrief.ts`, and applied by
+   * code they tapped rather than by the model.
+   *
+   * No deterministic stand-in, like the weekly note and for the same reason,
+   * only sharper because it would run daily: a rules-based sentence about
+   * today, every single day, is a horoscope with a database behind it.
+   */
+  dailyBrief(context: DailyBriefContext): Promise<AiResult<DailyBrief>>
 }
 
 export type AiConfig = {

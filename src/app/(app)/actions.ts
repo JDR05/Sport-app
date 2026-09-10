@@ -34,6 +34,9 @@ import { MAX_TIMES_PER_WEEK } from '@/lib/engine/proposed'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
+import {
+  applyBriefAdjust, ensureDailyBrief, type ApplyResult, type DayBrief,
+} from '@/lib/db/daily-brief'
 import { ensureWeeklyNote, type WeeklyNote } from '@/lib/db/weekly-note'
 import { loadCommitments, saveCommitments } from '@/lib/db/commitments'
 import { answerFollowUp, ensureFollowUp, type OpenQuestion } from '@/lib/db/followup'
@@ -682,4 +685,34 @@ export async function setReminderTime(hour: unknown): Promise<{ ok: boolean }> {
   const result = await setReminderHour(user.id, parsed.data)
   revalidatePath('/profile')
   return result
+}
+
+/**
+ * Today's brief — the AI's one daily sentence, and the one change it may offer.
+ *
+ * Loaded from the client after the actions have rendered, like the impulse and
+ * for the same reason: writing one costs a model call, and Today is the screen
+ * where a wait was already a bug once (ADR-088). Nothing on the screen waits
+ * for this — the card appears when it has something, or never.
+ */
+export async function loadDayBrief(today: unknown): Promise<DayBrief | null> {
+  const user = await requireUser()
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) return null
+  return ensureDailyBrief(user.id, parsed.data)
+}
+
+/**
+ * Applying the change the person tapped.
+ *
+ * The request carries a date and nothing else. What is applied is read from the
+ * row the app wrote when the brief was made — not from the payload — because a
+ * request that carried the change would be a request that can choose which item
+ * gets moved and where.
+ */
+export async function applyDayBrief(today: unknown): Promise<ApplyResult> {
+  const user = await requireUser()
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) return { ok: false, reason: 'failed' }
+  return applyBriefAdjust(user.id, parsed.data)
 }

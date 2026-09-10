@@ -7,6 +7,79 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-10 — ADR-122: Die KI spricht täglich, und sie darf einmal etwas ändern
+
+**Entscheidung:** Ein **Tagesblick** oben auf Heute. Einmal pro Tag liest das Modell die
+Zeilen dieses Tages, die letzten sieben Tage Ergebnisse und die Check-ins, sagt **einen**
+Satz dazu, benennt die eine Aktion, die heute zuerst dran ist, und darf **eine** Änderung am
+heutigen Tag vorschlagen — `move` innerhalb von heute oder `drop` aus heute heraus. Der
+Mensch tippt sie an; dann ändert Code die Zeile. Eine Zeile pro Person und Tag, und diese
+Eindeutigkeit **ist** die Kostenbremse.
+
+**Begründung — gemessen, nicht vermutet.** In vier Wochen echter Nutzung hat das Modell
+**fünfmal** gesprochen: zweimal beim Anlegen des Ziels, dreimal als Wochenimpuls.
+`ai_questions` hatte **null** Zeilen, `insights`, `experiments` und `personal_rules` ebenso.
+
+| Aufruf | Deckel |
+| --- | --- |
+| `classifyGoal`, `propose`, `askQuestions` | einmal pro Ziel (`intake_asked_at`, `ai_proposal_at`) |
+| `weeklyNote` | `MIN_DAYS_BETWEEN_IMPULSES = 2` plus Anlass |
+| `followUp` | `MIN_DAYS_BETWEEN_QUESTIONS = 3` |
+| `ask` | nur wenn jemand tippt |
+
+Das war keine Einstellung, das war die Architektur. Eine App, deren erklärter Vorteil ein
+über Monate entstehendes persönliches Verhaltensmodell ist, darf nicht an sechs von sieben
+Tagen schweigen.
+
+**Warum das ein zweites Feature ist und kein kürzeres Intervall des Wochenimpulses.** Der
+Impuls sieht eine Woche und redet über eine Woche. „Diese Woche lief Training schlecht" ist
+um sieben Uhr morgens wahr und unbrauchbar. Und: jede andere KI-Ausgabe in diesem Produkt ist
+Text. Diese kann etwas **ändern**.
+
+**Das Vokabular ist absichtlich das kleinste, das noch etwas taugt.** Kein `add`, kein
+„länger", kein „schwerer", kein anderer Tag. Jede dieser Richtungen erhöht Belastung, und
+Belastung ist das, worum `docs/GOAL_ARCHETYPES.md` Grenzen zieht. Ein Modell, das einen Tag
+nur verkleinern oder umsortieren kann, kann niemanden ins Übertraining reden — unabhängig
+davon, was es glaubt. `add` ist zusätzlich in der Datenbank nicht darstellbar, nicht nur im
+zod-Enum abwesend.
+
+**Die Grenzen hält Code, nicht der Prompt** (CLAUDE.md). `applicable()` in
+`src/lib/domain/dayBrief.ts` ist rein und prüft sechs Dinge: die id gehört zu heute, die
+Aktion ist noch unbewertet, ein `move` hat ein Ziel, das Ziel ist eine Tageszeit, die dieser
+Mensch überhaupt hat, es ist nicht die aktuelle, und ein `drop` leert nicht die Zielspur.
+Der Test tötet alle sechs einzeln.
+
+**`would_empty_goal_track` ist die einzige Regel hier, die vom Produkt kommt und nicht von
+der Sicherheit** — und die, über die sich streiten lässt. Streichen senkt Belastung, also
+geht körperlich nichts schief. Was schiefgeht, ist das Versprechen: an ein paar schlechten
+Tagen hintereinander weggetippt, wird für das Ziel stillschweigend nicht mehr geplant, und
+entschieden hat das niemand. Eine Aktion herausnehmen, solange eine andere bleibt, ist
+Anpassung; die letzte herausnehmen ist Aufgeben, und Aufgeben ist nichts, was eine Karte in
+einem Tipp tut.
+
+**Der Prüflauf passiert zweimal**, beim Zeichnen der Karte und im Moment des Tippens. Dazwischen
+bewegt sich der Tag: jemand hakt die Aktion ab und tippt dann auf eine Karte von vor einer
+Minute. Ohne den zweiten Lauf schreibt das eine Tageszeit auf etwas Erledigtes.
+
+**Schweigen wird aufgeschrieben, nicht übersprungen.** `has_something_to_say = false` bekommt
+eine Zeile. Ohne sie würde jeder weitere Aufruf eines gewöhnlichen Tages erneut fragen und
+erneut für dasselbe Nichts bezahlen. Und `false` ist der **erwartete** Ausgang: eine Karte,
+die jeden Morgen etwas Kluges zu sagen hat, ist ein Horoskop, und ein einziger Füllsatz
+reicht, damit die nächsten dreißig nicht mehr gelesen werden.
+
+**Ohne Modell gibt es keine Karte** — kein deterministischer Ersatz, anders als bei
+`judgeCommitments`. Ein Satz aus einer Regel liefe *täglich* und hätte für jeden Menschen
+dieselbe Form. Der Tag, der Check-in und die Muster stehen weiterhin vollständig ohne KI
+(Prinzip 3).
+
+**Nebenbei repariert:** `recent` wurde zuerst aus den Zeilen der laufenden Woche gefiltert.
+An jedem Montag liegen die letzten sieben Tage vollständig außerhalb davon — das Modell bekam
+ausgerechnet an dem Morgen, der die Vorwoche am meisten braucht, eine leere Historie. Und der
+angegebene Grund wurde über `weekReasons` nach Bereich zugeordnet, was Dienstags Grund an
+Donnerstags Aktion hängt; er kommt jetzt aus derselben Zeile.
+
+---
+
 ## 2026-09-04 — ADR-118: Erinnerungen — ohne Service-Key und ohne Schuldmechanik
 
 **Entscheidung:** Ein Service Worker macht die App offline lesbar und empfängt Push. Eine
