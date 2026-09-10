@@ -9,6 +9,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { reportServerError } from '@/lib/db/server-errors'
 import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { ensureWeekPlan, type WeekResult } from '@/lib/db/week-plan'
@@ -189,7 +190,7 @@ export async function setItemStatus(itemId: unknown, status: unknown): Promise<S
   if (!id.success || !next.success) return { ok: false }
 
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('plan_items')
     .update({
       status: next.data,
@@ -209,11 +210,33 @@ export async function setItemStatus(itemId: unknown, status: unknown): Promise<S
     })
     .eq('id', id.data)
     .eq('profile_id', user.id)
+    // The row back, so "did this write" is answered by the database rather
+    // than assumed.
+    //
+    // This returned `{ ok: error === null }`, and an update matching *no rows*
+    // is not an error in Postgres — it is a successful statement that changed
+    // nothing. So a tap that wrote nothing reported success, the optimistic
+    // value stayed on screen, and the verdict was gone on the next load. The
+    // screen said "recorded" and the database disagreed, which is the one
+    // thing this function must never do.
+    .select('id')
 
   // No revalidatePath: the provider owns this state and updated it optimistically
   // before the round trip. Re-rendering the route here would do work nobody sees
   // and could make a settled action flicker back and forth.
-  return { ok: error === null }
+  const wrote = (data ?? []).length === 1
+  if (!wrote) {
+    // Reported rather than swallowed. A write that silently does nothing is
+    // invisible in the logs — the request is a 200 — so without this the only
+    // symptom is a person saying "it does not save".
+    reportServerError(
+      error
+        ? `setItemStatus failed: ${error.message}`
+        : `setItemStatus matched no row for item ${id.data}`,
+      user.id,
+    )
+  }
+  return { ok: wrote }
 }
 
 // ------------------------------------------------------------------ reason ---

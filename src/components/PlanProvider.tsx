@@ -160,8 +160,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      void setItemStatus(itemId, status).then((result) => {
-        if (result.ok || previous === undefined) return
+      const rollBack = () => {
+        if (previous === undefined) return
         setWeek((current) =>
           current
             ? {
@@ -172,7 +172,20 @@ export function PlanProvider({ children }: { children: ReactNode }) {
               }
             : current,
         )
-      })
+      }
+
+      void setItemStatus(itemId, status)
+        .then((result) => {
+          if (!result.ok) rollBack()
+        })
+        // A rejection is a failure too, and this had no catch.
+        //
+        // The comment above promises the value is put back when the write
+        // fails "so the screen never claims something was recorded that was
+        // not" — and a thrown action skips `.then` entirely, so the optimistic
+        // value stayed and the promise it broke was the one written down.
+        // Offline, an expired session and a 500 all land here.
+        .catch(rollBack)
     },
     [],
   )
