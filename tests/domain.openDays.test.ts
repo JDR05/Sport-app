@@ -6,7 +6,9 @@
 // not allowed ("Rückschläge sind Lernsignal, keine Schuldmechanik").
 
 import { describe, expect, it } from 'vitest'
-import { nextDayToFill, openDaysSentence, openPastDays, type DayItem } from '@/lib/domain/openDays'
+import {
+  answerablePastItems, openDaysSentence, openPastDays, type DayItem,
+} from '@/lib/domain/openDays'
 
 const TODAY = '2026-09-10'
 
@@ -99,6 +101,14 @@ describe('what the line says', () => {
     )
   })
 
+  it('inflects the singular, which is the commonest of these', () => {
+    // Three open days is the case this sentence actually hits most, and a
+    // rest-count written without thinking says "und 1 weiteren Tagen".
+    expect(openDaysSentence(['2026-09-04', '2026-09-05', '2026-09-06'])).toBe(
+      'Von Freitag, Samstag und einem weiteren Tag weiß ich noch nichts.',
+    )
+  })
+
   it.each([
     ['2026-09-07'],
     ['2026-09-07', '2026-09-08'],
@@ -120,12 +130,43 @@ describe('what the line says', () => {
   })
 })
 
-describe('where the button goes', () => {
-  it('goes to the oldest, which is the one closest to being lost', () => {
-    expect(nextDayToFill(['2026-09-07', '2026-09-08'])).toBe('2026-09-07')
+describe('the one filter everything else is built on', () => {
+  // openPastDays and the catch-up screen's grouping both go through this. The
+  // failure it prevents is a day heading rendered with an empty card under it,
+  // which is what two filters drifting apart looks like from the outside.
+  it('keeps exactly the rows a day would be listed for', () => {
+    const items = [
+      item({ scheduledOn: '2026-09-08', status: 'unknown' }),
+      item({ scheduledOn: '2026-09-08', status: 'done' }),
+      item({ scheduledOn: '2026-09-08', cadence: 'daily' }),
+      item({ scheduledOn: TODAY }),
+      item({ scheduledOn: '2026-09-12' }),
+    ]
+
+    const kept = answerablePastItems(items, TODAY)
+    expect(kept).toHaveLength(1)
+    expect(kept[0]).toMatchObject({ scheduledOn: '2026-09-08', status: 'unknown' })
+
+    // The two agree by construction, and this is the assertion that says so:
+    // every day openPastDays names has at least one row that survived the
+    // filter, and no day it leaves out has any.
+    const days = openPastDays(items, TODAY)
+    for (const day of days) {
+      expect(kept.some((i) => i.scheduledOn === day)).toBe(true)
+    }
+    expect(new Set(kept.map((i) => i.scheduledOn))).toEqual(new Set(days))
   })
 
-  it('goes nowhere when there is nothing open', () => {
-    expect(nextDayToFill([])).toBeNull()
+  it('carries the row through rather than reshaping it', () => {
+    // The catch-up screen reads title, domain and track off what comes back, so
+    // a filter that narrowed the type would quietly cost the screen its labels.
+    const withExtras = { ...item({}), title: 'Ganzkörper', domain: 'training' }
+    expect(answerablePastItems([withExtras], TODAY)[0]).toEqual(withExtras)
+  })
+
+  it('keeps a planned row, which is unknown by another name', () => {
+    // Both statuses mean "nobody has said". materialise writes `unknown`; older
+    // rows and the engine's own default say `planned`.
+    expect(answerablePastItems([item({ status: 'planned' })], TODAY)).toHaveLength(1)
   })
 })

@@ -34,6 +34,7 @@ import { MAX_TIMES_PER_WEEK } from '@/lib/engine/proposed'
 import { serverToday } from '@/lib/db/today'
 import { answerItem, applyOffer, type AnswerResult } from '@/lib/db/reaction'
 import { askQuestion, askState, type AskResult, type AskState } from '@/lib/db/ask'
+import { loadCatchUp, type CatchUpDay } from '@/lib/db/catch-up'
 import {
   applyBriefAdjust, ensureDailyBrief, type ApplyResult, type DayBrief,
 } from '@/lib/db/daily-brief'
@@ -715,4 +716,24 @@ export async function applyDayBrief(today: unknown): Promise<ApplyResult> {
   const parsed = isoDate.safeParse(today)
   if (!parsed.success) return { ok: false, reason: 'failed' }
   return applyBriefAdjust(user.id, parsed.data)
+}
+
+/**
+ * The past days the app still has no answers for, with their actions.
+ *
+ * Read-only, and the one thing worth saying about it: it never builds a plan.
+ * `loadWeek` materialises the week somebody is in, which is right for a week in
+ * progress and would be absurd for one that is over — generating actions for
+ * last Tuesday and then asking whether they happened invents the very data it
+ * is trying to collect.
+ *
+ * Answering them goes through `setItemStatus` like every other verdict. That
+ * action is scoped by id and profile and has never cared which day a row is on,
+ * so nothing new writes here.
+ */
+export async function loadCatchUpDays(today: unknown): Promise<CatchUpDay[]> {
+  const user = await requireUser()
+  const parsed = isoDate.safeParse(today)
+  if (!parsed.success) return []
+  return loadCatchUp(user.id, parsed.data)
 }

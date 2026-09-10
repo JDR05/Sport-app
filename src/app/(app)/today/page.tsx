@@ -29,7 +29,6 @@ import { useLocalHour } from '@/lib/domain/useLocalHour'
 import { AskCard } from '@/components/AskCard'
 import { DayBriefCard } from '@/components/DayBriefCard'
 import { CatchUpLine } from '@/components/CatchUpLine'
-import { nextDayToFill, openDaysSentence, openPastDays } from '@/lib/domain/openDays'
 import { CheckInCard } from '@/components/CheckInCard'
 import { commitmentsForDay, DayCommitments } from '@/components/DayCommitments'
 import { FollowUpCard } from '@/components/FollowUpCard'
@@ -151,11 +150,6 @@ function Today() {
         const open = items.filter((i) => i.status === 'planned' || i.status === 'unknown')
 
         const isToday = viewing === today
-        // Days of this week that have already happened and still hold an
-        // unanswered action. Computed once: the sentence and the button have to
-        // agree about which day they mean, and two calls a render apart can
-        // disagree the moment something is ticked off.
-        const openDays = isToday ? openPastDays(week.items, today) : []
         // The same rule Plan marks its rows with, from the same module. Written
         // twice, the second copy is the one that drifts — and a day answerable
         // on one screen and not the other just looks like a confused app.
@@ -335,17 +329,13 @@ function Today() {
                 would be offering to go to the day somebody is already looking
                 at.
 
-                One day at a time, phrased as the app's gap rather than the
-                person's. See openDays.ts for why both of those are rules and
-                not preferences. */}
+                Phrased as the app's gap rather than the person's, and it leads
+                to a screen of its own rather than moving this one: Heute holds
+                one week, and teaching it to page backwards would make it a
+                history browser as well. See openDays.ts for why the wording is
+                a rule and not a preference. */}
             {isToday && (
-              <CatchUpLine
-                sentence={openDaysSentence(openDays)}
-                onGo={() => {
-                  const day = nextDayToFill(openDays)
-                  if (day) setViewing(day)
-                }}
-              />
+              <CatchUpLine today={today} />
             )}
 
             {canCheckInOn(viewing, today) ? (

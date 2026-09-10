@@ -7,6 +7,55 @@ durch einen neuen Eintrag ersetzt, der auf sie verweist.
 
 ---
 
+## 2026-09-10 — ADR-124: Nachtragen ist ein eigener Bildschirm, kein zweiter Modus von Heute
+
+**Entscheidung:** `/nachtragen`. Ein Bildschirm, der die vergangenen Tage der letzten
+**14 Tage** auflistet, auf denen noch eine unbeantwortete Aktion liegt — ältester zuerst, je
+Aktion ✓ oder ✗, sonst nichts. Die Zeile auf Heute führt dorthin.
+
+**Warum nicht Heute erweitern.** Heute lädt genau eine Woche, also reichte die Zeile aus
+ADR-123 nur bis Montag. Der naheliegende Schritt wäre, Heute rückwärts blättern zu lassen.
+Das macht aus dem Bildschirm, dessen einzige Regel „Was ist heute wichtig?" ist, zusätzlich
+einen Verlaufsbrowser — und es zieht Status, Reaktionen, Verschiebungen, Check-in und
+Wochenstreifen alle in eine Wochen-Offset-Logik, die es vorher nicht gab. Der neue Bildschirm
+kann eine Sache und hört danach auf.
+
+**Er baut nichts.** `ensureWeekPlan` legt eine Woche an, die es noch nicht gibt — genau
+richtig für die Woche, in der jemand steht, und absurd für eine, die vorbei ist. Für letzten
+Dienstag Aktionen zu erzeugen und dann zu fragen, ob sie stattgefunden haben, erfindet exakt
+die Daten, die eingesammelt werden sollen. `loadCatchUp` liest nur.
+
+**14 Tage, und die Grenze ist das Gedächtnis, nicht die Abfrage.** Das Analysefenster ist
+sechs Wochen; weiter zurückzugreifen würde der Engine technisch mehr liefern. Aber „war die
+Einheit am Montag vor drei Wochen geschafft?" beantwortet man durch Raten, und ein geratener
+Wert in den Trainingsdaten ist schlechter als die Lücke, die er füllt — nichts weiter unten
+kann die beiden auseinanderhalten. `unknown` ist überall in diesem Produkt ein zulässiger
+Zustand, genau damit es unbekannt bleiben darf. Das Fenster hält nebenbei die Reste eines
+aufgegebenen Ziels draußen, ohne dass es dafür eine Regel über Ziele braucht.
+
+**Ein Filter, nicht zwei.** `answerablePastItems` entscheidet sowohl, welche Tage erscheinen,
+als auch, welche Zeilen unter einem Tag stehen. Die erste Fassung hatte die Regel zweimal
+geschrieben; zwei Filter, die übereinstimmen müssen, tun es irgendwann nicht mehr, und der
+sichtbare Fehler — eine Tagesüberschrift mit einer leeren Karte darunter — sieht aus wie ein
+Renderfehler und nicht wie ein Widerspruch. Sechs Mutationen davon werden einzeln von Tests
+gefangen.
+
+**Gemessen, was das für diesen Account heißt.** Von 14 offenen Einträgen im Fenster sind
+**10 Tagesregeln** — die hakt niemand für letzten Dienstag ab, und sie mitzuzählen würde jeden
+vergangenen Tag dauerhaft offen halten. Übrig bleiben **4 echte Aktionen an drei Tagen**
+(Fr 4., Sa 5., So 6. September). Die 30 offenen Aktionen aus dem 17.–23. August bleiben
+draußen: drei Wochen alt, anderes Ziel, außerhalb des Fensters.
+
+Damit stand auch fest, dass die Zeile auf Heute ihre Zahl vom Server holen muss statt aus der
+geladenen Woche: sie hätte „Von Montag und Dienstag" gesagt — zwei Tage, an denen es gar
+nichts zu beantworten gibt — und die drei Tage, an denen es etwas gibt, nicht gekannt. Ein
+Satz, der zu wenig meldet, weil er zufällig dort gerendert wird, ist schlechter als kein Satz.
+
+**Die Erlaubnis aufzuhören steht auf dem Bildschirm:** „Was du nicht mehr weißt, lass offen.
+Geraten ist schlechter als leer." Ohne sie ist das eine Liste von Schulden gegenüber der App.
+
+---
+
 ## 2026-09-10 — ADR-123: Ein Prompt ist kein Parser, und eine Tür ohne Schild wird nicht benutzt
 
 **Entscheidung:** Drei Dinge, die alle aus derselben Messung folgen — dem Serverlog und den

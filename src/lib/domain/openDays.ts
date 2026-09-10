@@ -24,6 +24,25 @@
 import { WEEKDAY_LABELS } from '@/lib/adaptive/labels'
 import { weekdayOf } from '@/lib/engine/dates'
 
+/**
+ * How far back it is worth asking about.
+ *
+ * Two weeks, and the limit is about memory rather than about the query. The
+ * analysis window is six weeks, so reaching further would technically feed the
+ * engine more — but "war die Einheit am Montag vor drei Wochen geschafft?" is a
+ * question somebody answers by guessing, and a guess written into the training
+ * data is worse than the gap it fills. `unknown` is a supported state
+ * everywhere in this product precisely so it can stay unknown.
+ *
+ * It also keeps an abandoned goal's leftovers out without needing a rule about
+ * goals: a goal given up three weeks ago falls outside the window by itself.
+ *
+ * Here rather than beside the query because the screen shows the number to the
+ * person — "aus den letzten 14 Tagen" — and a boundary stated in the interface
+ * and enforced in a different file is two numbers waiting to disagree.
+ */
+export const CATCH_UP_DAYS = 14
+
 /** An action, as this needs to see it. */
 export type DayItem = {
   scheduledOn: string
@@ -33,22 +52,44 @@ export type DayItem = {
 }
 
 /**
- * Past days in the loaded week that still hold an unanswered action.
+ * The actions somebody could still answer, out of whatever they are handed.
+ *
+ * The single filter, and everything else here is defined in terms of it. The
+ * first version had the rule written twice — once to decide which days count,
+ * once to decide which rows to list under each day — and two filters that have
+ * to agree are two filters that eventually will not. The visible failure would
+ * have been a day heading with an empty card under it, which reads as a
+ * rendering bug rather than as a disagreement.
+ *
+ * Three exclusions, and each is a rule rather than a tidy-up:
+ *
+ *   * Today and later. Today is not something to catch up on — it is the day,
+ *     and its actions are already on the screen.
+ *   * Standing rules. A daily rule exists on all seven days and nobody ticks
+ *     one for last Tuesday, so counting them would leave every past day
+ *     permanently open and the line would never go away.
+ *   * Anything already answered. There is nothing to ask.
+ */
+export function answerablePastItems<T extends DayItem>(
+  items: readonly T[],
+  today: string,
+): T[] {
+  return items.filter(
+    (item) =>
+      item.scheduledOn < today &&
+      item.cadence !== 'daily' &&
+      (item.status === 'unknown' || item.status === 'planned'),
+  )
+}
+
+/**
+ * Past days that still hold an unanswered action.
  *
  * Oldest first, because that is the order somebody fills them in and because
  * the oldest is the one closest to being forgotten for good.
- *
- * Today is never included, whatever is still open on it. Today is not something
- * to catch up on — it is the day, and the actions are already on the screen.
  */
 export function openPastDays(items: readonly DayItem[], today: string): string[] {
-  const days = new Set<string>()
-  for (const item of items) {
-    if (item.scheduledOn >= today) continue
-    if (item.cadence === 'daily') continue
-    if (item.status !== 'unknown' && item.status !== 'planned') continue
-    days.add(item.scheduledOn)
-  }
+  const days = new Set(answerablePastItems(items, today).map((i) => i.scheduledOn))
   return [...days].sort()
 }
 
@@ -71,11 +112,10 @@ export function openDaysSentence(days: readonly string[]): string | null {
   if (names.length === 1) return `Von ${names[0]} weiß ich noch nichts.`
   if (names.length === 2) return `Von ${names[0]} und ${names[1]} weiß ich noch nichts.`
 
+  // "und 1 weiteren Tagen" is what a rest-count written without thinking
+  // produces, and it is wrong in the one case that shows up most: three open
+  // days. German inflects the noun, so the singular gets its own branch.
   const rest = names.length - 2
-  return `Von ${names[0]}, ${names[1]} und ${rest} weiteren Tagen weiß ich noch nichts.`
-}
-
-/** The day the button goes to: the oldest, for the reason above. */
-export function nextDayToFill(days: readonly string[]): string | null {
-  return days[0] ?? null
+  const more = rest === 1 ? 'einem weiteren Tag' : `${rest} weiteren Tagen`
+  return `Von ${names[0]}, ${names[1]} und ${more} weiß ich noch nichts.`
 }
